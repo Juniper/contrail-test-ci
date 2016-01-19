@@ -14,15 +14,15 @@ import test
 from tcutils.util import get_random_name
 from vnc_api.vnc_api import NoIdError
 
-class TestProject(BaseProjectTest):
+class TestProjectBasic(BaseProjectTest):
 
     @classmethod
     def setUpClass(cls):
-        super(TestProject, cls).setUpClass()
+        super(TestProjectBasic, cls).setUpClass()
 
     @classmethod
     def tearDownClass(cls):
-        super(TestProject, cls).tearDownClass()
+        super(TestProjectBasic, cls).tearDownClass()
 
     @test.attr(type=['sanity', 'ci_sanity'])
     @preposttest_wrapper
