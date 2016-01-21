@@ -47,4 +47,5 @@ try:
             self.logger.info(
                 'The following are the stacks currently : %s' % stacks_list)
         # end test_heat_stacks_list
-
+except ImportError:
+        print 'Missing Heat Client. Will skip tests'
