@@ -1,7 +1,24 @@
 #!/bin/bash
 
-while getopts ":t:p:" opt; do
+function usage {
+    cat <<EOF
+Usage: $0 [OPTIONS]
+
+Run contrail ci tests in container
+
+  -h  Print help
+  -t  Testbed file, Default: /opt/contrail/utils/fabfile/testbeds/testbed.py
+  -p  contrail fab utils path. Default: /opt/contrail/utils
+
+EOF
+}
+
+while getopts "ht:p:" opt; do
   case $opt in
+    h)
+      usage
+      exit
+      ;;
     t)
       testbed_input=$OPTARG
       ;;
