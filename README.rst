@@ -293,3 +293,41 @@ contrail-test.sh
 ----------------
 
 This is a helper script to manage (run/rebuild/list) contrail-test/contrail-test-ci container.
+
+tools/tenent_cleaner.py
+-----------------------
+This script can be used to cleanup tenant data. This can be run after testrun to make sure tenant is clean.
+::
+    $# ./tenant_cleaner.py -h
+    usage: tenant_cleaner.py [-h] [--user USER] [--password PASSWORD]
+                             [--auth-url AUTH_URL] [--auth-tenant AUTH_TENANT]
+                             [--ip IP] [--port PORT]
+                             tenant [tenant ...]
+
+    Cleanup provided tenants by removing all objects in it.It expect openstack
+    credentials from OS_ environment variables in openrc format.The credentials
+    can be provided as commandline arguments also
+
+    positional arguments:
+      tenant                List of tenants to be cleaned up Note that, the user
+                            must have access to the tenants listed
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --user USER           Openstack user, if not provided, try to get it from
+                            environment variable "OS_USERNAME" with default user
+                            as "admin"
+      --password PASSWORD   Openstack password
+      --auth-url AUTH_URL   Openstack auth url, by default try to get from
+                            environment variableOS_AUTH_URL with default of
+                            http://127.0.0.1:5000/v2.0/
+      --auth-tenant AUTH_TENANT
+                            Openstack tenant to connect to
+      --ip IP               IP Address of the controller
+      --port PORT           Port of the controller
+
+    $ ./tenant_cleaner.py --ip 10.204.217.88 tenant1 tenant2 tenant3
+    No objects found in tenant tenant1
+    No objects found in tenant tenant2
+    Deleted: http://10.204.217.88:8082/security-group/f633163c-2c96-4722-94b2-3a125e981492
+    No nova objects found in tenant tenant3
