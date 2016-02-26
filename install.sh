@@ -24,14 +24,159 @@ Run $0 <Subcommand> -h|--help to get subcommand specific help
 EOF
 }
 
+function make_entrypoint_contrail_test_ci {
+    cat <<'EOT'
+#!/bin/bash
+
+while getopts ":t:p:" opt; do
+  case $opt in
+    t)
+      testbed_input=$OPTARG
+      ;;
+    p)
+      contrail_fabpath_input=$OPTARG
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
+TESTBED=${testbed_input:-${TESTBED:-'/opt/contrail/utils/fabfile/testbeds/testbed.py'}}
+CONTRAIL_FABPATH=${contrail_fabpath_input:-${CONTRAIL_FABPATH:-'/opt/contrail/utils'}}
+
+if [[ ( ! -f /contrail-test/sanity_params.ini || ! -f /contrail-test/sanity_testbed.json ) && ! -f $TESTBED ]]; then
+    echo "ERROR! Either testbed file or sanity_params.ini or sanity_testbed.json under /contrail-test is required.
+          you probably forgot to attach them as volumes"
+    exit 100
+fi
+
+if [ ! $TESTBED -ef ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py ]; then
+    mkdir -p ${CONTRAIL_FABPATH}/fabfile/testbeds/
+    cp $TESTBED ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py
+fi
+
+cd /contrail-test
+./run_ci.sh --contrail-fab-path $CONTRAIL_FABPATH
+cp -f ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py /contrail-test.save/
+rsync -a --exclude logs/ --exclude report/ /contrail-test /contrail-test.save/
+EOT
+}
+
+function make_entrypoint_contrail_test {
+    cat <<'EOT'
+#!/bin/bash -x
+
+function usage {
+    cat <<EOF
+Usage: $0 [OPTIONS]
+
+Run contrail-test in container
+
+  -h  Print help
+  -t  Testbed file, Default: /opt/contrail/utils/fabfile/testbeds/testbed.py
+  -p  contrail fab utils path. Default: /opt/contrail/utils
+  -f  features to test. Default: sanity
+      Valid options:
+        sanity, quick_sanity, ci_sanity, ci_sanity_WIP, ci_svc_sanity,
+        upgrade, webui_sanity, ci_webui_sanity, devstack_sanity, upgrade_only
+
+EOF
+}
+
+while getopts ":t:p:f:h" opt; do
+  case $opt in
+    h)
+      usage
+      exit
+      ;;
+    t)
+      testbed_input=$OPTARG
+      ;;
+    p)
+      contrail_fabpath_input=$OPTARG
+      ;;
+    f)
+      feature_input=$OPTARG
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
+TESTBED=${testbed_input:-${TESTBED:-'/opt/contrail/utils/fabfile/testbeds/testbed.py'}}
+CONTRAIL_FABPATH=${contrail_fabpath_input:-${CONTRAIL_FABPATH:-'/opt/contrail/utils'}}
+FEATURE=${feature_input:-${FEATURE:-'sanity'}}
+
+if [[ ( ! -f /contrail-test/sanity_params.ini || ! -f /contrail-test/sanity_testbed.json ) && ! -f $TESTBED ]]; then
+    echo "ERROR! Either testbed file or sanity_params.ini or sanity_testbed.json under /contrail-test is required.
+          you probably forgot to attach them as volumes"
+    exit 100
+fi
+
+if [ ! $TESTBED -ef ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py ]; then
+    mkdir -p ${CONTRAIL_FABPATH}/fabfile/testbeds/
+    cp $TESTBED ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py
+fi
+
+cd /contrail-test
+run_tests="./run_tests.sh --contrail-fab-path $CONTRAIL_FABPATH "
+
+case $FEATURE in
+    sanity)
+        $run_tests --sanity --send-mail -U
+        ;;
+    quick_sanity)
+        $run_tests -T quick_sanity --send-mail -t
+        ;;
+    ci_sanity)
+        $run_tests -T ci_sanity --send-mail -U
+        ;;
+    ci_sanity_WIP)
+        $run_tests -T ci_sanity_WIP --send-mail -U
+        ;;
+    ci_svc_sanity)
+        python ci_svc_sanity_suite.py
+        ;;
+    upgrade)
+        $run_tests -T upgrade --send-mail -U
+        ;;
+    webui_sanity)
+        python webui_tests_suite.py
+        ;;
+    ci_webui_sanity)
+        python ci_webui_sanity.py
+        ;;
+    devstack_sanity)
+        python devstack_sanity_tests_with_setup.py
+        ;;
+    upgrade_only)
+        python upgrade/upgrade_only.py
+        ;;
+    *)
+        echo "Unknown FEATURE - ${FEATURE}"
+        exit 1
+        ;;
+esac
+EOT
+}
+
 function make_dockerfile {
     cat <<'EOF'
 FROM hkumar/ubuntu-14.04.2
 MAINTAINER Juniper Contrail <contrail@juniper.net>
 ARG CONTRAIL_INSTALL_PACKAGE_URL
 ARG ENTRY_POINT=docker_entrypoint.sh
+ARG SSHPASS
 ENV DEBIAN_FRONTEND=noninteractive
 
+EOF
+
+if [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ ^http[s]*:// ]]; then
+    cat <<'EOF'
 # Just check if $CONTRAIL_INSTALL_PACKAGE_URL is there, if not valid, build will fail
 RUN wget -q --spider $CONTRAIL_INSTALL_PACKAGE_URL
 
@@ -46,7 +191,26 @@ RUN wget $CONTRAIL_INSTALL_PACKAGE_URL -O /contrail-install-packages.deb && \
                     rm -fr /opt/contrail/* ; apt-get -y autoremove && apt-get -y clean;
 
 EOF
+elif [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ ^ssh[s]*:// ]]; then
+    scp_package=1
+    server=` echo $CONTRAIL_INSTALL_PACKAGE_URL | sed 's/ssh:\/\///;s|\/.*||'`
+    path=`echo $CONTRAIL_INSTALL_PACKAGE_URL |sed -r 's#ssh://[a-zA-Z0-9_\.\-]+##'`
+    cat << EOF
 
+RUN apt-get install -y sshpass && \
+    sshpass -e scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${sshuser_sub}${server}:${path} /contrail-install-packages.deb && \
+    dpkg -i /contrail-install-packages.deb && \
+    rm -f /contrail-install-packages.deb && \
+    cd /opt/contrail/contrail_packages/ && ./setup.sh && \
+    apt-get install -y python-pip ant python-dev python-novaclient python-neutronclient python-cinderclient \
+                    python-contrail patch python-heatclient python-ceilometerclient python-setuptools \
+                    libxslt1-dev libz-dev libyaml-dev git python-glanceclient && \
+                    rm -fr /opt/contrail/* && apt-get -y autoremove && apt-get -y clean
+EOF
+else
+    echo "ERROR, Unknown url format, only http[s], ssh supported" >&2
+    exit 1
+fi
     # In case of contrail-test, ci should be added in /contrail-test-ci and later merge both
     # /contrail-test-ci and /contrail-test together
     ci_dir='/contrail-test'
@@ -65,7 +229,7 @@ RUN git clone $CONTRAIL_TEST_REPO /contrail-test; \
     rm -fr .git
 EOF
         fi
-    elif [[ $build_type == 'contrail-test-ci' ]]; then
+    elif [[ $build_type == 'contrail-test-ci' && -f $CONTRAIL_TEST_CI_ARTIFACT ]] ; then
         merge_code='mv /contrail-test-ci /contrail-test; '
     fi
 
@@ -123,7 +287,13 @@ Usage: $0 docker-build [OPTIONS] (contrail-test|contrail-test-ci)
   --test-artifact ARTIFACT        Contrail test tar file - this tar file will be used instead of git source in case provided
   --ci-artifact CI_ARTICACT     Contrail test ci tar file
   --fab-artifact FAB_ARTIFACT   Contrail-fabric-utils tar file
-  -u|--package-url PACKAGE_URL  Contrail-install-packages deb package web url
+  -u|--package-url PACKAGE_URL  Contrail-install-packages deb package web url (http:// or https://) or scp path
+                                (ssh://<server ip/name/< package path>), if url is provided, the
+                                package will be installed and setup local repo.
+                                In case of scp, user name and password will be read from environment variables
+                                SSHUSER - user name to be used during scp, Default: current user
+                                SSHPASS - user password to be used during scp
+
   -c|--use-cache                Use docker cache for the build
   -e|--export EXPORT_PATH       Export Container image to the path provided
 
@@ -132,7 +302,15 @@ Usage: $0 docker-build [OPTIONS] (contrail-test|contrail-test-ci)
 
  Example:
 
-  $0 docker-build --test-repo https://github.com/hkumarmk/contrail-test --test-ref working --ci-repo https://\$GITUSER:\$GITPASS@github.com/juniper/contrail-test-ci -e /tmp/export2 -u http://nodei16/contrail-install-packages_2.21-105~juno_all.deb contrail-test
+  $ $0 docker-build --test-repo https://github.com/hkumarmk/contrail-test --test-ref working
+        --ci-repo https://\$GITUSER:\$GITPASS@github.com/juniper/contrail-test-ci -e /tmp/export2
+        -u http://nodei16/contrail-install-packages_2.21-105~juno_all.deb contrail-test
+
+  $ export SSHUSER=user1 SSHPASS=password
+  $ $0 docker-build --test-repo https://github.com/hkumarmk/contrail-test --test-ref working
+        --ci-repo https://\$GITUSER:\$GITPASS@github.com/juniper/contrail-test-ci -e /tmp/export2
+        -u ssh://nodei16/var/cache/artifacts/contrail-install-packages_2.21-105~juno_all.deb contrail-test
+
 
 EOF
     }
@@ -173,7 +351,7 @@ EOF
     fi
 
     if [[ -z $CONTAINER_TAG ]]; then
-        if [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ http[s]*://.*/contrail-install-packages_[0-9\.\-]+~[a-zA-Z]+_all.deb ]]; then
+        if [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ (ssh|http|https)*://.*/contrail-install-packages_[0-9\.\-]+~[a-zA-Z]+_all.deb ]]; then
             contrail_version=`echo ${CONTRAIL_INSTALL_PACKAGE_URL##*/} | sed 's/contrail-install-packages_\([0-9\.\-]*\).*/\1/'`
             openstack_release=`echo ${CONTRAIL_INSTALL_PACKAGE_URL##*/} | sed 's/contrail-install-packages_[0-9\.\-]*~\([a-zA-Z]*\).*/\1/'`
             CONTAINER_TAG=${build_type}-${openstack_release}:${contrail_version}
@@ -211,18 +389,26 @@ EOF
     fi
 
     if [[ $build_type == 'contrail-test' ]]; then
-        entrypoint=docker_entrypoint_contrail_test.sh
+        make_entrypoint_contrail_test > ${BUILD_DIR}/docker_entrypoint.sh
     elif [[ $build_type == 'contrail-test-ci' ]]; then
-        entrypoint=docker_entrypoint_contrail_test_ci.sh
+        make_entrypoint_contrail_test_ci > ${BUILD_DIR}/docker_entrypoint.sh
     else
         echo "ERROR! Unknown build_type: $build_type"
         exit 1
     fi
 
-    cp ${BASE_DIR}/docker/${entrypoint} $BUILD_DIR
-
-    docker build ${cache_opt} -t ${CONTAINER_TAG} --build-arg ENTRY_POINT=$entrypoint \
-        --build-arg CONTRAIL_INSTALL_PACKAGE_URL=$CONTRAIL_INSTALL_PACKAGE_URL $BUILD_DIR ; rv=$?
+    if [[ -n $scp_package ]]; then
+        # Disabling xtrace to avoid printing SSHPASS
+        if xtrace_status; then
+            set +x
+            xtrace=1
+        fi
+        ssh_build_arg="--build-arg SSHPASS=$SSHPASS"
+    fi
+    docker build ${cache_opt} -t ${CONTAINER_TAG} \
+        --build-arg CONTRAIL_INSTALL_PACKAGE_URL=$CONTRAIL_INSTALL_PACKAGE_URL \
+        ${ssh_build_arg} $BUILD_DIR; rv=$?
+    [[ -n $xtrace ]] && set -x
 
     rm -rf $BUILD_DIR
 
@@ -231,12 +417,27 @@ EOF
         if [[ -n $EXPORT_PATH ]]; then
             echo "Exporting the image to $EXPORT_PATH"
             mkdir -p $EXPORT_PATH
-            docker save $CONTAINER_TAG | gzip -c > ${EXPORT_PATH}/${CONTAINER_TAG/:/-}.tar.gz; rv=$?
+            docker save $CONTAINER_TAG | gzip -c > ${EXPORT_PATH}/docker-image-${CONTAINER_TAG/:/-}.tar.gz; rv=$?
             if [ $rv -eq 0 ]; then
-                echo "Successfully exported the image to ${EXPORT_PATH}/${CONTAINER_TAG/:/-}.tar.gz"
+                echo "Successfully exported the image to ${EXPORT_PATH}/docker-image-${CONTAINER_TAG/:/-}.tar.gz"
+                docker rmi -f $CONTAINER_TAG; rv=$?
+                if [ $rv -eq 0 ]; then
+                    echo "Cleaned up the image $CONTAINER_TAG from build environment"
+                else
+                    echo "Failed to cleanup the image $CONTAINER_TAG from the build environment, please cleanup manually"
+                    exit 1
+                fi
+            else
+                echo "Failed to export the image $CONTAINER_TAG"
+                exit 2
             fi
         fi
     fi
+}
+
+xtrace_status() {
+  set | grep -q SHELLOPTS=.*:xtrace
+  return $?
 }
 
 try_wget () {
@@ -247,7 +448,7 @@ try_wget () {
 install_req_apt () {
     packages_default="python-pip ant python-dev python-novaclient python-neutronclient python-cinderclient \
                       python-contrail patch python-heatclient python-ceilometerclient python-setuptools \
-                      libxslt1-dev libz-dev libyaml-dev git python-glanceclient"
+                      libxslt1-dev libz-dev libyaml-dev git python-glanceclient sshpass"
     packages=${1:-$packages_default}
     DEBIAN_FRONTEND=noninteractive
     apt-get install -y --force-yes $packages
@@ -270,15 +471,26 @@ Usage: $0 install [OPTIONS] (contrail-test|contrail-test-ci)
   --test-artifact ARTIFACT      Contrail test tar file - this tar file will be used instead of git source in case provided
   --ci-artifact CI_ARTICACT     Contrail test ci tar file
   --fab-artifact FAB_ARTIFACT   Contrail-fabric-utils tar file
-  -u|--package-url PACKAGE_URL  Contrail-install-packages deb package web url, if url is provided, the
+  -u|--package-url PACKAGE_URL  Contrail-install-packages deb package web url (http:// or https://) or scp path
+                                (ssh://<server ip/name/< package path>), if url is provided, the
                                 package will be installed and setup local repo.
+                                In case of scp, user name and password will be read from environment variables
+                                SSHUSER - user name to be used during scp, Default: current user
+                                SSHPASS - user password to be used during scp
 
   positional arguments
     What to install             Valid options are contrail-test, contrail-test-ci
 
  Example:
 
-  $0 install --test-repo https://github.com/hkumarmk/contrail-test --test-ref working --ci-repo https://\$GITUSER:\$GITPASS@github.com/juniper/contrail-test-ci -e /tmp/export2 -u http://nodei16/contrail-install-packages_2.21-105~juno_all.deb contrail-test
+  $ $0 install --test-repo https://github.com/hkumarmk/contrail-test --test-ref working
+        --ci-repo https://\$GITUSER:\$GITPASS@github.com/juniper/contrail-test-ci -e /tmp/export2
+        -u http://nodei16/contrail-install-packages_2.21-105~juno_all.deb contrail-test
+
+  $ export SSHUSER=user1 SSHPASS=password
+  $ $0 install --test-repo https://github.com/hkumarmk/contrail-test --test-ref working
+     --ci-repo https://\$GITUSER:\$GITPASS@github.com/juniper/contrail-test-ci -e /tmp/export2
+     -u ssh://nodei16/var/cache/artifacts/contrail-install-packages_2.21-105~juno_all.deb contrail-test-ci
 
 EOF
     }
@@ -309,19 +521,29 @@ EOF
 	    shift
     done
 
+    install_req_apt
+
     if [[ -n $CONTRAIL_INSTALL_PACKAGE_URL ]]; then
-        if try_wget $CONTRAIL_INSTALL_PACKAGE_URL; then
-           wget $CONTRAIL_INSTALL_PACKAGE_URL -O /tmp/contrail-install-packages.deb
-           dpkg -i /tmp/contrail-install-packages.deb
-           rm -f /tmp/contrail-install-packages.deb
-           cd /opt/contrail/contrail_packages/ && ./setup.sh
+        if [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ ^http[s]*:// ]]; then
+            if try_wget $CONTRAIL_INSTALL_PACKAGE_URL; then
+               wget $CONTRAIL_INSTALL_PACKAGE_URL -O /tmp/contrail-install-packages.deb
+            else
+                echo "ERROR! $CONTRAIL_INSTALL_PACKAGE_URL is not accessible"
+                exit 1
+            fi
+        elif [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ ^ssh:// ]]; then
+            server=` echo $CONTRAIL_INSTALL_PACKAGE_URL | sed 's/ssh:\/\///;s|\/.*||'`
+            path=`echo $CONTRAIL_INSTALL_PACKAGE_URL |sed -r 's#ssh://[a-zA-Z0-9_\.\-]+##'`
+            sshpass -e scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${sshuser_sub}${server}:${path} /tmp/contrail-install-packages.deb
         else
-            echo "ERROR! $CONTRAIL_INSTALL_PACKAGE_URL is not accessible"
+            echo "ERROR, Unknown url format, only http[s], ssh supported"
             exit 1
         fi
-    fi
 
-    install_req_apt
+        dpkg -i /tmp/contrail-install-packages.deb
+        rm -f /tmp/contrail-install-packages.deb
+        cd /opt/contrail/contrail_packages/ && ./setup.sh
+    fi
 
     test_dir='/opt/contrail-test'
     if [[ $build_type == 'contrail-test' ]]; then
@@ -374,6 +596,9 @@ EOF
 
 ## Main starts here
 
+if [[ -n $SSHUSER ]]; then
+   sshuser_sub="${SSHUSER}@"
+fi
 subcommand=$1; shift;
 if [[ $subcommand == '-h' || $subcommand == '' ]]; then
     usage
