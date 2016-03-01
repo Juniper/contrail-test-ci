@@ -6,7 +6,11 @@ CONTRAIL_TEST_REPO=https://github.com/juniper/contrail-test
 CONTRAIL_TEST_REF=master
 CONTRAIL_FAB_REPO=https://github.com/juniper/contrail-fabric-utils
 CONTRAIL_FAB_REF=master
+CIRROS_IMAGE_URL=${CIRROS_IMAGE_URL:-http://10.204.217.158/images/converts/cirros-0.3.0-x86_64-disk.vmdk.gz}
 BASE_DIR=`dirname $(readlink -f $0)`
+PACKAGES_REQUIRED_UBUNTU="python-pip ant python-dev python-novaclient python-neutronclient python-cinderclient \
+    python-contrail python-glanceclient python-heatclient python-ceilometerclient python-setuptools contrail-utils \
+    patch libxslt1-dev libz-dev libyaml-dev git sshpass"
 
 usage () {
     cat <<EOF
@@ -24,25 +28,43 @@ Run $0 <Subcommand> -h|--help to get subcommand specific help
 EOF
 }
 
+function have_command {
+    type "$1" >/dev/null 2>/dev/null
+}
+
+function distro {
+    if have_command apt-get; then
+        DISTRO=ubuntu
+        PACKAGES_REQUIRED=$PACKAGES_REQUIRED_UBUNTU
+#    elif have_command rpm; then
+#        DISTRO=redhat
+    else
+        echo "Unsupported distribution"
+        exit 1
+    fi
+}
+
 function make_entrypoint_contrail_test_ci {
     cat <<'EOT'
 #!/bin/bash
 
-while getopts ":t:p:" opt; do
+sendmail=1
+
+while getopts ":t:p:mu" opt; do
   case $opt in
     t)
-      testbed_input=$OPTARG
-      ;;
+        testbed_input=$OPTARG
+        ;;
     p)
-      contrail_fabpath_input=$OPTARG
-      ;;
+        contrail_fabpath_input=$OPTARG
+        ;;
     :)
       echo "Option -$OPTARG requires an argument." >&2
       exit 1
       ;;
   esac
 done
-
+export ci_image=${CI_IMAGE:-'cirros-0.3.0-x86_64-uec'}
 TESTBED=${testbed_input:-${TESTBED:-'/opt/contrail/utils/fabfile/testbeds/testbed.py'}}
 CONTRAIL_FABPATH=${contrail_fabpath_input:-${CONTRAIL_FABPATH:-'/opt/contrail/utils'}}
 
@@ -57,10 +79,18 @@ if [ ! $TESTBED -ef ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py ]; then
     cp $TESTBED ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py
 fi
 
+if [ $sendmail -eq 1 ]; then
+    mail_arg='-m'
+fi
+
 cd /contrail-test
-./run_ci.sh --contrail-fab-path $CONTRAIL_FABPATH
-cp -f ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py /contrail-test.save/
-rsync -a --exclude logs/ --exclude report/ /contrail-test /contrail-test.save/
+./run_ci.sh $mail_arg --contrail-fab-path $CONTRAIL_FABPATH
+
+if [ -d /contrail-test.save ]; then
+    cp -f ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py /contrail-test.save/
+    rsync -a --exclude logs/ --exclude report/ /contrail-test /contrail-test.save/
+fi
+
 EOT
 }
 
@@ -172,11 +202,10 @@ ARG CONTRAIL_INSTALL_PACKAGE_URL
 ARG ENTRY_POINT=docker_entrypoint.sh
 ARG SSHPASS
 ENV DEBIAN_FRONTEND=noninteractive
-
 EOF
 
 if [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ ^http[s]*:// ]]; then
-    cat <<'EOF'
+    cat <<EOF
 # Just check if $CONTRAIL_INSTALL_PACKAGE_URL is there, if not valid, build will fail
 RUN wget -q --spider $CONTRAIL_INSTALL_PACKAGE_URL
 
@@ -185,11 +214,8 @@ RUN wget $CONTRAIL_INSTALL_PACKAGE_URL -O /contrail-install-packages.deb && \
     dpkg -i /contrail-install-packages.deb && \
     rm -f /contrail-install-packages.deb && \
     cd /opt/contrail/contrail_packages/ && ./setup.sh && \
-    apt-get install -y python-pip ant python-dev python-novaclient python-neutronclient python-cinderclient \
-                    python-contrail patch python-heatclient python-ceilometerclient python-setuptools \
-                    libxslt1-dev libz-dev libyaml-dev git python-glanceclient && \
+    apt-get install -y $PACKAGES_REQUIRED && \
                     rm -fr /opt/contrail/* ; apt-get -y autoremove && apt-get -y clean;
-
 EOF
 elif [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ ^ssh[s]*:// ]]; then
     scp_package=1
@@ -202,9 +228,7 @@ RUN apt-get install -y sshpass && \
     dpkg -i /contrail-install-packages.deb && \
     rm -f /contrail-install-packages.deb && \
     cd /opt/contrail/contrail_packages/ && ./setup.sh && \
-    apt-get install -y python-pip ant python-dev python-novaclient python-neutronclient python-cinderclient \
-                    python-contrail patch python-heatclient python-ceilometerclient python-setuptools \
-                    libxslt1-dev libz-dev libyaml-dev git python-glanceclient && \
+    apt-get install -y $PACKAGES_REQUIRED && \
                     rm -fr /opt/contrail/* && apt-get -y autoremove && apt-get -y clean
 EOF
 else
@@ -259,7 +283,8 @@ EOF
 
     cat <<EOF
 RUN  $merge_code $fab_utils_mv cd /contrail-test && pip install --upgrade -r requirements.txt
-
+RUN wget -q --spider $CIRROS_IMAGE_URL
+RUN mkdir -p /contrail-test/images && wget $CIRROS_IMAGE_URL -O /contrail-test/images/cirros-0.3.0-x86_64-disk.vmdk.gz
 COPY \$ENTRY_POINT /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
@@ -356,7 +381,7 @@ EOF
             openstack_release=`echo ${CONTRAIL_INSTALL_PACKAGE_URL##*/} | sed 's/contrail-install-packages_[0-9\.\-]*~\([a-zA-Z]*\).*/\1/'`
             CONTAINER_TAG=${build_type}-${openstack_release}:${contrail_version}
         else
-            echo -e "Hmmm --container-tag is not provided, Trying to extract tag from contrail package url\nBad contrail package url, it should match regex http[s]*://.*/contrail-install-packages_[0-9\.\-]+~[a-zA-Z]+_all.deb"
+            echo -e "Hmmm --container-tag argument is not provided, and not able to extract tag from contrail package url\nBad contrail package url, it should match regex http[s]*://.*/contrail-install-packages_[0-9\.\-]+~[a-zA-Z]+_all.deb"
             exit 1
         fi
     fi
@@ -446,12 +471,8 @@ try_wget () {
 }
 
 install_req_apt () {
-    packages_default="python-pip ant python-dev python-novaclient python-neutronclient python-cinderclient \
-                      python-contrail patch python-heatclient python-ceilometerclient python-setuptools \
-                      libxslt1-dev libz-dev libyaml-dev git python-glanceclient sshpass"
-    packages=${1:-$packages_default}
     DEBIAN_FRONTEND=noninteractive
-    apt-get install -y --force-yes $packages
+    apt-get install -y --force-yes $PACKAGES_REQUIRED
 }
 
 install () {
@@ -595,6 +616,9 @@ EOF
 }
 
 ## Main starts here
+
+#Distro specific variables
+distro
 
 if [[ -n $SSHUSER ]]; then
    sshuser_sub="${SSHUSER}@"

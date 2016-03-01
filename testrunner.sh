@@ -19,7 +19,7 @@ arg_shell=''
 name="contrail_test_$(< /dev/urandom tr -dc a-z | head -c8)"
 declare -a arg_env
 SCRIPT_TIMESTAMP=`date +"%Y_%m_%d_%H_%M_%S"`
-
+CI_IMAGE=${CI_IMAGE:-'cirros-0.3.0-x86_64-uec'}
 
 # ansi colors for formatting heredoc
 ESC=$(printf "\e")
@@ -32,6 +32,15 @@ trap finish EXIT SIGHUP SIGINT SIGTERM
 finish () {
     rm -f $tempfile
     tput init
+}
+
+function have_command {
+    type "$1" >/dev/null 2>/dev/null
+}
+
+try_wget () {
+    wget -q --spider $1;
+    return $?
 }
 
 usage () {
@@ -103,9 +112,10 @@ add_contrail_env () {
 docker_run () {
     # Volumes to be mounted to container
 
-    arg_log_vol=" -v ${run_path}/${SCRIPT_TIMESTAMP}/logs:/contrail-test/logs \
+    arg_base_vol=" -v ${run_path}/${SCRIPT_TIMESTAMP}/logs:/contrail-test/logs \
         -v ${run_path}/${SCRIPT_TIMESTAMP}/reports:/contrail-test/report \
-        -v ${run_path}/${SCRIPT_TIMESTAMP}:/contrail-test.save"
+        -v ${run_path}/${SCRIPT_TIMESTAMP}:/contrail-test.save \
+        -v /etc/localtime:/etc/localtime:ro"
 
     if [[ $testbed ]]; then
         arg_testbed_vol=" -v $testbed:/opt/contrail/utils/fabfile/testbeds/testbed.py:ro "
@@ -138,16 +148,18 @@ docker_run () {
         red "Docker image is not available: $pos_arg"
         exit 4
     fi
+
+    ci_image_arg=" -e CI_IMAGE=$CI_IMAGE -e ci_image=$CI_IMAGE"
+
     # Run container in background
     tempfile=$(mktemp)
     if [[ -n $background ]]; then
-        echo "$docker run ${arg_env[*]} $arg_log_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name -e FEATURE=$feature -d $arg_rm $arg_shell -t $image_name" > $tempfile
+        echo "$docker run ${arg_env[*]} $arg_base_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name $ci_image_arg -e FEATURE=$feature -d $arg_rm $arg_shell -t $image_name" > $tempfile
         id=. $tempfile
         $docker ps -a --format "ID: {{.ID}}, Name: {{.Names}}" -f id=$id
     else
-        echo "$docker run ${arg_env[*]} $arg_log_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name -e FEATURE=$feature $arg_bg $arg_rm $arg_shell -t $image_name" > $tempfile
+        echo "$docker run ${arg_env[*]} $arg_base_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name $ci_image_arg -e FEATURE=$feature $arg_bg $arg_rm $arg_shell -t $image_name" > $tempfile
         . $tempfile
-        #$docker run ${arg_env[*]} $arg_log_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name -e FEATURE=$feature $arg_bg $arg_rm $arg_shell -t $image_name
     fi
 
 }
@@ -184,24 +196,28 @@ run () {
 Usage: $0 run [OPTIONS] (<image_tag>)
 Run Contrail test suite in docker container
 
-$GREEN  -f, --feature FEATURE           $NO_COLOR Features or Tags to test - valid options are sanity, quick_sanity,
-                                            ci_sanity, ci_sanity_WIP, ci_svc_sanity, upgrade, webui_sanity,
-                                            ci_webui_sanity, devstack_sanity, upgrade_only. Default: sanity
-$GREEN  -p, --run-path RUNPATH          $NO_COLOR Directory path on the host, in which contrail-test save all the results and other data
-$GREEN  -s, --shell                     $NO_COLOR Do not run tests, but leave a shell, this is useful for debugging
-$GREEN  -r, --rm	                    $NO_COLOR Remove the container on container exit, by default the container will be kept
+$GREEN  -p, --run-path RUNPATH          $NO_COLOR Directory path on the host, in which contrail-test save all the
+                                            results and other data. Default: $HOME/contrail-test-runs/
+$GREEN  -s, --shell                     $NO_COLOR Do not run tests, but leave a shell, this is useful for debugging.
+$GREEN  -r, --rm	                    $NO_COLOR Remove the container on container exit, Default: Container will be kept.
 $GREEN  -b, --background                $NO_COLOR run the container in background
 $GREEN  -n, --no-color                  $NO_COLOR Disable output coloring
 $GREEN  -t, --testbed TESTBED           $NO_COLOR Path to testbed file in the host,
                                             Default: /opt/contrail/utils/fabfile/testbeds/testbed.py
-$GREEN  -T, --testbed-json TESTBED_JSON $NO_COLOR Testbed json file
-$GREEN  -P, --params-file PARAMS_FILE   $NO_COLOR Sanity Params ini file
+$GREEN  -T, --testbed-json TESTBED_JSON $NO_COLOR Optional testbed json file.
+$GREEN  -P, --params-file PARAMS_FILE   $NO_COLOR Optional Sanity Params ini file
+$GREEN  -f, --feature FEATURE           $NO_COLOR Features or Tags to test - valid options are sanity, quick_sanity,
+                                            ci_sanity, ci_sanity_WIP, ci_svc_sanity, upgrade, webui_sanity,
+                                            ci_webui_sanity, devstack_sanity, upgrade_only. Default: sanity
+                                            NOTE: this is only valid for Full contrail-test suite.
 
-NOTE: Any one of testbd or both testbed-json and params-file required
+NOTE: Either testbed.py (-t) or both testbed-json and params-file required
 
 ${GREEN}Possitional Parameters:
 
-  <image_tag>       $NO_COLOR Docker image tag to run
+  <image_tag>       $NO_COLOR Docker image tag to run (Run "$0 list -i" to list all images available)
+
+
 EOF
     }
 
@@ -238,14 +254,18 @@ list () {
 Usage: $0 list [OPTIONS]
 List contrail-test containers
 
-$GREEN  -a, --all	  $NO_COLOR affect the operations on ALL available entities
+$GREEN  -i, --images        $NO_COLOR affect the operations on ALL available entities
+$GREEN  -c, --containers    $NO_COLOR affect the operations on ALL available entities
+$GREEN  -a, --all	        $NO_COLOR affect the operations on ALL available entities
 EOF
     }
 
-    while getopts "ah" f; do
+    while getopts "ahic" f; do
         case "$f" in
             h) usage; exit;;
             a) all=1;;
+            i) images==1;;
+            c) containers==1;;
         esac
     done
 
@@ -254,40 +274,114 @@ EOF
     if [[ -n $all ]]; then
         arg_list_all=" -a "
     fi
+
+    if [[ -n $images ]]; then
+        list_images=1;
+    elif [[ -n $containers ]]; then
+        list_containers=1
+    else
+        list_all=1
+    fi
     check_docker
 
     # List containers
     #TODO: list in better format, list different stuffs like latest containers, failed containers, running containers, finished containers etc
     #   able to provide filters
-    $docker ps $arg_list_all -f name=contrail_test_
+    if [[ -n $list_all || -n $list_images ]]; then
+        echo; echo "$GREEN=========== Images =============$NO_COLOR"
+        docker images  | awk 'BEGIN {printf "%-50s %-20s %-20s\n", "IMAGE","IMAGE ID", "VIRTUAL SIZE"}
+                            /(contrail-test|contrail_test)/ {printf "%-50s %-20s %-20s\n", $1":"$2, $3, $(NF-1)" "$NF}'
+    fi
+    if [[ -n $list_all || -n $list_containers ]]; then
+        echo;echo "$GREEN=========== Container Instances =============$NO_COLOR"
+        $docker ps $arg_list_all -f name=contrail_test_
+    fi
     exit 0
+}
+
+load () {
+
+    usage () {
+        cat <<EOF
+
+Usage: $0 load DOCKER-IMAGE-URL
+Load the docker image to local system
+
+${GREEN}Possitional Parameters:
+
+  <docker-image-url>       $NO_COLOR Docker image tar.gz url. Supports three modes:
+                           http[s] url: example, http://myrepo/contrail-test-images/docker-image-contrail-test-ci-kilo-3.0-2709.tar.gz
+                           file path: example  /root/docker-image-contrail-test-ci-kilo-3.0-2709.tar.gz
+
+EOF
+    }
+
+    while getopts "h" f; do
+        case "$f" in
+            h) usage; exit;;
+        esac
+    done
+
+    shift $(( OPTIND - 1 ))
+    image_url=$1
+
+    check_docker
+
+    # Load container image
+    if [[ $image_url =~ ^http[s]*:// ]]; then
+        if try_wget $image_url; then
+            tmp=$(mktemp -d)
+            wget $image_url -O $tmp/docker-image.tar.gz
+            echo "Loading the image"
+            $docker load < $tmp/docker-image.tar.gz; rv=$?
+        else
+            echo "ERROR! $image_url is not accessible."
+            exit 1
+        fi
+    elif [ -f $image_url ]; then
+        echo "Loading the image"
+        $docker load < $image_url; rv=$?
+    else
+        echo "ERROR: Local path $image_url is not accessible"
+        exit 1
+    fi
+
+    if [ $rv -eq 0 ]; then
+        echo "Successfully Loaded the image $image_url"
+    else
+        echo "Failed loading the image $image_url"
+    fi
+    exit $rv
 }
 
 rebuild () {
     usage () {
         cat <<EOF
 
-Usage: $0 rebuild [OPTIONS]
+
+Usage: $0 rebuild [OPTIONS] <container id/name>
 Rebuild contrail-test containers
 
-$GREEN  -f, --feature       $NO_COLOR Features or Tags to test - valid options are sanity, quick_sanity,
-                                ci_sanity, ci_sanity_WIP, ci_svc_sanity, upgrade, webui_sanity,
-                                ci_webui_sanity, devstack_sanity, upgrade_only. Default: sanity
-$GREEN  -p, --run-path      $NO_COLOR Directory path on the host, in which contrail-test save results and other data
-$GREEN  -s, --shell         $NO_COLOR Do not run tests, but leave a shell, this is useful for debugging
-$GREEN  -r, --rm	        $NO_COLOR Remove the container on container exit, by default the container will be kept
-$GREEN  -b, --background    $NO_COLOR run the container in background
-$GREEN  -n, --no-color      $NO_COLOR Disable output coloring
+$GREEN  -p, --run-path RUNPATH          $NO_COLOR Directory path on the host, in which contrail-test save all the
+                                            results and other data. Default: $HOME/contrail-test-runs/
+$GREEN  -s, --shell                     $NO_COLOR Do not run tests, but leave a shell, this is useful for debugging.
+$GREEN  -r, --rm	                    $NO_COLOR Remove the container on container exit, Default: Container will be kept.
+$GREEN  -b, --background                $NO_COLOR run the container in background
+$GREEN  -n, --no-color                  $NO_COLOR Disable output coloring
 $GREEN  -t, --testbed TESTBED           $NO_COLOR Path to testbed file in the host,
                                             Default: /opt/contrail/utils/fabfile/testbeds/testbed.py
-$GREEN  -T, --testbed-json TESTBED_JSON $NO_COLOR Testbed json file
-$GREEN  -P, --params-file PARAMS_FILE   $NO_COLOR Sanity Params ini file
+$GREEN  -T, --testbed-json TESTBED_JSON $NO_COLOR Optional testbed json file.
+$GREEN  -P, --params-file PARAMS_FILE   $NO_COLOR Optional Sanity Params ini file
+$GREEN  -f, --feature FEATURE           $NO_COLOR Features or Tags to test - valid options are sanity, quick_sanity,
+                                            ci_sanity, ci_sanity_WIP, ci_svc_sanity, upgrade, webui_sanity,
+                                            ci_webui_sanity, devstack_sanity, upgrade_only. Default: sanity
+                                            NOTE: this is only valid for Full contrail-test suite.
 
-NOTE: Any one of testbd or both testbed-json and params-file required
+NOTE: Either testbd.py (-t) or both testbed-json and params-file required
 
 ${GREEN}Possitional Parameters:
 
-  <container id/name>       $NO_COLOR ontainer
+  <container id/name>       $NO_COLOR The container ID or name ( "$0 list -ca" to list all containers)
 
 EOF
     }

@@ -64,11 +64,11 @@ class BasevDNSTest(test.BaseTestCase):
         '''
         random_number = randint(2500,5000)
         vn1_ip = '10.10.10.1/24'
-        vn_name = 'vn' + str(random_number)
-        dns_server_name = 'vdns1' + str(random_number)
+        vn_name = get_random_name('vn')
+        dns_server_name = get_random_name('vdns1')
         domain_name = 'juniper.net'
         ttl = 100
-        ipam_name = 'ipam1' + str(random_number)
+        ipam_name = get_random_name('ipam1')
         project_fixture = self.useFixture(ProjectFixture(
             vnc_lib_h=self.vnc_lib, project_name=self.inputs.project_name, connections=self.connections))
         dns_data = VirtualDnsType(
@@ -95,7 +95,7 @@ class BasevDNSTest(test.BaseTestCase):
             vn_name=vn_name, project_id=project_fixture.uuid)
         vm_fixture = self.useFixture(
             VMFixture(project_name=self.inputs.project_name,
-                      connections=self.connections, vn_obj=vn_quantum_obj, vm_name='vm1-test'))
+                      connections=self.connections, vn_obj=vn_quantum_obj, vm_name=get_random_name('vm1-test')))
         vm_fixture.verify_vm_launched()
         vm_fixture.verify_on_setup()
         vm_fixture.wait_till_vm_is_up()
@@ -140,7 +140,7 @@ class BasevDNSTest(test.BaseTestCase):
                 'Sleep for 180sec to sync vdns server with vdns record entry')
             sleep(180)
             # Verify NS look up works for some random records values
-            self.logger.info('****NSLook up verification****')
+            self.logger.debug('****NSLook up verification****')
             import re
             for rec in verify_rec_name_list:
                 cmd = 'nslookup ' + rec
@@ -218,6 +218,7 @@ class BasevDNSTest(test.BaseTestCase):
                             False, 'VDNS records are not sent fixed in fixed order')
         return True
     # end test_dns_record_order
+
     # This Test test vdns functionality with control node restart
     def vdns_with_cn_dns_agent_restart(self, restart_process):
         '''
@@ -228,12 +229,12 @@ class BasevDNSTest(test.BaseTestCase):
                 raise self.skipTest(
                     "Skipping Test. At least 2 control nodes required to run the control node switchover test")
         vn1_ip = '10.10.10.1/24'
-        vm_list = ['vm1-test', 'vm2-test']
-        vn_name = 'vn1'
-        dns_server_name = 'vdns1'
+        vm_list = [get_random_name('vm1-test'), get_random_name('vm2-test')]
+        vn_name = get_random_name('vn1')
+        dns_server_name = get_random_name('vdns1')
         domain_name = 'juniper.net'
         ttl = 100
-        ipam_name = 'ipam1'
+        ipam_name = get_random_name('ipam1')
         rev_zone = vn1_ip.split('.')
         rev_zone = '.'.join((rev_zone[0], rev_zone[1], rev_zone[2]))
         rev_zone = rev_zone + '.in-addr.arpa'
@@ -288,12 +289,12 @@ class BasevDNSTest(test.BaseTestCase):
         self.assertTrue(vm_fixture['vm1-test']
                         .ping_with_certainty(ip=vm_list[1]))
         active_controller = vm_fixture['vm1-test'].get_active_controller()
-        self.logger.info('Active control node from the Agent %s is %s' %
+        self.logger.debug('Active control node from the Agent %s is %s' %
                          (vm_fixture['vm1-test'].vm_node_ip, active_controller))
         # Control node restart/switchover.
         if restart_process == 'ControlNodeRestart':
             # restart the Active control node
-            self.logger.info('restarting active control node')
+            self.logger.info('Restarting active control node')
             self.inputs.restart_service(
                 'contrail-control', [active_controller])
             sleep(5)
@@ -312,20 +313,20 @@ class BasevDNSTest(test.BaseTestCase):
         if restart_process == 'DnsRestart':
             # restart the dns process in the active control node
             self.logger.info(
-                'restart the dns process in the active control node')
+                'Restarting the dns process in the active control node')
             self.inputs.restart_service('contrail-dns', [active_controller])
         if restart_process == 'NamedRestart':
             # restart the named process in the active control node
             self.logger.info(
-                'restart the named process in the active control node')
+                'Restarting the named process in the active control node')
             self.inputs.restart_service('contrail-named', [active_controller])
         # restart the agent process in the compute node
         if restart_process == 'AgentRestart':
-            self.logger.info('restart the agent process')
+            self.logger.info('Restarting the agent process on compute nodes')
             for compute_ip in self.inputs.compute_ips:
                 self.inputs.restart_service('contrail-vrouter', [compute_ip])
         if restart_process == 'scp':
-            self.logger.info('scp using name of vm')
+            self.logger.debug('scp using name of vm')
             vm_fixture['vm1-test'].put_pub_key_to_vm()
             vm_fixture['vm2-test'].put_pub_key_to_vm()
             size = '1000'
@@ -336,18 +337,18 @@ class BasevDNSTest(test.BaseTestCase):
             create_result = True
             transfer_result = True
 
-            self.logger.info("-" * 80)
-            self.logger.info("FILE SIZE = %sB" % size)
-            self.logger.info("-" * 80)
-            self.logger.info('Creating a file of the specified size on %s' %
+            self.logger.debug("-" * 80)
+            self.logger.debug("FILE SIZE = %sB" % size)
+            self.logger.debug("-" * 80)
+            self.logger.debug('Creating a file of the specified size on %s' %
                              vm_fixture['vm1-test'].vm_name)
 
-            self.logger.info('Transferring the file from %s to %s using scp' %
+            self.logger.debug('Transferring the file from %s to %s using scp' %
                              (vm_fixture['vm1-test'].vm_name, vm_fixture['vm2-test'].vm_name))
             vm_fixture[
                 'vm1-test'].check_file_transfer(dest_vm_fixture=vm_fixture['vm2-test'], mode='scp', size=size)
 
-            self.logger.info('Checking if the file exists on %s' %
+            self.logger.debug('Checking if the file exists on %s' %
                              vm_fixture['vm2-test'].vm_name)
             vm_fixture['vm2-test'].run_cmd_on_vm(cmds=cmd_to_check_file)
             output = vm_fixture['vm2-test'].return_output_cmd_dict[y]
@@ -384,8 +385,7 @@ class BasevDNSTest(test.BaseTestCase):
         return next_item
 
     def verify_ns_lookup_data(self, vm_fix, cmd, expectd_data):
-        self.logger.info("Inside verify_ns_lookup_data")
-        self.logger.info(
+        self.logger.debug(
             "cmd string is %s and  expected data %s for searching" %
             (cmd, expectd_data))
         vm_fix.run_cmd_on_vm(cmds=[cmd])
@@ -396,7 +396,6 @@ class BasevDNSTest(test.BaseTestCase):
         return True
 
     def verify_vm_dns_data(self, vm_dns_exp_data):
-        self.logger.info("Inside verify_vm_dns_data")
         result = True
         dnsinspect_h = self.dnsagent_inspect[self.inputs.bgp_ips[0]]
         dns_data = dnsinspect_h.get_dnsa_config()
@@ -420,8 +419,8 @@ class BasevDNSTest(test.BaseTestCase):
                 return False
             found_rec = False
             # Compare the DNS entries populated dynamically on VM Creation.
-            self.logger.info(
-                "actual record data %s ,\n expected record data %s" %
+            self.logger.debug(
+                "Actual record data %s ,\n Expected record data %s" %
                 (vm_dns_act_data, expected))
             if(vm_dns_act_data['rec_name'] not in expected['rec_name']):
                 result = result and False
@@ -439,6 +438,5 @@ class BasevDNSTest(test.BaseTestCase):
                 result = result and False
             vm_dns_act_data = []
             self.assertTrue(result, msg)
-        self.logger.info("Out of verify_vm_dns_data")
         return True
     # end verify_vm_dns_data

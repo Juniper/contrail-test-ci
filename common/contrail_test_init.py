@@ -163,7 +163,7 @@ class TestInputs(object):
         # HA setup IPMI username/password
         self.ha_setup = read_config_option(self.config, 'HA', 'ha_setup', None)
 
-        if self.ha_setup == 'True':
+        if self.ha_setup == True:
             self.ipmi_username = read_config_option(
                 self.config,
                 'HA',
@@ -210,7 +210,7 @@ class TestInputs(object):
 
         self.prov_file = self.prov_file or self._create_prov_file()
         self.prov_data = self.read_prov_file()
-        if self.ha_setup == 'True':
+        if self.ha_setup == True:
             self.update_etc_hosts_for_vip()
 
         self.username = self.host_data[self.cfgm_ip]['username']
@@ -256,26 +256,28 @@ class TestInputs(object):
         '''
         Figure out the os type on each node in the cluster
         '''
+        output = None
         if host_ip in self.os_type:
             return self.os_type[host_ip]
         username = self.host_data[host_ip]['username']
         password = self.host_data[host_ip]['password']
-        with settings(host_string='%s@%s' % (username, host_ip),
-                      password=password, warn_only=True,
-                      abort_on_prompts=False):
-            output = run('uname -a')
-            if 'el6' in output:
-                self.os_type[host_ip] = 'centos_el6'
-            elif 'fc17' in output:
-                self.os_type[host_ip] = 'fc17'
-            elif 'xen' in output:
-                self.os_type[host_ip] = 'xenserver'
-            elif 'Ubuntu' in output:
-                self.os_type[host_ip] = 'ubuntu'
-            elif 'el7' in output:
-                self.os_type[host_ip] = 'redhat'
-            else:
-                raise KeyError('Unsupported OS')
+        with hide('output','running','warnings'):
+            with settings(host_string='%s@%s' % (username, host_ip),
+                          password=password, warn_only=True,
+                          abort_on_prompts=False):
+                output = run('uname -a')
+        if 'el6' in output:
+            self.os_type[host_ip] = 'centos_el6'
+        elif 'fc17' in output:
+            self.os_type[host_ip] = 'fc17'
+        elif 'xen' in output:
+            self.os_type[host_ip] = 'xenserver'
+        elif 'Ubuntu' in output:
+            self.os_type[host_ip] = 'ubuntu'
+        elif 'el7' in output:
+            self.os_type[host_ip] = 'redhat'
+        else:
+            raise KeyError('Unsupported OS')
         return self.os_type[host_ip]
     # end get_os_version
 
@@ -316,7 +318,7 @@ class TestInputs(object):
         self.vip = {}
         for host in json_data['hosts']:
             # Use short name
-            host['name'] = host['name'].split('.')[0]
+            host['name'] = host['name']
             self.host_names.append(host['name'])
             host_ip = str(IPNetwork(host['ip']).ip)
             host_data_ip = str(IPNetwork(host['data-ip']).ip)
@@ -333,7 +335,7 @@ class TestInputs(object):
             for role in roles:
                 if role['type'] == 'openstack':
                     if self.auth_ip:
-                        if self.ha_setup == 'True':
+                        if self.ha_setup == True:
                             self.openstack_ip = host_ip
                         else:
                             self.openstack_ip = self.auth_ip
@@ -377,7 +379,7 @@ class TestInputs(object):
                     self.database_control_ips.append(host_control_ip)
             # end for
         # end for
-        if self.ha_setup == 'True':
+        if self.ha_setup == True:
             self.vip['keystone'] = self.auth_ip
             self.vip['contrail'] = self.auth_ip
 
@@ -418,7 +420,7 @@ class TestInputs(object):
                                                                     ta['tor_agent_id']))
                         device_dict['tor_agent_dicts'].append(ta)
                         device_dict['tor_tsn_ips'].append(ta['tor_tsn_ip'])
-                        if self.ha_setup == 'True':
+                        if self.ha_setup == True:
                             device_dict['controller_ip'] = self.vip['contrail']
                         else:
                             device_dict['controller_ip'] = ta['tor_tsn_ip']
@@ -850,7 +852,7 @@ class ContrailTestInit(object):
         bgp_ips = set(self.bgp_ips)
         for host in bgp_ips:
             host_name = self.host_data[host]['name']
-            issue_cmd = "python /opt/contrail/utils/provision_control.py \
+            issue_cmd = "python /usr/share/contrail-utils/provision_control.py \
 			--host_name '%s' --host_ip '%s' --router_asn '%s' \
 			--api_server_ip '%s' --api_server_port '%s' --oper '%s'" % (host_name,
                                                                host,
@@ -878,7 +880,7 @@ class ContrailTestInit(object):
 
         username = self.host_data[self.cfgm_ip]['username']
         password = self.host_data[self.cfgm_ip]['password']
-        issue_cmd = "python /opt/contrail/utils/provision_mx.py \
+        issue_cmd = "python /usr/share/contrail-utils/provision_mx.py \
 			--api_server_ip '%s' --api_server_port '%s' \
 			--router_name '%s' --router_ip '%s'  \
 			--router_asn '%s' --oper '%s'" % (
@@ -901,7 +903,7 @@ class ContrailTestInit(object):
 
         username = self.host_data[self.cfgm_ip]['username']
         password = self.host_data[self.cfgm_ip]['password']
-        issue_cmd = "python /opt/contrail/utils/add_route_target.py \
+        issue_cmd = "python /usr/share/contrail-utils/add_route_target.py \
                     --routing_instance_name '%s' --route_target_number '%s' \
                     --router_asn '%s' --api_server_ip '%s' --api_server_port '%s'" % (
                     routing_instance_name, route_target_number,

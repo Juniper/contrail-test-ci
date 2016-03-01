@@ -35,7 +35,7 @@ class NovaHelper():
         # 1265563 keypair name can only be alphanumeric. Fixed in icehouse
         self.key = self.project_name+self.username+key
         self.obj = None
-        if not self.inputs.ha_setup: 
+        if not self.inputs.ha_setup:
             self.auth_url = os.getenv('OS_AUTH_URL') or \
                 'http://' + self.openstack_ip + ':5000/v2.0'
         else:
@@ -52,7 +52,7 @@ class NovaHelper():
     # end __init__
 
     def _connect_to_openstack(self):
-        insecure = bool(os.getenv('OS_INSECURE',True)) 
+        insecure = bool(os.getenv('OS_INSECURE',True))
         self.obj = mynovaclient.Client('2',
                                        username=self.username,
                                        project_id=self.project_name,
@@ -81,7 +81,7 @@ class NovaHelper():
         if zone and self.hosts_dict.has_key(zone):
             return self.hosts_dict[zone][:]
         else:
-            return self.hosts_list 
+            return self.hosts_list
 
     def get_zones(self):
         return self.zones[:]
@@ -114,7 +114,7 @@ class NovaHelper():
         image = self.obj.images.get(image_id)
         if image.status.lower() == 'active':
             return (True, image)
-        self.logger.info('Image %s is not active.'%image.name)
+        self.logger.debug('Image %s is not active.'%image.name)
         return (False, None)
 
     def find_image(self, image_name):
@@ -190,7 +190,6 @@ class NovaHelper():
     # end _install_flavor
 
     def _install_image(self, image_name):
-        result = False
         self.logger.debug('Installing image %s'%image_name)
         image_info = self.images_info[image_name]
         webserver = image_info['webserver'] or \
@@ -199,7 +198,10 @@ class NovaHelper():
         params = image_info['params']
         image = image_info['name']
         image_type = image_info['type']
-        if re.match(r'^file://', location):
+        contrail_test_path = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)),'..'))
+        if contrail_test_path and os.path.isfile("%s/images/%s" % (contrail_test_path, image_name)):
+            build_path = "file://%s/images/%s" % (contrail_test_path, image_name)
+        elif re.match(r'^file://', location):
             build_path = '%s/%s' % (location, image)
         else:
             build_path = 'http://%s/%s/%s' % (webserver, location, image)
@@ -309,13 +311,13 @@ class NovaHelper():
             if not keypairs:
                 raise novaException.NotFound('keypair not found')
             pkey_in_nova = keypairs[0].public_key.strip()
-            with settings(host_string='%s@%s' % (username, self.cfgm_ip),
+            with settings(hide('everything'), host_string='%s@%s' % (username, self.cfgm_ip),
                     password=password, warn_only=True, abort_on_prompts=True):
                 if exists('.ssh/id_rsa.pub'):
                     get('.ssh/id_rsa.pub', '/tmp/')
                     pkey_in_host = open('/tmp/id_rsa.pub', 'r').read().strip()
                     if pkey_in_host == pkey_in_nova:
-                        self.logger.debug('keypair exists')
+                        self.logger.debug('Not creating keypair since it exists')
                         return True
             self.logger.error('Keypair and rsa.pub doesnt match.')
             raise Exception('Keypair and rsa.pub doesnt match.'
@@ -323,22 +325,21 @@ class NovaHelper():
                             ' Delete nova keypair and restart the test')
         except novaException.NotFound:
             pass
-        #with hide('everything'):
-        if True:
+        with hide('everything'):
             with settings(
                 host_string='%s@%s' % (username, self.cfgm_ip),
                     password=password, warn_only=True, abort_on_prompts=True):
                 rsa_pub_arg = '.ssh/id_rsa'
-                self.logger.debug('Creating keypair') 
+                self.logger.debug('Creating keypair %s' % (key_name)) 
                 if exists('.ssh/id_rsa.pub'):  # If file exists on remote m/c
-                    self.logger.debug('Public key exists. Getting public key') 
+                    self.logger.debug('Public key exists. Getting public key')
                     get('.ssh/id_rsa.pub', '/tmp/')
                 else:
                     self.logger.debug('Making .ssh dir')
                     run('mkdir -p .ssh')
                     self.logger.debug('Removing id_rsa*')
                     run('rm -f .ssh/id_rsa*')
-                    self.logger.debug('Creating key using : ssh-keygen -f -t rsa -N') 
+                    self.logger.debug('Creating key using : ssh-keygen -f -t rsa -N')
                     run('ssh-keygen -f %s -t rsa -N \'\'' % (rsa_pub_arg))
                     self.logger.debug('Getting the created keypair')
                     get('.ssh/id_rsa.pub', '/tmp/')
@@ -353,7 +354,7 @@ class NovaHelper():
             nova_services = self.obj.services.list(**kwargs)
             nova_services = filter(lambda x: x.state != 'down' and x.status != 'disabled',
                    nova_services)
-            self.logger.info('Servies List from the nova obj: %s' %
+            self.logger.debug('Services list from nova: %s' %
                              nova_services)
             return nova_services
         except:
@@ -407,7 +408,7 @@ class NovaHelper():
             if zone not in self.zones:
                 raise RuntimeError("Zone %s is not available" % zone)
             if node_name not in self.hosts_dict[zone]:
-                raise RuntimeError("Zone %s doesn't have compute with name %s" 
+                raise RuntimeError("Zone %s doesn't have compute with name %s"
                                         % (zone, node_name))
         elif node_name:
             nova_services = self.get_nova_services(binary='nova-compute')
@@ -466,7 +467,7 @@ class NovaHelper():
         vm_objs = self.get_vm_list(name_pattern=vm_name,
                                    project_id=project_uuid)
         [vm_obj.get() for vm_obj in vm_objs]
-        self.logger.info("VM Object: (%s) Nodename: (%s) Zone: (%s)" % (
+        self.logger.info("VM (%s) created on node: (%s), Zone: (%s)" % (
                          str(vm_objs), node_name, zone))
         return vm_objs
     # end create_vm
@@ -563,8 +564,9 @@ class NovaHelper():
         for hypervisor in self.get_nova_hypervisor_list():
             if vm_obj.__dict__['OS-EXT-SRV-ATTR:hypervisor_hostname'] is not None:
                 if vm_obj.__dict__['OS-EXT-SRV-ATTR:hypervisor_hostname']\
-                    in hypervisor.hypervisor_hostname:
-                    if hypervisor.hypervisor_type == 'QEMU':
+                    == hypervisor.hypervisor_hostname:
+                    if hypervisor.hypervisor_type == 'QEMU' or \
+                        hypervisor.hypervisor_type == 'docker':
                         host_name = vm_obj.__dict__['OS-EXT-SRV-ATTR:host']
                         return host_name.split('.')[0]
                     if 'VMware' in hypervisor.hypervisor_type:
@@ -582,7 +584,7 @@ class NovaHelper():
     def get_nova_hypervisor_list(self):
         #return self.obj.hypervisors.find().hypervisor_type
         return self.obj.hypervisors.list()
-    #end 
+    #end
 
     def kill_remove_container(self, compute_host_ip, vm_id):
         get_container_id_cmd = "docker ps -f name=nova-%s | cut -d ' ' -f1"\
@@ -633,13 +635,12 @@ class NovaHelper():
                     put('/tmp/id_rsa.pub', '/tmp/id_rsa.pub')
                 run('chmod 600 /tmp/id_rsa')
                 self.tmp_key_file = '/tmp/id_rsa'
-
     @threadsafe_generator
     def get_compute_host(self):
         while True:
             nova_services = self.get_nova_services(binary='nova-compute')
             if not nova_services:
-                self.logger.info('nova-compute service doesnt exist, check openstack-status')
+                self.logger.error('nova-compute service doesnt exist, check openstack-status')
                 raise RuntimeError('nova-compute service doesnt exist')
             for compute_svc in nova_services:
                 yield (compute_svc.host, compute_svc.zone)
@@ -654,7 +655,7 @@ class NovaHelper():
         try:
             vm_obj.get()
             if vm_obj.status == 'ACTIVE' or vm_obj.status == 'ERROR':
-                self.logger.info('VM %s is in %s state now' %
+                self.logger.debug('VM %s is in %s state now' %
                                  (vm_obj, vm_obj.status))
                 return (True,vm_obj.status)
             else:
@@ -683,7 +684,7 @@ class NovaHelper():
                    return self.wait_till_vm_is_active(vm_obj)
 
             if 'login:' in vm_obj.get_console_output():
-                self.logger.info('VM has booted up..')
+                self.logger.debug('VM has booted up..')
                 return True
             else:
                 self.logger.debug('VM not yet booted fully .. ')
@@ -707,7 +708,7 @@ class NovaHelper():
             self.logger.error('Fatal Nova Exception while getting VM detail')
             return None
     # end get_vm_console_output
-        
+
 
     def get_vm_in_nova_db(self, vm_obj, node_ip):
         issue_cmd = 'mysql -u root --password=%s -e \'use nova; select vm_state, uuid, task_state from instances where uuid=\"%s\" ; \' ' % (
@@ -723,7 +724,7 @@ class NovaHelper():
     def is_vm_deleted_in_nova_db(self, vm_obj, node_ip):
         output = self.get_vm_in_nova_db(vm_obj, node_ip)
         if 'deleted' in output and 'NULL' in output:
-            self.logger.info('VM %s is removed in Nova DB' % (vm_obj.name))
+            self.logger.debug('VM %s is removed in Nova DB' % (vm_obj.name))
             return True
         else:
             self.logger.warn('VM %s is still found in Nova DB : %s' %

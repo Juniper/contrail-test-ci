@@ -8,6 +8,7 @@ import smtplib
 import getpass
 import ConfigParser
 import datetime
+import logging
 
 from fabric.api import env, run, cd
 from fabric.operations import get, put
@@ -17,9 +18,10 @@ from tcutils.util import *
 from tcutils.custom_filehandler import *
 
 CORE_DIR = '/var/crashes'
+logging.getLogger("paramiko").setLevel(logging.WARNING)
 
 
-class ContrailTestInit:
+class ContrailReportInit:
 
     def __init__(self, ini_file):
         self.build_id = None
@@ -75,7 +77,6 @@ class ContrailTestInit:
             datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
         self.single_node = self.get_os_env('SINGLE_NODE_IP')
         self.jenkins_trigger = self.get_os_env('JENKINS_TRIGGERED')
-        self.os_type = {}
         self.report_details_file = 'report_details_%s.ini' % (self.ts)
         self.distro = None
 
@@ -94,7 +95,6 @@ class ContrailTestInit:
                              self.web_server, self.web_root, self.build_folder)
         self.log_link = 'http://%s/%s/%s/logs/' % (self.web_server, self.web_root,
                                                    self.build_folder)
-        self.os_type = self.get_os_version()
         self.username = self.host_data[self.cfgm_ip]['username']
         self.password = self.host_data[self.cfgm_ip]['password']
         self.write_report_details()
@@ -129,31 +129,6 @@ class ContrailTestInit:
         else:
             return default
     # end get_os_env
-
-    def get_os_version(self):
-        '''
-        Figure out the os type on each node in the cluster
-        '''
-
-        if self.os_type:
-            return self.os_type
-        for host_ip in self.host_ips:
-            username = self.host_data[host_ip]['username']
-            password = self.host_data[host_ip]['password']
-            with settings(
-                host_string='%s@%s' % (username, host_ip), password=password,
-                    warn_only=True, abort_on_prompts=False):
-                output = run('uname -a')
-                if 'el6' in output:
-                    self.os_type[host_ip] = 'centos_el6'
-                if 'fc17' in output:
-                    self.os_type[host_ip] = 'fc17'
-                if 'xen' in output:
-                    self.os_type[host_ip] = 'xenserver'
-                if 'Ubuntu' in output:
-                    self.os_type[host_ip] = 'ubuntu'
-        return self.os_type
-    # end get_os_version
 
     def _read_prov_file(self):
         prov_file = open(self.prov_file, 'r')
@@ -308,7 +283,7 @@ class ContrailTestInit:
                 file_contents = f.read()
                 f.close()
         return file_contents
-   # end _get_stress_test_summary 
+   # end _get_stress_test_summary
 
     def _get_phy_topology_detail(self):
         detail = ''
@@ -373,8 +348,8 @@ class ContrailTestInit:
         if self.build_id:
             return self.build_id
         build_id = None
-        cmd = 'contrail-version|grep contrail-install | head -1 | awk \'{print $2}\''
-        alt_cmd = 'contrail-version|grep contrail-package | head -1 | awk \'{print $2}\''
+        cmd = 'contrail-version | grep contrail-config | head -1 | awk \'{print $2}\''
+        alt_cmd = 'contrail-version | grep contrail-nodemgr | head -1 | awk \'{print $2}\''
         tries = 50
         while not build_id and tries:
             try:
@@ -386,7 +361,10 @@ class ContrailTestInit:
                 time.sleep(1)
                 pass
             tries -= 1
-        return build_id.rstrip('\n').split('~')
+        build_sku=get_build_sku(self.openstack_ip,self.host_data[self.openstack_ip]['password'])
+        if (build_id.count('.') > 3):
+            build_id = build_id.rsplit('.', 2)[0]
+        return [build_id.rstrip('\n'), build_sku]
 
     def get_distro(self):
         if self.distro:
@@ -447,13 +425,11 @@ class ContrailTestInit:
 
 # end
 
-# accept sanity_params.ini, report_details.ini, result.xml
-
-
 def main(arg1):
-    obj = ContrailTestInit(arg1)
+    obj = ContrailReportInit(arg1)
     obj.setUp()
-    # obj.upload_to_webserver(arg2)
     obj.get_cores()
+
+# accept sanity_params.ini
 if __name__ == "__main__":
     main(sys.argv[1])

@@ -8,7 +8,7 @@ from netaddr import *
 import pprint
 from fabric.operations import get, put, sudo
 from fabric.api import run, env
-import logging as log
+import logging
 import threading
 from functools import wraps
 import errno
@@ -28,14 +28,15 @@ import functools
 import testtools
 from fabfile import *
 
-log.basicConfig(format='%(levelname)s: %(message)s', level=log.DEBUG)
+sku_dict={'2014.1':'icehouse','2014.2':'juno','2015.1':'kilo'}
+log = logging.getLogger('log01')
 
 # Code borrowed from http://wiki.python.org/moin/PythonDecoratorLibrary#Retry
 
 
 def retry(tries=5, delay=3):
     '''Retries a function or method until it returns True.
-    delay sets the initial delay in seconds. 
+    delay sets the initial delay in seconds.
     '''
 
     # Update test retry count.
@@ -110,7 +111,7 @@ def web_invoke(httplink):
         output = subprocess.check_output(cmd, shell=True)
     except Exception, e:
         output = None
-        print e
+        log.debug(e)
         return output
     return output
 # end web_invoke
@@ -121,10 +122,8 @@ def web_invoke(httplink):
 
 def get_string_match_count(string_list, string_where_to_search):
 
-    print ('insdie function get_string_match_count')
     list_of_string = []
     list_of_string = string_list
-    print string_where_to_search
     d = defaultdict(int)
     for i in list_of_string:
         d[i] += string_where_to_search.count(i)
@@ -183,8 +182,9 @@ def run_netconf_on_node(host_string, password, cmds, op_format='text'):
         else:
             cmd_str = 'fab -u %s -p "%s" -H %s -D -w --hide status,user,running config_via_netconf:\"%s\",\"%s\",\"%s\",\"%s\"' % (
                 username, password, host_ip, cmds, timeout, device, hostkey_verify)
-        print cmd_str
+        log.debug(cmd_str)
         output = run(cmd_str)
+        log.debug(output)
         if ((output) and ('Fatal error' in output)):
             tries -= 1
             time.sleep(5)
@@ -228,7 +228,7 @@ def run_fab_cmd_on_node(host_string, password, cmd, as_sudo=False, timeout=120, 
     else:
         cmd_str += 'command:\"%s\"' % (cmd)
     # Sometimes, during bootup, there could be some intermittent conn. issue
-    print cmd_str
+    log.debug(cmd_str)
     tries = 1
     output = None
     while tries > 0:
@@ -272,6 +272,7 @@ def fab_check_ssh(host_string, password):
         username, password, host_ip)
     log.debug(cmd_str)
     output = run(cmd_str)
+    log.debug(output)
     if 'True' in output:
         return True
     return False
@@ -280,7 +281,7 @@ def fab_check_ssh(host_string, password):
 
 def retry_for_value(tries=5, delay=3):
     '''Retries a function or method until it returns True.
-        delay sets the initial delay in seconds. 
+        delay sets the initial delay in seconds.
     '''
     tries = tries * 1.0
     tries = math.floor(tries)
@@ -375,10 +376,10 @@ def get_random_string(size=8, chars=string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
 
 
-def get_random_name(prefix=None):
+def get_random_name(prefix=None, constant_prefix='ctest'):
     if not prefix:
         prefix = 'random'
-    return prefix + '-' + get_random_string()
+    return constant_prefix + '-' + prefix + '-' + get_random_string()
 
 
 def gen_str_with_spl_char(size, char_set=None):
@@ -796,7 +797,7 @@ def skip_because(*args, **kwargs):
                     raise testtools.TestCase.skipException(msg)
 
             if 'ha_setup' in kwargs:
-                if ((not self.inputs.ha_setup) and (kwargs["ha_setup"] == 'False')):
+                if ((not self.inputs.ha_setup) and (kwargs["ha_setup"] == False)):
                     skip = True
                     msg = "Skipped as not supported in non-HA setup"
                     raise testtools.TestCase.skipException(msg)
@@ -810,3 +811,23 @@ def skip_because(*args, **kwargs):
             return f(self, *func_args, **func_kwargs)
         return wrapper
     return decorator
+
+def get_build_sku(openstack_node_ip, openstack_node_password='c0ntrail123', user='root'):
+    build_sku = get_os_env("SKU")
+    if build_sku is not None:
+        return str(build_sku).lower()
+    else:
+        host_str='%s@%s' % (user, openstack_node_ip)
+        pswd=openstack_node_password
+        cmd = 'nova-manage version'
+        env.host_string=openstack_node_ip
+        tries = 10
+        while not build_sku and tries:
+            try:
+                output = run_fab_cmd_on_node(host_str, pswd, cmd, timeout=10, as_sudo=True)
+                build_sku = sku_dict[re.findall("[0-9]{4}.[0-9]+",output)[0]]
+            except NetworkError, e:
+                time.sleep(1)
+                pass
+            tries -= 1
+        return build_sku

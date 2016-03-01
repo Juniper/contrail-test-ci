@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
+
+
+function die
+{
+    local message=$1
+    [ -z "$message" ] && message="Died"
+    echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${FUNCNAME[1]}: $message." >&2
+    exit 1
+}
+
 function usage {
   echo "Usage: $0 [OPTION]..."
   echo "Run Contrail test suite"
   echo ""
-  echo "  -U, --upload             Upload test logs"
   echo "  -t, --parallel           Run testr in parallel"
-  echo "  -C, --config             Config file location"
   echo "  -h, --help               Print this usage message"
-  echo "  -d, --debug              Run tests with testtools instead of testr. This allows you to use PDB"
-  echo "  -l, --logging            Enable logging"
-  echo "  -L, --logging-config     Logging config file location.  Default is logging.conf"
   echo "  -m, --send-mail          Send the report at the end"
   echo "  -c, --concurrency        Number of threads to be spawned"
   echo "  --contrail-fab-path      Contrail fab path, default to /opt/contrail/utils"
@@ -26,6 +31,8 @@ send_mail=0
 concurrency=""
 parallel=0
 contrail_fab_path='/opt/contrail/utils'
+test_tag='suite1'
+export SCRIPT_TS=${SCRIPT_TS:-$(date +"%Y_%m_%d_%H_%M_%S")}
 
 if ! options=$(getopt -o UthdC:lLmc: -l upload,parallel,help,debug,config:,logging,logging-config,send-mail,concurrency:,contrail-fab-path: -- "$@")
 then
@@ -54,8 +61,8 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-testargs+=" ci_sanity"
-export TAGS="ci_sanity"
+testargs+=" $test_tag"
+export TAGS="$test_tag"
 
 if [ -n "$config_file" ]; then
     config_file=`readlink -f "$config_file"`
@@ -93,6 +100,7 @@ function send_mail {
         python tools/send_mail.py $1 $2 $3
      fi
   fi
+  echo "Sent mail to interested parties"
 }
 
 function run_tests_serial {
@@ -115,7 +123,8 @@ function run_tests_serial {
 }
 
 function check_test_discovery {
-   bash -x tools/check_test_discovery.sh ||  exit 1
+   echo "Checking if test-discovery is fine"
+   bash -x tools/check_test_discovery.sh || die "Test discovery failed!"
 }
 
 function get_result_xml {
@@ -162,17 +171,19 @@ function run_tests {
 function generate_html {
   if [ -f $result_xml ]; then
        python tools/update_testsuite_properties.py $REPORT_DETAILS_FILE $result_xml
-      ant
+      ant || die "ant job failed!"
   elif [ -f $serial_result_xml ]; then
        python tools/update_testsuite_properties.py $REPORT_DETAILS_FILE $serial_result_xml
-      ant
+      ant || die "ant job failed!"
   fi
+  echo "Generated HTML reports in report/ folder : $REPORT_FILE"
 }
 
 function upload_to_web_server {
   if [ $upload -eq 1 ] ; then
        python tools/upload_to_webserver.py $TEST_CONFIG_FILE $REPORT_DETAILS_FILE $REPORT_FILE
   fi
+  echo "Uploaded reports"
 }
 
 function find_python_version {
@@ -265,7 +276,8 @@ run_tests
 run_tests_serial
 sleep 2
 
-python tools/report_gen.py $TEST_CONFIG_FILE $REPORT_DETAILS_FILE
+python tools/report_gen.py $TEST_CONFIG_FILE
+echo "Generated report_details* file: $REPORT_DETAILS_FILE"
 generate_html 
 upload_to_web_server
 sleep 2
