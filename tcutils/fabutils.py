@@ -182,61 +182,6 @@ def _escape_some_chars(text):
     return text
 # end escape_chars
 
-
-def run_fab_cmd_on_node(host_string, password, cmd, as_sudo=False, timeout=120, as_daemon=False, raw=False,
-                        warn_only=True):
-    """
-    Run fab command on a node. Usecase : as part of script running on cfgm node, can run a cmd on VM from compute node
-
-    If raw is True, will return the fab _AttributeString object itself without removing any unwanted output
-    """
-    cmd = _escape_some_chars(cmd)
-    (username, host_ip) = host_string.split('@')
-    copy_fabfile_to_agent()
-    cmd_args = '-u %s -p "%s" -H %s -D --hide status,user,running' % (username,
-                password, host_ip)
-    if warn_only:
-        cmd_args+= ' -w '
-    cmd_str = 'fab %s ' % (cmd_args)
-    if as_daemon:
-        cmd_str += '--no-pty '
-        cmd = 'nohup ' + cmd + ' &'
-    if username == 'root':
-        as_sudo = False
-    elif username == 'cirros':
-        cmd_str += ' -s "/bin/sh -l -c" '
-    if as_sudo:
-        cmd_str += 'sudo_command:\"%s\"' % (cmd)
-    else:
-        cmd_str += 'command:\"%s\"' % (cmd)
-    # Sometimes, during bootup, there could be some intermittent conn. issue
-    log.debug(cmd_str)
-    tries = 1
-    output = None
-    while tries > 0:
-        if timeout:
-            try:
-                output = sudo(cmd_str, timeout=timeout)
-                log.debug(output)
-            except CommandTimeout:
-                return output
-        else:
-            output = run(cmd_str)
-        if ((output) and ('Fatal error' in output)):
-            tries -= 1
-            time.sleep(5)
-        else:
-            break
-    # end while
-
-    if not raw:
-        real_output = remove_unwanted_output(output)
-    else:
-        real_output = output
-    return real_output
-# end run_fab_cmd_on_node
-
-
 def fab_put_file_to_vm(host_string, password, src, dest):
     copy_fabfile_to_agent()
     (username, host_ip) = host_string.split('@')

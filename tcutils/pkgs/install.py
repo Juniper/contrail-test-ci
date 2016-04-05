@@ -8,7 +8,7 @@ from time import sleep
 from fabric.api import run
 from fabric.operations import put
 from fabric.context_managers import settings, hide
-from tcutils.util import run_fab_cmd_on_node, fab_put_file_to_vm
+from tcutils.util import run_cmd, fab_put_file_to_vm
 
 LOG.basicConfig(format='%(levelname)s: %(message)s', level=LOG.DEBUG)
 
@@ -138,29 +138,24 @@ class Installer(BuildInstallBase):
 
     def execute_in_vm(self, cmd, host):
         output = None
-        with hide('everything'):
-            with settings(host_string='%s@%s' % (self.pkgsrc.user, host),
-                          password=self.pkgsrc.password, warn_only=True,
-                          abort_on_prompts=False):
-                retry = 6
-                while True:
-                    output = ''
-                    output = run_fab_cmd_on_node(
-                        host_string='%s@%s' % (
-                            self.pkgdst.user, self.pkgdst.host),
-                        password=self.pkgdst.password, cmd=cmd,
-                        as_sudo=True)
-                    if ("Connection timed out" in output or
-                            "Connection refused" in output) and retry:
-                        self.log.debug(
-                            "SSH timeout, sshd might not be up yet. will retry after 5 secs.")
-                        sleep(5)
-                        retry -= 1
-                        continue
-                    elif "Connection timed out" in output:
-                        raise SSHError(output)
-                    else:
-                        break
+        retry = 6
+        while True:
+            output = ''
+            output = run_cmd(
+                '%s@%s' % (self.pkgdst.user, self.pkgdst.host),
+                cmd, self.pkgdst.password, '%s@%s' % (self.pkgsrc.user, host),
+                self.pkgsrc.password, with_sudo=True)
+            if ("Connection timed out" in output or
+                 "Connection refused" in output) and retry:
+                self.log.debug(
+                    "SSH timeout, sshd might not be up yet. will retry after 5 secs.")
+                sleep(5)
+                retry -= 1
+                continue
+            elif "Connection timed out" in output:
+                raise SSHError(output)
+            else:
+                break
         self.log.debug(output)
         return output
 
