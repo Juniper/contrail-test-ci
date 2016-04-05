@@ -1026,7 +1026,7 @@ class VMFixture(fixtures.Fixture):
             vm_host_string = '%s@%s' % (self.vm_username, self.local_ip)
             if af is None:
                 cmd = """python -c 'import socket;socket.getaddrinfo("%s", None, socket.AF_INET6)'""" % ip
-                output = run_cmd_through_node(
+                output = run_cmd(
                     vm_host_string, cmd, gateway_password=host['password'],
                     gateway='%s@%s' % (host['username'], self.vm_node_ip),
                     with_sudo=True
@@ -1039,7 +1039,7 @@ class VMFixture(fixtures.Fixture):
                 util, str(size), str(count), other_opt, ip
             )
 
-            output = run_cmd_through_node(
+            output = run_cmd(
                 vm_host_string, cmd, gateway_password=host['password'],
                 gateway='%s@%s' % (host['username'], self.vm_node_ip),
                 with_sudo=True
@@ -1714,21 +1714,14 @@ class VMFixture(fixtures.Fixture):
         timeout = math.floor(40 * float(delay_factor))
 
         try:
-            self.orch.put_key_file_to_host(self.vm_node_ip)
-            with hide('everything'):
-                with settings(host_string='%s@%s' % (
-                              host['username'], self.vm_node_ip),
-                              password=host['password'],
-                              warn_only=True, abort_on_prompts=False):
-                    self.get_rsa_to_vm()
-                    i = 'timeout %d scp -o StrictHostKeyChecking=no -i id_rsa %s %s@[%s]:' % (
-                        timeout, file, dest_vm_username, vm_ip)
-                    cmd_outputs = self.run_cmd_on_vm(
-                        cmds=[i], timeout=timeout + 10)
-                    self.logger.debug(cmd_outputs)
+            i = 'timeout %d scp -o StrictHostKeyChecking=no %s %s@[%s]:' % (
+                timeout, file, dest_vm_username, vm_ip)
+            cmd_outputs = self.run_cmd_on_vm(
+                cmds=[i], timeout=timeout + 10)
+            self.logger.debug(cmd_outputs)
         except Exception, e:
             self.logger.exception(
-                'Exception occured while trying to scp the file ')
+                'Exception occured while trying to scp the file\n%s' % e)
     # end scp_file_to_vm
 
     def put_pub_key_to_vm(self):
@@ -1887,7 +1880,7 @@ class VMFixture(fixtures.Fixture):
             for cmd in cmdList:
                 self.logger.debug('Running Cmd on %s: %s' % (
                     self.vm_node_ip, cmd))
-                output = run_cmd_through_node(
+                output = run_cmd(
                     vm_host_string, cmd, gateway_password=host['password'],
                     gateway='%s@%s' % (host['username'], self.vm_node_ip),
                     with_sudo=as_sudo, timeout=timeout, as_daemon=as_daemon,
@@ -2196,13 +2189,13 @@ class VMFixture(fixtures.Fixture):
         try:
             vm_host_string = '%s@%s'%(self.vm_username, self.local_ip)
             cmd = 'echo %s >& index.html'%(content or self.vm_name)
-            output = run_cmd_through_node(
+            output = run_cmd(
                 vm_host_string, cmd, gateway_password=host['password'],
                 gateway='%s@%s' % (host['username'], self.vm_node_ip),
                 with_sudo=True
             )
             cmd = 'python -m SimpleHTTPServer %d &> /dev/null' % listen_port
-            output = run_cmd_through_node(
+            output = run_cmd(
                 vm_host_string, cmd, gateway_password=host['password'],
                 gateway='%s@%s' % (host['username'], self.vm_node_ip),
                 with_sudo=True, as_daemon=True

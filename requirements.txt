@@ -17,3 +17,5 @@ linecache2
 eventlet
 nose
 tabulate
+fabric
+netaddr
