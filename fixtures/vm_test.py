@@ -1026,7 +1026,7 @@ class VMFixture(fixtures.Fixture):
             vm_host_string = '%s@%s' % (self.vm_username, self.local_ip)
             if af is None:
                 cmd = """python -c 'import socket;socket.getaddrinfo("%s", None, socket.AF_INET6)'""" % ip
-                output = run_cmd_through_node(
+                output = run_cmd(
                     vm_host_string, cmd, gateway_password=host['password'],
                     gateway='%s@%s' % (host['username'], self.vm_node_ip),
                     with_sudo=True
@@ -1039,7 +1039,7 @@ class VMFixture(fixtures.Fixture):
                 util, str(size), str(count), other_opt, ip
             )
 
-            output = run_cmd_through_node(
+            output = run_cmd(
                 vm_host_string, cmd, gateway_password=host['password'],
                 gateway='%s@%s' % (host['username'], self.vm_node_ip),
                 with_sudo=True
@@ -1880,7 +1880,7 @@ class VMFixture(fixtures.Fixture):
             for cmd in cmdList:
                 self.logger.debug('Running Cmd on %s: %s' % (
                     self.vm_node_ip, cmd))
-                output = run_cmd_through_node(
+                output = run_cmd(
                     vm_host_string, cmd, gateway_password=host['password'],
                     gateway='%s@%s' % (host['username'], self.vm_node_ip),
                     with_sudo=as_sudo, timeout=timeout, as_daemon=as_daemon,
@@ -2189,13 +2189,13 @@ class VMFixture(fixtures.Fixture):
         try:
             vm_host_string = '%s@%s'%(self.vm_username, self.local_ip)
             cmd = 'echo %s >& index.html'%(content or self.vm_name)
-            output = run_cmd_through_node(
+            output = run_cmd(
                 vm_host_string, cmd, gateway_password=host['password'],
                 gateway='%s@%s' % (host['username'], self.vm_node_ip),
                 with_sudo=True
             )
             cmd = 'python -m SimpleHTTPServer %d &> /dev/null' % listen_port
-            output = run_cmd_through_node(
+            output = run_cmd(
                 vm_host_string, cmd, gateway_password=host['password'],
                 gateway='%s@%s' % (host['username'], self.vm_node_ip),
                 with_sudo=True, as_daemon=True
