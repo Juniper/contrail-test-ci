@@ -11,6 +11,7 @@ pyvirtualdisplay
 selenium
 unittest2
 xmltodict
+paramiko==1.15.2
 junos-eznc==1.2.2
 pyvmomi==5.5.0
 linecache2
