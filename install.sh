@@ -11,6 +11,7 @@ BASE_DIR=`dirname $(readlink -f $0)`
 PACKAGES_REQUIRED_UBUNTU="python-pip ant python-novaclient python-neutronclient python-cinderclient \
     python-contrail python-glanceclient python-heatclient python-ceilometerclient python-setuptools contrail-utils \
     patch git"
+PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD="$PACKAGES_REQUIRED_UBUNTU python-dev libxslt1-dev libz-dev libyaml-dev sshpass"
 
 usage () {
     cat <<EOF
@@ -49,6 +50,7 @@ function distro {
     if have_command apt-get; then
         DISTRO=ubuntu
         PACKAGES_REQUIRED=$PACKAGES_REQUIRED_UBUNTU
+        PACKAGES_REQUIRED_DOCKER_BUILD=$PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD
 #    elif have_command rpm; then
 #        DISTRO=redhat
     else
@@ -256,7 +258,7 @@ RUN wget $CONTRAIL_INSTALL_PACKAGE_URL -O /contrail-install-packages.deb && \
     dpkg -i /contrail-install-packages.deb && \
     rm -f /contrail-install-packages.deb && \
     cd /opt/contrail/contrail_packages/ && ./setup.sh && \
-    apt-get install -y $PACKAGES_REQUIRED  sshpass && \
+    apt-get install -y $PACKAGES_REQUIRED_DOCKER_BUILD && \
                     rm -fr /opt/contrail/* ; apt-get -y autoremove && apt-get -y clean;
 EOF
         elif [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ ^ssh[s]*:// ]]; then
@@ -270,7 +272,7 @@ RUN apt-get install -y sshpass && \
     dpkg -i /contrail-install-packages.deb && \
     rm -f /contrail-install-packages.deb && \
     cd /opt/contrail/contrail_packages/ && ./setup.sh && \
-    apt-get install -y $PACKAGES_REQUIRED  sshpass && \
+    apt-get install -y $PACKAGES_REQUIRED_DOCKER_BUILD && \
                     rm -fr /opt/contrail/* && apt-get -y autoremove && apt-get -y clean
 EOF
         else
@@ -580,7 +582,7 @@ Usage: $0 install [OPTIONS] (contrail-test|contrail-test-ci)
   --test-ref REF                Contrail-test git reference - commit id, branch, tag, Default: master
   --fab-repo FAB_REPO           Contrail-fabric-utils git repo
   --fab-ref FAB_REF             Contrail-fabric-utils git reference (commit id, branch, or tag), Default: master
-  --ci-repo CI_REPO	            Contrail-test-ci git repo, Default: github.com/juniper/contrail-test.git
+  --ci-repo CI_REPO                 Contrail-test-ci git repo, Default: github.com/juniper/contrail-test.git
   --ci-ref CI_REF               Contrail-test-ci reference (commit id, branch, or tag), Default: master
   --test-artifact ARTIFACT      Contrail test tar file - this tar file will be used instead of git source in case provided
   --ci-artifact CI_ARTICACT     Contrail test ci tar file
@@ -598,14 +600,21 @@ Usage: $0 install [OPTIONS] (contrail-test|contrail-test-ci)
 
  Example:
 
+  # Install contrail-test on a node which doesnt have contrail-install-packages setup (-u is required in this case)
+
   $ $0 install --test-repo https://github.com/hkumarmk/contrail-test --test-ref working
-        --ci-repo https://\$GITUSER:\$GITPASS@github.com/juniper/contrail-test-ci -e /tmp/export2
+        --ci-repo https://\$GITUSER:\$GITPASS@github.com/juniper/contrail-test-ci
         -u http://nodei16/contrail-install-packages_2.21-105~juno_all.deb contrail-test
 
+  # Install contrail-test-ci
   $ export SSHUSER=user1 SSHPASS=password
   $ $0 install --test-repo https://github.com/hkumarmk/contrail-test --test-ref working
-     --ci-repo https://\$GITUSER:\$GITPASS@github.com/juniper/contrail-test-ci -e /tmp/export2
+     --ci-repo https://\$GITUSER:\$GITPASS@github.com/juniper/contrail-test-ci
      -u ssh://nodei16/var/cache/artifacts/contrail-install-packages_2.21-105~juno_all.deb contrail-test-ci
+
+  # Install contrail-test under custom install directory and the machine already have contrail-install-packages setup.
+
+  $ $0 install -i /root/contrail-test contrail-test
 
 EOF
     }
