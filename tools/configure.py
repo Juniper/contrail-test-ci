@@ -6,7 +6,12 @@ import json
 import os
 from fabric.api import env, run, local, lcd
 from fabric.context_managers import settings, hide
+import logging as std_logging
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
+from common import log_orig as logging
 
+std_logging.getLogger('paramiko.transport').setLevel(std_logging.WARN)
+LOG = logging.getLogger('test_env_setup')
 
 def get_address_family():
     address_family = os.getenv('AF', 'dual')
@@ -101,8 +106,11 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
                 continue
         host_ip = host_string.split('@')[1]
         with settings(host_string = host_string), hide('everything'):
-            host_name = run("hostname")
-
+            try:
+                host_name = run("hostname")
+            except:
+                LOG.logger.warn('Unable to login to %s'%host_ip)
+                continue
         host_dict = {}
 
         host_dict['ip'] = host_ip
@@ -371,6 +379,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     config.set('auth','AUTHN_SERVER', auth_server_ip)
     config.set('auth','AUTHN_PORT', auth_server_port)
     config.set('auth','AUTHN_URL', '/v2.0/tokens')
+    config.set('auth','insecure', 'True')
 
     with open(vnc_api_ini,'w') as f:
         config.write(f)

@@ -767,7 +767,7 @@ class ContrailTestInit(object):
 
     def verify_control_connection(self, connections):
         discovery = connections.ds_verification_obj
-        return discovery.verify_bgp_connection()
+        return discovery._verify_bgp_connection()
     # end verify_control_connection
 
     def build_compute_to_control_xmpp_connection_dict(self, connections):

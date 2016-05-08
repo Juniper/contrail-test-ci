@@ -297,7 +297,7 @@ class NovaHelper():
         else:
             public_arg = "--visibility public"
 
-        cmd = '(glance --os-username %s --os-password %s \
+        cmd = '(glance --insecure --os-username %s --os-password %s \
                 --os-tenant-name %s --os-auth-url %s \
                 --os-region-name %s image-create --name "%s" \
                 %s %s --file %s)' % (self.username,
