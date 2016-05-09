@@ -18,7 +18,8 @@ class SvcTemplateFixture(fixtures.Fixture):
         self.domain_fq_name = [self.domain_name]
         self.st_fq_name = [self.domain_name, self.st_name]
         self.image_name = svc_img_name
-        self.nova_h.get_image(self.image_name)
+        if self.image_name:
+            self.nova_h.get_image(self.image_name)
         self.svc_type = svc_type
         self.if_list = if_list
         self.svc_mode = svc_mode
