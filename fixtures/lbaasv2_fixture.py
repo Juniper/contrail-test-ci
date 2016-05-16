@@ -120,6 +120,9 @@ class LBBaseFixture(vnc_api_test.VncLibFixture):
         self.logger.info('Disassoc VIP %s with FIP %s'%(self.vip_ip,
                                                         self.fip_ip))
 
+    def apply_sg_to_vip_vmi(self, sg_list):
+        self.network_h.apply_sg_to_port(self.vip_port_id, sg_list)
+
     def _populate_vars(self):
         self.si_uuid = None
         self.label = None
@@ -938,7 +941,7 @@ class LBaasV2Fixture(LBBaseFixture):
 
     def _verify_haproxy_configs(self):
         retval = False
-        conf_filename = '/var/lib/contrail/loadbalancer/%s/haproxy.conf'%self.lb_uuid
+        conf_filename = '/var/lib/contrail/loadbalancer/haproxy/%s/haproxy.conf'%self.lb_uuid
         host = self.get_active_vrouter()
         username = self.inputs.host_data[host]['username']
         password = self.inputs.host_data[host]['password']

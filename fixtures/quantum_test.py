@@ -612,6 +612,12 @@ class QuantumHelper():
         return port_rsp
     # end update_port
 
+    def apply_sg_to_port(self, port_id, sg_list):
+        port_dict = {}
+        port_dict['security_groups'] = sg_list
+        port_resp = self.update_port(port_id, port_dict)
+        return port_resp
+
     def show_quota(self, tenant_id):
         quota_rsp = None
         try:
