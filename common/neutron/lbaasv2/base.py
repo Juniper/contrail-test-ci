@@ -2,6 +2,7 @@ import test_v1
 from lbaasv2_fixture import LBaasV2Fixture
 from tcutils.util import *
 from common.neutron.base import BaseNeutronTest
+from security_group import SecurityGroupFixture, get_secgrp_id_from_name
 
 class BaseLBaaSTest(BaseNeutronTest, test_v1.BaseTestCase_v1):
 
@@ -22,6 +23,30 @@ class BaseLBaaSTest(BaseNeutronTest, test_v1.BaseTestCase_v1):
             return (False, 'Skipping Test. LBaasV2 is supported only on liberty and up')
         return (True, None)
 
+    def start_simpleHTTPserver(self, servers):
+        output = ''
+        for server in servers:
+            cmd1 = 'hostname > index.html'
+            cmd2 = 'python -m SimpleHTTPServer 80 &> /tmp/http.log'
+            run_cmd_through_node(host_string='%s@%s'%(server.vm_username,
+                                                      server.local_ip),
+                                 password=server.vm_password, cmd=cmd1,
+                                 gateway='@'.join([self.inputs.username,
+                                                   server.vm_node_ip]),
+                                 gateway_password=self.inputs.password,
+                                 cd='/tmp')
+            try:
+                run_cmd_through_node(host_string = '%s@%s'%(server.vm_username,
+                                                            server.local_ip),
+                                     password=server.vm_password, cmd=cmd2,
+                                     gateway='@'.join([self.inputs.username,
+                                                   server.vm_node_ip]),
+                                     gateway_password=self.inputs.password,
+                                     with_sudo=True, timeout=1, cd='/tmp')
+            except CommandTimeout:
+                pass
+        return
+
     def create_vn_and_its_vms(self, no_of_vm=1):
         '''
         Functions to create a VN and multiple VMs for this VN
@@ -35,10 +60,46 @@ class BaseLBaaSTest(BaseNeutronTest, test_v1.BaseTestCase_v1):
             vm_fix_list.append(vm_fix)
         for vm in vm_fix_list:
             assert vm.wait_till_vm_is_up()
-            vm.start_webserver(listen_port=80)
+        self.start_simpleHTTPserver(vm_fix_list)
         return (vn_fixture, vm_fix_list)
 
     # end  create_vn_and_its_vms
+
+    def create_sg(self):
+        '''
+	Function to create security group to allow only TCP from any source to any destination on any ports
+        '''
+        self.sg_allow_tcp = 'sec_group_allow_tcp' + '_' + get_random_name()
+        rule = [{'direction': '<>',
+                'protocol': 'tcp',
+                 'dst_addresses': [{'subnet': {'ip_prefix': '0.0.0.0', 'ip_prefix_len': 0}}],
+                 'dst_ports': [{'start_port': 0, 'end_port': -1}],
+                 'src_ports': [{'start_port': 0, 'end_port': -1}],
+                 'src_addresses': [{'security_group': 'local'}],
+                 },
+                {'direction': '<>',
+                 'protocol': 'tcp',
+                 'src_addresses': [{'subnet': {'ip_prefix': '0.0.0.0', 'ip_prefix_len': 0}}],
+                 'src_ports': [{'start_port': 0, 'end_port': -1}],
+                 'dst_ports': [{'start_port': 0, 'end_port': -1}],
+                 'dst_addresses': [{'security_group': 'local'}],
+                 }]
+        secgrp_fixture = self.useFixture(SecurityGroupFixture(self.inputs,
+                                                              self.connections, self.inputs.domain_name, self.inputs.project_name,
+                                                              secgrp_name='vip_sg', secgrp_entries=rule,option='neutron'))
+        result, msg = secgrp_fixture.verify_on_setup()
+        assert result, msg
+        return secgrp_fixture
+    # end create_sg
+
+    def get_default_sg(self):
+	'''
+	Function to get the default security group refs
+	'''
+        return SecurityGroupFixture(self.inputs,
+                                    self.connections, self.inputs.domain_name, self.inputs.project_name,
+                                    secgrp_name='default',option='neutron')
+    # end get_default_sg
 
     def create_lbaas(self, lb_name, network_id,
                         cleanup=True,
@@ -72,10 +133,7 @@ class BaseLBaaSTest(BaseNeutronTest, test_v1.BaseTestCase_v1):
         Function to verify the Load balance method, by sending HTTP Traffic
         '''
 
-        assert client_fix.ping_with_certainty(vip_ip)
-
-        for server in servers_fix:
-            server.start_webserver(listen_port=80)
+        self.start_simpleHTTPserver(servers_fix)
 
         #Do wget on the VIP ip from the client, Lets do it 3 times
         lb_response1 = set([])
