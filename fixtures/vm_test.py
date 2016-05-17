@@ -1015,9 +1015,11 @@ class VMFixture(fixtures.Fixture):
 
     def ping_to_ip(self, ip, return_output=False, other_opt='', size='56', count='5', timewait='1'):
         """Ping from a VM to an IP specified.
-
         This method logs into the VM from the host machine using ssh and runs ping test to an IP.
         """
+        if self.vm_username == None:
+            (self.vm_username, self.vm_password) = self.orch.get_image_account(
+            self.image_name)	
         host = self.inputs.host_data[self.vm_node_ip]
         output = ''
         fab_connections.clear()
