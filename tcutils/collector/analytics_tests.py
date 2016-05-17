@@ -3682,7 +3682,7 @@ class AnalyticsVerification(fixtures.Fixture):
         port_dict = {
                      'collector':'8086',
                      'disco':'5998',
-                     'cassandra':'9160',
+                     'cassandra':'9042',
                     }
         module_connection_dict = {'contrail-collector':[
                                                     'collector',\
