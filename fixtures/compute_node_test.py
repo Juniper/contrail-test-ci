@@ -303,11 +303,11 @@ class ComputeNodeFixture(fixtures.Fixture):
             proto = flow_data['proto']
             vrf = flow_data['vrf']
             self.logger.info('Get count of flows in node %s' % (self.ip))
-            cmd_1 = 'flow -l | grep %s -A1 | grep %s -A1 | grep \"%s (%s\" -A1 | grep Action | wc -l' % (
+            cmd_1 = 'flow -l | grep %s -A2 | grep %s -A2 | grep \"%s (%s\" -A2 | grep Action | wc -l' % (
                 src_ip, dst_ip, proto, vrf)
-            cmd_2 = 'flow -l |grep %s -A1| grep %s -A1 |grep \"%s (%s\" -A1 |grep Action |grep -v FlowLim| wc -l' % (
+            cmd_2 = 'flow -l |grep %s -A2| grep %s -A2 |grep \"%s (%s\" -A2 |grep Action |grep -v FlowLim| wc -l' % (
                 src_ip, dst_ip, proto, vrf)
-            cmd_3 = 'flow -l |grep %s -A1| grep %s -A1 |grep \"%s (%s\" -A1 |grep Action |grep FlowLim| wc -l' % (
+            cmd_3 = 'flow -l |grep %s -A2| grep %s -A2 |grep \"%s (%s\" -A2 |grep Action |grep FlowLim| wc -l' % (
                 src_ip, dst_ip, proto, vrf)
             flow_count['all'] += int(self.execute_cmd(cmd_1))
             self.logger.debug('Command issued: %s, all flows: %s' %(cmd_1, flow_count['all']))
