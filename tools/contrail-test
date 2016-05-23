@@ -25,115 +25,102 @@ Usage:
 """
 
 import os
+import re
 import sys
 import argparse
-
-from fabric.api import lcd, local, settings, hide
+from testtools.testsuite import iterate_tests
+from fabric.api import lcd, local, settings
+try:
+   from unittest2 import TestLoader, TextTestRunner
+except:
+   from unittest import TestLoader, TextTestRunner
 
 FEATURE_ROOTS = ('scripts', 'serial_scripts')
-NON_FEATURE_DIRS = ('serial_scripts', 'ubuntu_repo', 'tcutils')
 
 def parse_args():
     parser = argparse.ArgumentParser()
     defaults = {
     }
     parser.set_defaults(**defaults)
-    parser.add_argument("operation", help="Operation to be performed [list | run]")
-    parser.add_argument("-t", "--testroot", help="contrail-test root directory")
-    parser.add_argument("-p", "--testmodulepath", help="Directory path of the specific test module")
-    parser.add_argument("-f", "--testfeatures", nargs='+', help="List of test features")
-    parser.add_argument("-T", "--tests", nargs='+', help="List of tests to execute")
+    parser.add_argument("--op", required=True, help="Operation to be performed [list | run | doc]")
+    parser.add_argument("--test-dir", help="contrail-test root directory",
+                        default=os.path.join(os.path.dirname(__file__), os.pardir))
+    parser.add_argument("--features", nargs='+', help="List of test features")
+    parser.add_argument("--tests", nargs='+', help="List of tests to execute")
+    parser.add_argument("--tag", help="testcases matching specific tag")
 
     return parser.parse_args(sys.argv[1:])
 
-
 class ContrailTest(object):
     def __init__(self, cmd_args):
-        self.operation = cmd_args.operation
-        self.testmodulepath = cmd_args.testmodulepath
-        self.testfeatures = cmd_args.testfeatures
-        self.tests = cmd_args.tests
-
-        self.cwd = os.getcwd()
-        self.testroot = self.cwd.strip(os.path.basename(self.cwd))
+        self.operation = cmd_args.op
+        self.testroot = cmd_args.test_dir
+        self.features = cmd_args.features or []
+        self.tag = cmd_args.tag
+        self.tests = cmd_args.tests or []
         self.python_paths = [self.testroot,
-                        '%sfixtures/' % self.testroot,
-                        '%sscripts/' % self.testroot,
-                        '%sserial_scripts/' % self.testroot,
-                        '%stcutils/pkgs/Traffic/' % self.testroot,
-                        '%stcutils/traffic_utils/' % self.testroot]
-        self.discover_args = args = "-t %s " % self.testroot
+                        '%s/fixtures/' % self.testroot,
+                        '%s/scripts/' % self.testroot,
+                        '%s/serial_scripts/' % self.testroot]
+        for path in self.python_paths:
+            sys.path.insert(0, os.path.realpath(path))
+            os.environ["PYTHONPATH"] = os.environ.get("PYTHONPATH",'./')+':'+path
+        if self.tag:
+            os.environ["TAGS"] = self.tag
+        self.testcases = self.get_all_tests()
 
-    def _print(self, output):
-        print "\n".join(output)
+        for feature in self.features:
+            for featureroot in FEATURE_ROOTS:
+                self.tests.append('.'.join([featureroot, feature]))
+        if self.tests:
+            self.testcases = self.filter_testcases()
+
+    def filter_testcases(self):
+        filtered_tc = list()
+        for testcase in self.testcases:
+            for test in self.tests:
+                if re.match('%s[\.\[]'%test, testcase.id()) or \
+                   test == testcase.id():
+                    filtered_tc.append(testcase)
+                    break
+        return filtered_tc
+
+    def get_all_tests(self):
+        tests = TestLoader().discover(self.testroot)
+        return [test for test in iterate_tests(tests)]
 
     def do(self):
         """Do tests listing or execution"""
         if self.operation == 'list':
-            self.list_any()
+            self.list_tests()
         elif self.operation == 'run':
-            self.run_any()
+            self.run_tests()
+        elif self.operation == 'doc':
+            self.get_doc()
 
-    def list_any(self):
+    def get_doc(self):
+        ''' Get description of testcases '''
+        for testcase in self.testcases:
+            print testcase._testMethodName, '\n', testcase._testMethodDoc
+
+    def list_tests(self):
         """Lists the test features and
            tests of a test feature or set of test modules."""
-        if self.testmodulepath:
-            self._print(self.list_tests())
-        elif self.testfeatures:
-            self.list_feature_tests()
-        else:
-            self.list_features()
+        for testcase in self.testcases:
+            print testcase.id()
 
-    def list_features(self):
-        """Lists the test features."""
-        features = []
-        for feature_root in FEATURE_ROOTS:
-            feature_list = [elem for elem in os.listdir('%s%s' %
-                            (self.testroot, feature_root))
-                            if os.path.isdir(self.testroot + feature_root +
-                                '/' + elem) and elem not in
-                                NON_FEATURE_DIRS]
-            features += list(set(feature_list) - set(features))
-        self._print(features)
-        return
-
-    def list_feature_tests(self):
-        """Lists the tests of a test feature."""
-        tests = []
-        for test_feature in self.testfeatures:
-            for feature_root in FEATURE_ROOTS:
-                feature_dir = "%s%s/%s" % (self.testroot, feature_root, test_feature)
-                if os.path.isdir(feature_dir):
-                    tests += self.discover(feature_dir)
-        self._print(tests)
-
-    def list_tests(self, sub_mod=None):
-        """Lists the tests of a test module."""
-        # List the tests in a specific test module
-        return self.discover(self.testmodulepath)
-
-    def discover(self, args):
-        """Discovers tests."""
-        args = self.discover_args + args
-        with settings(hide('everything'), warn_only=True):
-            env_vars = "PYTHONPATH=%s" % ":".join(self.python_paths)
-            tests = local("%s python -m testtools.run discover %s --list" %
-                          (env_vars, args), capture=True)
-        return tests.split('\n')
-
-    def run_any(self):
+    def run_tests(self):
         """Executes the set of tests."""
-        env_vars = "PYTHONPATH=%s" % ":".join(self.python_paths)
-        with lcd(self.testroot):
-            with settings(warn_only=True):
-                for test in self.tests:
-                    local("%s python -m testtools.run %s" % (env_vars, test))
-
+        with lcd(self.testroot), settings(warn_only=True):
+            for testcase in self.testcases:
+                if '[' in testcase.id():
+                    tc = re.match('(.*)\[', testcase.id()).group(1)
+                else:
+                    tc = testcase.id()
+                local("python -m testtools.run %s" % (tc))
 
 def main():
    ContrailTest(parse_args()).do()
 
-
 if __name__ == '__main__':
     sys.exit(main())
-
