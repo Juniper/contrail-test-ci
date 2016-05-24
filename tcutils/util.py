@@ -273,13 +273,10 @@ def run_cmd_through_node(host_string, cmd, password=None, gateway=None,
         tries = 1
         output = None
         while tries > 0:
-            if timeout:
-                try:
-                    output = _run(cmd, timeout=timeout)
-                except CommandTimeout:
-                    pass
-            else:
-                output = _run(cmd)
+            try:
+                output = _run(cmd, timeout=timeout, pty=not as_daemon)
+            except CommandTimeout:
+                pass
             if (output) and ('Fatal error' in output):
                 tries -= 1
                 time.sleep(5)
