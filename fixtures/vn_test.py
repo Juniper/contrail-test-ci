@@ -130,9 +130,9 @@ class VNFixture(fixtures.Fixture):
             self.fq_name = self.api_vn_obj.get_fq_name()
             ipam = self.api_vn_obj.get_network_ipam_refs()
             if ipam:
-                subnets = [x.subnet.ip_prefix+'/'+\
-                           str(x.subnet.ip_prefix_len)
-                           for x in ipam[0]['attr'].ipam_subnets]
+                subnets = ["%s/%s"%(x.get_subnet().get_ip_prefix(),
+                                    x.get_subnet().get_ip_prefix_len())
+                           for x in ipam[0]['attr'].get_ipam_subnets()]
                 self.vn_subnets = subnets
                 self._parse_subnets()
             else:

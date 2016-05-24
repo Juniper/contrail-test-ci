@@ -142,6 +142,9 @@ class OpenstackOrchestrator(ContrailApi):
    def get_vn_list(self, **kwargs):
        return super(OpenstackOrchestrator, self).get_vn_list(**kwargs)
 
+   def get_vn_obj_from_id(self, uuid):
+       return self.quantum_h.get_vn_obj_from_id(uuid)
+
    def get_policy(self, fq_name, option='orch', **kwargs):
        if option == 'contrail':
            return super(OpenstackOrchestrator, self).get_policy(fq_name=fq_name, **kwargs)

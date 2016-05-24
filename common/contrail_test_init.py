@@ -10,7 +10,7 @@ import ast
 from netaddr import *
 
 import fixtures
-from fabric.api import env, run, local
+from fabric.api import env, run, local, sudo
 from fabric.operations import get, put, reboot
 from fabric.context_managers import settings, hide
 from fabric.exceptions import NetworkError
@@ -120,6 +120,11 @@ class TestInputs(object):
             'Basic',
             'stackRegion',
             os.getenv('OS_REGION_NAME', 'RegionOne'))
+        self.neutron_username = read_config_option(
+            self.config,
+            'Basic',
+            'neutron_username',
+            None)
 
         self.endpoint_type = read_config_option(
             self.config,
@@ -633,7 +638,7 @@ class TestInputs(object):
             with settings(
                 host_string='%s@%s' % (username, server_ip), password=password,
                     warn_only=True, abort_on_prompts=False):
-                output = run('%s' % (issue_cmd), pty=pty)
+                output = sudo('%s' % (issue_cmd), pty=pty)
                 return output
     # end run_cmd_on_server
 

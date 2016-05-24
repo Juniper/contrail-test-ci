@@ -30,7 +30,6 @@ class SvcTemplateFixture(fixtures.Fixture):
         self.logger = inputs.logger
         self.inputs = inputs
         self.connections = connections
-        self.nova_h = connections.nova_h
         if self.inputs.verify_thru_gui():
             self.browser = connections.browser
             self.browser_openstack = connections.browser_openstack

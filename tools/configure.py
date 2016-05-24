@@ -309,6 +309,8 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     agent_port = env.test.get('agent_port', os.getenv('AGENT_PORT') or '')
     user_isolation = env.test.get('user_isolation',
                                   bool(os.getenv('USER_ISOLATION') or True))
+    neutron_username = env.test.get('neutron_username',
+                                  os.getenv('NEUTRON_USERNAME') or None)
 
     use_devicemanager_for_md5 = getattr(testbed, 'use_devicemanager_for_md5', False)
     orch = getattr(env, 'orchestrator', 'openstack')
@@ -410,6 +412,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
          '__config_api_ip__'       : config_api_ip,
          '__analytics_api_ip__'    : analytics_api_ip,
          '__user_isolation__'      : user_isolation,
+         '__neutron_username__'    : neutron_username,
         })
 
     ini_file = test_dir + '/' + 'sanity_params.ini'
