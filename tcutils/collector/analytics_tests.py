@@ -2351,7 +2351,10 @@ class AnalyticsVerification(fixtures.Fixture):
                         if retry > MAX_RETRY_COUNT:
                             self.logger.error("No alarms have been generated")
                             return False
-                    hostname = socket.gethostbyaddr(service_ip)[0].split('.')[0]
+                    host_type = self.inputs.get_os_version(service_ip)
+                    hostname = socket.gethostbyaddr(service_ip)[0]
+                    if host_type.find('centos') == -1 or host_type.find('redhat') == -1:
+                        hostname = hostname.split('.')[0]
                     role_alarms = self.get_alarms(all_alarms, hostname, role, alarm_t, service=service)
                     if not role_alarms:
                         retry = retry + 1
