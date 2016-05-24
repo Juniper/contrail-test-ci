@@ -690,6 +690,10 @@ class VMFixture(fixtures.Fixture):
                 self.agent_label[vn_fq_name] = self.get_tap_intf_of_vmi(vmi)['label']
         return self.agent_label
 
+    def clear_local_ip(self):
+        self._local_ip = None
+        self.local_ips = dict()
+
     def get_local_ips(self):
         if not getattr(self, 'local_ips', None):
             for (vn_fq_name, vmi) in self.get_vmi_ids().iteritems():
