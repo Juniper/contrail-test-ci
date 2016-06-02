@@ -204,6 +204,7 @@ class VMFixture(fixtures.Fixture):
                 self.vm_obj = objs[0]
                 self.vm_objs = objs
                 self.vm_id = self.vm_objs[0].id
+                (os.environ.get('HYPERVISOR_TYPE') == 'docker') and self.wait_till_vm_status(status='ACTIVE')
                 self.vm_obj.get()
                 self.zone = getattr(self.vm_obj,'OS-EXT-AZ:availability_zone', None)
                 self.image_name = self.orch.get_image_name_for_zone(
