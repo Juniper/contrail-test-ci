@@ -364,13 +364,17 @@ def sshable(host_string, password=None, gateway=None, gateway_password=None):
     with hide('everything'), settings(host_string=gateway,
                                       password=gateway_password,
                                       warn_only=True):
-        if run('(echo > /dev/tcp/%s/%s)' % (host_string_split[1], host_port)).succeeded:
-            time.sleep(5)
+        try:
             if run('(echo > /dev/tcp/%s/%s)' % (host_string_split[1], host_port)).succeeded:
-                return True
-            else:
-                log.error("Error on ssh to %s" % host_string)
-                return False
+                time.sleep(5)
+                if run('(echo > /dev/tcp/%s/%s)' % (host_string_split[1], host_port)).succeeded:
+                    return True
+                else:
+                    log.error("Error on ssh to %s" % host_string)
+                    return False
+        except CommandTimeout, e:
+            log.debug('Could not ssh to %s ' % (host_string))
+            return False
 
 
 def fab_check_ssh(host_string, password):
