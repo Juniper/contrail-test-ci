@@ -1843,6 +1843,60 @@ class VMFixture(fixtures.Fixture):
                  VM from the agent')
     # end get_rsa_to_vm
 
+    def get_config_via_netconf(self, cmd, timeout=10, device='junos', hostkey_verify="False", format='text'):
+        ''' Get the config on the netconf-enabled VM using netconf'''
+        from ncclient import manager
+        if hostkey_verify == 'False':
+            hostkey_verify = bool(False)
+        timeout = int(timeout)
+        if device == 'junos':
+            device_params = {'name': 'junos'}
+        ip = self.vm_ips[0]
+        try:
+            conn = manager.connect(host=str(ip), username=self.vm_username, password=self.vm_password,
+                                   timeout=timeout, device_params=device_params, hostkey_verify=hostkey_verify)
+            get_config = conn.command(command=str(cmd), format=format)
+            if format == 'json':
+                op = json.loads(get_config._NCElement__root.text)
+            else:
+                op = get_config.tostring
+            print op
+            return op
+        except Exception, e:
+            return "False"
+    # end get_config_via_netconf
+
+    def set_config_via_netconf(self, cmd_string, timeout=10, device='junos', hostkey_verify="False"):
+        ''' Set config on the netconf-enabled VM using netconf'''
+        from ncclient import manager
+        if hostkey_verify == 'False':
+            hostkey_verify = bool(False)
+        timeout = int(timeout)
+        if device == 'junos':
+            device_params = {'name': 'junos'}
+        cmdList = cmd_string.split(';')
+        ip = self.vm_ips[0]
+        try:
+            conn = manager.connect(host=str(ip), username=self.vm_username, password=self.vm_password,
+                                   timeout=timeout, device_params=device_params, hostkey_verify=hostkey_verify)
+            conn.lock()
+            send_config = conn.load_configuration(action='set', config=cmdList)
+            print send_config.tostring
+            check_config = conn.validate()
+            print check_config.tostring
+            compare_config = conn.compare_configuration()
+            print compare_config.tostring
+            conn.commit()
+            if 'family mpls mode packet-based' in cmd_string:
+                conn.reboot()
+            conn.unlock()
+            conn.close_session()
+            print compare_config.tostring
+            return "True"
+        except Exception, e:
+            return "False"
+    # end set_config_via_netconf
+
     def config_via_netconf(self, cmds=None):
         '''run cmds on VM
         '''
@@ -1868,7 +1922,7 @@ class VMFixture(fixtures.Fixture):
             self.logger.exception(
                 'Exception occured while trying ping from VM')
             return False
-   # end get_config_via_netconf
+   # end config_via_netconf
 
     def run_cmd_on_vm(self, cmds=[], as_sudo=False, timeout=30,
         as_daemon=False, raw=False, warn_only=True):
