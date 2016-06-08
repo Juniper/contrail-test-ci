@@ -371,13 +371,12 @@ class SvcInstanceFixture(fixtures.Fixture):
             # only enable forwarding in the image and start dhcp via script
             st_refs = self.cs_si['service-instance']['service_template_refs']
             st = self.vnc_lib.service_template_read(fq_name=st_refs[0]['to'])
-            svc_img_name = st.service_template_properties.image_name
-            if svc_img_name == 'ubuntu-in-net' and self.inputs.get_af() == 'v6':
-                for vm in self.svm_list:
-                    vm.vm_username = 'ubuntu'
-                    vm.vm_password = 'ubuntu'
-                    vm.run_cmd_on_vm(['dhclient -6 -pf /var/run/dhclient6.eth0.pid -lf /var/lib/dhcp/dhclient6.eth0.leases',
-                                      'dhclient -6 -pf /var/run/dhclient6.eth1.pid -lf /var/lib/dhcp/dhclient6.eth1.leases'], as_sudo=True)
+            for vm in self.svm_list:
+                 (vm.vm_username, vm.vm_password) = vm.orch.get_image_account(st.service_template_properties.image_name)
+                 assert vm.wait_till_vm_is_up()
+                 if self.inputs.get_af() == 'v6':
+                     vm.run_cmd_on_vm(['dhclient -6 -pf /var/run/dhclient6.eth0.pid -lf /var/lib/dhcp/dhclient6.eth0.leases',
+                                       'dhclient -6 -pf /var/run/dhclient6.eth1.pid -lf /var/lib/dhcp/dhclient6.eth1.leases'], as_sudo=True)
         else:
             # Need verifications to be run without asserting so that they can
             # retried to wait for instances to come up
