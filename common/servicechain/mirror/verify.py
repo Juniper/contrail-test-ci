@@ -105,8 +105,16 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         compute_1 = host_list[0]
         compute_2 = host_list[0]
         if len(host_list) > 1:
-            compute_1 = host_list[0]
-            compute_2 = host_list[1]
+            if self.inputs.vcenter_compute is not None:
+                for i in range (len(self.inputs.esxi_vm_ips)):
+                    vcenter_vm_ip = str(self.inputs.esxi_vm_ips[i]['contrail_vm'].split('@')[1])
+                    if vcenter_vm_ip in self.inputs.compute_ips:
+                        compute_1 = host_list[0]
+                        compute_2 = self.inputs.host_data[self.inputs.vcenter_compute]['name']
+                        break
+            else:
+                compute_1 = host_list[0]
+                compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
             self.vn1_fixture, self.vm1_name, node_name=compute_1, image_name=image_name)
         self.vm2_fixture = self.config_vm(
@@ -259,8 +267,16 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         compute_1 = host_list[0]
         compute_2 = host_list[0]
         if len(host_list) > 1:
-            compute_1 = host_list[0]
-            compute_2 = host_list[1]
+            if self.inputs.vcenter_compute is not None:
+                for i in range (len(self.inputs.esxi_vm_ips)):
+                    vcenter_vm_ip = str(self.inputs.esxi_vm_ips[i]['contrail_vm'].split('@')[1])
+                    if vcenter_vm_ip in self.inputs.compute_ips:
+                        compute_1 = host_list[0]
+                        compute_2 = self.inputs.host_data[self.inputs.vcenter_compute]['name']
+                        break
+            else:
+                compute_1 = host_list[0]
+                compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
             self.vn1_fixture, self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
@@ -399,8 +415,16 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         compute_1 = host_list[0]
         compute_2 = host_list[0]
         if len(host_list) > 1:
-            compute_1 = host_list[0]
-            compute_2 = host_list[1]
+            if self.inputs.vcenter_compute is not None:
+                for i in range (len(self.inputs.esxi_vm_ips)):
+                    vcenter_vm_ip = str(self.inputs.esxi_vm_ips[i]['contrail_vm'].split('@')[1])
+                    if vcenter_vm_ip in self.inputs.compute_ips:
+                        compute_1 = host_list[0]
+                        compute_2 = self.inputs.host_data[self.inputs.vcenter_compute]['name']
+                        break
+            else:
+                compute_1 = host_list[0]
+                compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
             self.vn1_fixture, self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
@@ -852,8 +876,16 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         compute_1 = host_list[0]
         compute_2 = host_list[0]
         if len(host_list) > 1:
-            compute_1 = host_list[0]
-            compute_2 = host_list[1]
+            if self.inputs.vcenter_compute is not None:
+                for i in range (len(self.inputs.esxi_vm_ips)):
+                    vcenter_vm_ip = str(self.inputs.esxi_vm_ips[i]['contrail_vm'].split('@')[1])
+                    if vcenter_vm_ip in self.inputs.compute_ips:
+                        compute_1 = host_list[0]
+                        compute_2 = self.inputs.host_data[self.inputs.vcenter_compute]['name']
+                        break
+            else:
+                compute_1 = host_list[0]
+                compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
             self.vn1_fixture, self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
@@ -985,8 +1017,16 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         compute_1 = host_list[0]
         compute_2 = host_list[0]
         if len(host_list) > 1:
-            compute_1 = host_list[0]
-            compute_2 = host_list[1]
+            if self.inputs.vcenter_compute is not None:
+                for i in range (len(self.inputs.esxi_vm_ips)):
+                    vcenter_vm_ip = str(self.inputs.esxi_vm_ips[i]['contrail_vm'].split('@')[1])
+                    if vcenter_vm_ip in self.inputs.compute_ips:
+                        compute_1 = host_list[0]
+                        compute_2 = self.inputs.host_data[self.inputs.vcenter_compute]['name']
+                        break
+            else:
+                compute_1 = host_list[0]
+                compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
             self.vn1_fixture, self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
