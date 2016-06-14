@@ -244,9 +244,11 @@ def run_cmd_through_node(host_string, cmd, password=None, gateway=None,
         as_daemon: run in background
         raw: If raw is True, will return the fab _AttributeString object itself without removing any unwanted output
     """
+    pty = True
     fab_connections.clear()
     if as_daemon:
         cmd = 'nohup ' + cmd + ' &'
+        pty = False
 
     if cd:
         cmd = 'cd %s; %s' % (cd, cmd)
@@ -291,11 +293,11 @@ def run_cmd_through_node(host_string, cmd, password=None, gateway=None,
         while tries > 0:
             if timeout:
                 try:
-                    output = _run(cmd, timeout=timeout)
+                    output = _run(cmd, timeout=timeout, pty=pty)
                 except CommandTimeout:
                     pass
             else:
-                output = _run(cmd)
+                output = _run(cmd, pty=pty)
             if (output) and ('Fatal error' in output):
                 tries -= 1
                 time.sleep(5)
