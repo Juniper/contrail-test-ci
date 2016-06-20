@@ -4079,8 +4079,8 @@ class AnalyticsVerification(fixtures.Fixture):
         except Exception as e:
             return None        
     
-    def get_table(self):    
-        stat_table = 'StatTable.DatabasePurgeInfo.stats'
+    def get_table(self,table):    
+        stat_table = table
         ret = self.get_all_tables(uve='tables')
         found = False
         tables = self.get_table_schema(ret)
@@ -4088,17 +4088,57 @@ class AnalyticsVerification(fixtures.Fixture):
             for k, v in elem.items():
                 if stat_table in k:
                     schema = self.get_schema_from_table(v)
-                    schema.remove('CLASS(T=)')
                     names = self.get_names_from_table(v)
                     found = True 
                     break
             if found:
                	return stat_table
         return None
+
+    def query_table(self,table,**kwargs):
+        '''
+        usage:
+        start_time = self.getstarttime() 
+        query_table(<table-name>[AnalyticsCpuState.cpu_info,DatabasePurgeInfo.stats etc],
+              start_time=start_time,
+              end_time = 'now',
+              select_fields = '"SUM(msg_info.messages)" msg_info.type ',
+              where= <where clause>,
+              sort_fields = <sort fields>,
+              limit = <limit> )
+        ''' 
+        if 'start_time' not in kwargs:
+            self.logger.error("Start time for query missing.Query cannot be made")
+            return None 
+        if 'end_time' not in kwargs:
+            self.logger.error("End time for query missing.Query cannot be made")
+            return None
+ 
+        lstart_time = kwargs.get('start_time')
+        lend_time = kwargs.get('end_time','now')
+        where = kwargs('where',None)
+        sf = kwargs('select',None)
+        sort_fields = kwargs('sort_fields')
+        sort = kwargs('sort',None)
+        limit = kwargs('limit',None)
+        filter_terms = kwargs('filter',None)
+
+        return self.ops_inspect[self.inputs.collector_ips[0]].post_query(
+                                              table,
+                                              start_time=lstart_time,
+                                              end_time=lend_time,
+                                              select_fields=sf,
+                                              where=where,
+                                              sort_fields=sort_fields,
+                                              sort=sort,
+                                              limit=limit,
+                                              filter=filter_terms)
+                                  
+
            
     #@retry(delay=5, tries=10)
     def verify_purge_info_in_database_uve(self,purge_id,start_time):
-        stat_table = self.get_table()
+        stat_table = self.get_table('StatTable.DatabasePurgeInfo.stats')
         if stat_table:
             start_time = start_time
             end_time = 'now'
