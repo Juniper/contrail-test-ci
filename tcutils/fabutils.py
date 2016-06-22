@@ -107,7 +107,34 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
                 break
         # end while
 
-        return output
+        if raw:
+            real_output = output
+        else:
+            real_output = remove_unwanted_output(output)
+
+        return real_output
+
+
+def remove_unwanted_output(text):
+    """ Fab output usually has content like [ x.x.x.x ] out : <content>
+    Args:
+        text: Text to be parsed
+    """
+    if not text:
+        return None
+
+    return_list = text.split('\n')
+
+    return_list1 = []
+    for line in return_list:
+        line_split = line.split(' out: ')
+        if len(line_split) == 2:
+            return_list1.append(line_split[1])
+        else:
+            if ' out:' not in line:
+                return_list1.append(line)
+    real_output = '\n'.join(return_list1)
+    return real_output
 
 
 def remote_copy(src, dest, src_password=None, src_gw=None, src_gw_password=None,
