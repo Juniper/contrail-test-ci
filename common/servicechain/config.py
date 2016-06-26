@@ -42,9 +42,6 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
             if_list = [['management', False, False],
                        ['left', False, False], ['right', False, False]]
 
-        for entry in static_route:
-            if entry != 'None':
-                if_list[static_route.index(entry)][2] = True
 #        svc_img_name = "vsrx"
         if left_vn and right_vn:
             # In network/routed mode
@@ -67,6 +64,10 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
         else:
             # Transperent/bridge mode
             svc_img_name = svc_img_name
+
+        for entry in static_route:
+            if entry != 'None':
+                if_list[static_route.index(entry)][2] = True
         # create service template
         st_fixture = self.useFixture(SvcTemplateFixture(
             connections=self.connections, inputs=self.inputs, domain_name=domain,
@@ -117,16 +118,6 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
                     si_fixture.add_port_tuple(svm_fixture, pt_name)
             si_fixture.verify_on_setup()
             si_fixtures.append(si_fixture)
-
-        # Hack for ipv6, In ubuntu when two intfs have both dhcp6 and
-        # forwarding enabled, only one gets ip. So work-around is to
-        # only enable forwarding in the image and start dhcp via script
-        if svc_img_name == 'ubuntu-in-net' and self.inputs.get_af() == 'v6':
-            for vm in si_fixture.svm_list:
-                vm.vm_username = 'ubuntu'
-                vm.vm_password = 'ubuntu'
-                vm.run_cmd_on_vm(['dhclient -6 -pf /var/run/dhclient6.eth0.pid -lf /var/lib/dhcp/dhclient6.eth0.leases',
-                                  'dhclient -6 -pf /var/run/dhclient6.eth1.pid -lf /var/lib/dhcp/dhclient6.eth1.leases'], as_sudo=True)
 
         return (st_fixture, si_fixtures)
 

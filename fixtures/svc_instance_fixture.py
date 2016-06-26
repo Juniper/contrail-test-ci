@@ -394,21 +394,13 @@ class SvcInstanceFixture(fixtures.Fixture):
             ).get_version()
             if self.st_version == 2:
                 self.report(self.verify_pt())
-            # Hack for ipv6, In ubuntu when two intfs have both dhcp6 and
-            # forwarding enabled, only one gets ip. So work-around is to
-            # only enable forwarding in the image and start dhcp via script
-            st_refs = self.cs_si['service-instance']['service_template_refs']
-            st = self.vnc_lib.service_template_read(fq_name=st_refs[0]['to'])
-            st_mode = st.get_service_template_properties().get_service_mode()
+            st_mode = self.svc_template.get_service_template_properties().get_service_mode()
             for vm in self.svm_list:
-                (vm.vm_username, vm.vm_password) = vm.orch.get_image_account(st.service_template_properties.image_name)
+                (vm.vm_username, vm.vm_password) = vm.orch.get_image_account(self.svc_template.get_service_template_properties().image_name)
                 if st_mode == 'transparent':
                     assert vm.wait_till_vm_is_active()
                 else:
                     assert vm.wait_till_vm_is_up()
-                if self.inputs.get_af() == 'v6':
-                    vm.run_cmd_on_vm(['dhclient -6 -pf /var/run/dhclient6.eth0.pid -lf /var/lib/dhcp/dhclient6.eth0.leases',
-                                      'dhclient -6 -pf /var/run/dhclient6.eth1.pid -lf /var/lib/dhcp/dhclient6.eth1.leases'], as_sudo=True)
         else:
             # Need verifications to be run without asserting so that they can
             # retried to wait for instances to come up
