@@ -5429,4 +5429,866 @@ class WebuiTest:
             else:
                 return False
 
+    def edit_option(self, option, category):
+        result = True
+        self.option = option
+        try:
+            if self.option == "Networks":
+                self.logger.info("Go to Configure->Networking->Networks page")
+                if not self.ui.click_configure_networks():
+                    result = result and False
+            rows = self.ui.get_rows(canvas=True)
+
+            if rows:
+                self.logger.info("%d rows are there under %s " % (len(rows),self.option))
+                self.logger.info("%s are available to edit. Editing the %s" % (option,option))
+                index = len(rows)
+                if len(rows) :
+                    self.ui.click_icon_cog(rows[index-1], self.browser, category)
+                    time.sleep(5)
+            else:
+                self.logger.error("No %s are available to edit" % (option))
+                self.ui.screenshot(option)
+            self.ui.wait_till_ajax_done(self.browser)
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_without_change(self):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                try:
+                    self.logger.info("Click on save button")
+                    self.ui.click_element('configure-networkbtn1', 'id')
+                except WebDriverException:
+                    self.logger.error("Error while trying to save %s" %(option))
+                    result = result and False
+                    self.ui.screenshot(option)
+                    self.ui.click_on_cancel_if_failure('cancelBtn')
+                    raise
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_disp_name_change(self, vn_name):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('display_name', 'id')
+                net_name = self.ui.find_element('span12', 'class')
+                net_name.clear()
+                net_name.send_keys(vn_name)
+                self.ui.click_element('configure-networkbtn1', 'id')
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def verify_vn_after_edit_api(self, option, value, uuid, var_list):
+        result = True
+        flag = 1
+        point = 0
+        vn_list_api = self.ui.get_vn_detail_api(uuid)
+        if vn_list_api:
+            if option == 'UUID':
+                api_fq = vn_list_api['virtual-network']['uuid']
+                if api_fq == value:
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'Display Name':
+                api_fq = vn_list_api['virtual-network']['display_name']
+                if api_fq == value :
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'Policy':
+                api_fq = vn_list_api['virtual-network']['network_policy_refs']
+                if len(api_fq):
+                    for i in api_fq:
+                        regexp = ".*\:.*\:(.*)"
+                        pol_out = re.search(regexp,self.pol_name)
+                        policy_name = pol_out.group(1)
+                        out = re.search(policy_name,str(i))
+                        if out:
+                            flag = 1
+                            break
+                        else:
+                            flag = 0
+                else:
+                    flag = 0
+            elif re.search('Subnet',option):
+                api_fq = vn_list_api['virtual-network']['network_ipam_refs']
+                regexp = var_list[0] + ".*uuid"
+                api_out = re.search(regexp,str(api_fq))
+                if api_out:
+                    out = option.strip('Subnet')
+                    reg_mask = re.search(var_list[0]  + ".*ip_prefix_len.*" + var_list[1],api_out.group())
+                    reg_alloc_pool = re.search("allocation_pools.*start.*" + var_list[2] + ".*end.*" + var_list[3],api_out.group())
+                    if out == "":
+                        reg_dns = re.search("dns_server_address.*" + var_list[4],api_out.group())
+                        reg_dhcp = re.search("enable_dhcp.*True",api_out.group())
+                        reg_gate = re.search("default_gateway.*" + var_list[5],api_out.group())
+                    else:
+                        if re.search('ga',out):
+                            reg_gate = re.search("default_gateway.*" + var_list[6],api_out.group())
+                            reg_dns = re.search("dns_server_address.*" + var_list[4],api_out.group())
+                            reg_dhcp = re.search("enable_dhcp.*True",api_out.group())
+                        elif re.search('dn',out):
+                            reg_dns = re.search("dhcp_option_value.*" + var_list[6] + ".*dhcp_option_name.*6",api_out.group())
+                            reg_dhcp = re.search("enable_dhcp.*True",api_out.group())
+                            reg_gate = re.search("default_gateway.*" + var_list[5],api_out.group())
+                        else:
+                            reg_dns = re.search("dns_server_address.*" + var_list[4],api_out.group())
+                            reg_dhcp = re.search("enable_dhcp.*False",api_out.group())
+                            reg_gate = re.search("default_gateway.*" + var_list[5],api_out.group())
+                    if reg_mask and reg_dns and reg_dhcp and reg_gate and reg_alloc_pool:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif option == 'Host Route':
+                api_fq = vn_list_api['virtual-network']['network_ipam_refs']
+                api_host_out = re.search("host_routes.*prefix.*" + var_list[0] + ".*next_hop.*" + var_list[1],str(api_fq))
+                if api_host_out:
+                   flag = 1
+                else:
+                   flag = 0
+            elif option == 'Adv Option':
+                allow_rpf_api = vn_list_api['virtual-network']['virtual_network_properties']
+                allow_rpf_api_out = re.search("'allow_transit': True",str(allow_rpf_api))
+                hash_api = vn_list_api['virtual-network']['ecmp_hashing_include_fields']['hashing_configured']
+                share_api = vn_list_api['virtual-network']['is_shared']
+                prov_props_seg = vn_list_api['virtual-network']['provider_properties']['segmentation_id']
+                prov_props_phy = vn_list_api['virtual-network']['provider_properties']['physical_network']
+                ext_api = vn_list_api['virtual-network']['router_external']
+                flood_api = vn_list_api['virtual-network']['flood_unknown_unicast']
+                multi_pol_api = vn_list_api['virtual-network']['multi_policy_service_chains_enabled']
+                if allow_rpf_api_out and hash_api == True and share_api == True and str(prov_props_seg) == var_list[0] and str(prov_props_phy) == var_list[1] and ext_api == True and flood_api == True and multi_pol_api == True:
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'DNS':
+                api_dns = vn_list_api['virtual-network']['network_ipam_refs']
+                if api_dns:
+                    reg_dns = re.search("dhcp_option_value.*" + var_list[0] + ".*dhcp_option_name.*6",str(api_dns))
+                    if reg_dns:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif option == 'FIP':
+                api_fip = vn_list_api['virtual-network']['floating_ip_pools']
+                if api_fip:
+                    reg_fip = re.search(var_list[0],str(api_fip))
+                    if reg_fip:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif re.search('RT',option):
+                if option == 'RT':
+                    api_rt = vn_list_api['virtual-network']['route_target_list']
+                elif option == 'ERT':
+                    api_rt = vn_list_api['virtual-network']['export_route_target_list']
+                elif option == 'IRT':
+                    api_rt = vn_list_api['virtual-network']['import_route_target_list']
+                if api_rt:
+                    reg_rt_no = re.search(var_list[0] + "\:" + var_list[1],str(api_rt))
+                    reg_rt_ip = re.search(var_list[2] + "\:" + var_list[1],str(api_rt))
+                    if reg_rt_no or reg_rt_ip:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                     flag = 0
+        if flag:
+            self.logger.info("Verification of %s is successful through API server" %(option))
+        else:
+            self.logger.error("%s got changed in API after editing VN" % (value))
+            result = result and False
+        return result
+
+    def verify_vn_after_edit_ops(self, option, value, uuid, var_list):
+        result = True
+        flag = 1
+        vn_list_ops = self.ui.get_vn_detail_ops("default-domain:", self.project_name_input, value)
+        if vn_list_ops:
+            if option == 'UUID':
+                ops_uuid = vn_list_ops['ContrailConfig']['elements']['uuid']
+                uuid_new = "\"" + uuid + "\""
+                if ops_uuid == uuid_new:
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'Display Name':
+                 ops_fq = vn_list_ops['ContrailConfig']['elements']['display_name']
+                 disp_name = "\"" + value + "\""
+                 if ops_fq == disp_name:
+                     flag = 1
+                 else:
+                     flag = 0
+            elif option == 'Policy':
+                ops_policy = vn_list_ops['ContrailConfig']['elements']['network_policy_refs']
+                if len(ops_policy):
+                    regexp = ".*\:.*\:(.*)"
+                    pol_out = re.search(regexp,self.pol_name)
+                    policy_name = pol_out.group(1)
+                    out = re.search(policy_name,str(ops_policy))
+                    if out:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif re.search('Subnet',option) :
+                ops_subnet = vn_list_ops['ContrailConfig']['elements']['network_ipam_refs']
+                ops_sub_out = re.search(var_list[0] + ".*uuid",str(ops_subnet))
+                if ops_sub_out:
+                    reg_mask = re.search(var_list[0],ops_sub_out.group())
+                    reg_alloc_pool = re.search("allocation_pools.*start.*" + var_list[2] + ".*end.*" + var_list[3],ops_sub_out.group())
+                    out = option.strip('Subnet')
+                    if out == "":
+                        reg_dns = re.search("dns_server_address.*" + var_list[3],ops_sub_out.group())
+                        reg_dhcp = re.search("enable_dhcp.*true",ops_sub_out.group())
+                        reg_gate = re.search("default_gateway.*" + var_list[4],ops_sub_out.group())
+                    else:
+                        if re.search('ga',out):
+                            reg_gate = re.search("default_gateway.*" + var_list[6],ops_sub_out.group())
+                            reg_dns = re.search("dns_server_address.*" + var_list[3],ops_sub_out.group())
+                            reg_dhcp = re.search("enable_dhcp.*true",ops_sub_out.group())
+                        elif re.search('dn',out):
+                            reg_dns = re.search("dhcp_option_value.*" + var_list[6] + ".*dhcp_option_name.*6",ops_sub_out.group())
+                            reg_dhcp = re.search("enable_dhcp.*true",ops_sub_out.group())
+                            reg_gate = re.search("default_gateway.*" + var_list[4],ops_sub_out.group())
+                        else:
+                            reg_dhcp = re.search("enable_dhcp.*false",ops_sub_out.group())
+                            reg_dns = re.search("dns_server_address.*" + var_list[3],ops_sub_out.group())
+                            reg_gate = re.search("default_gateway.*" + var_list[3],ops_sub_out.group())
+                    if reg_mask and reg_dns and reg_dhcp and reg_gate and reg_alloc_pool:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif option == 'Host Route':
+                ops_host = vn_list_ops['ContrailConfig']['elements']['network_ipam_refs']
+                ops_host_out = re.search("host_routes.*prefix.*" + var_list[0] + ".*next_hop.*" + var_list[1],ops_host)
+                if ops_host_out:
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'Adv Option':
+                ops_multi_pol = vn_list_ops['ContrailConfig']['elements']['multi_policy_service_chains_enabled']
+                ops_allow_rpf = vn_list_ops['ContrailConfig']['elements']['virtual_network_properties']
+                ops_allow_rpf_out = re.search("\"allow_transit\"\: true\, \"rpf\": \"enable\"",str(ops_allow_rpf))
+                ops_hash = vn_list_ops['ContrailConfig']['elements']['ecmp_hashing_include_fields']
+                ops_hash_out = re.search("\"hashing_configured\"\: true",str(ops_hash))
+                ops_share = vn_list_ops['ContrailConfig']['elements']['is_shared']
+                ops_ext = vn_list_ops['ContrailConfig']['elements']['router_external']
+                ops_flood = vn_list_ops['ContrailConfig']['elements']['flood_unknown_unicast']
+                ops_static_route = vn_list_ops['ContrailConfig']['elements']['route_table_refs']
+                ops_static_route_out = re.search('default-route-table',str(ops_static_route))
+                ops_prov_props = vn_list_ops['ContrailConfig']['elements']['provider_properties']
+                ops_prov_seg_phy = re.search("\"segmentation_id\"\: " + int(var_list[0]) + ".*\"physical_network\"\: \""+ var_list[1],str(ops_prov_props))
+                if str(ops_multi_pol) == 'true' and ops_allow_rpf_out and ops_hash_out and str(ops_share) == 'true' and str(ops_ext) =='true' and str(ops_flood) == 'true' and ops_static_route_out and ops_prov_seg_phy:
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'DNS':
+                ops_dns = vn_list_ops['ContrailConfig']['elements']['network_ipam_refs']
+                if ops_dns:
+                    reg_dns = re.search("dhcp_option_value.*" + var_list[0] + ".*dhcp_option_name.*6",str(ops_dns))
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'FIP':
+                ops_fip = vn_list_ops['ContrailConfig']['elements']['floating_ip_pools']
+                if ops_fip:
+                    reg_fip =  re.search(var_list[0],str(ops_fip))
+                    if reg_fip:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif re.search('RT',option):
+                if option == 'RT':
+                    ops_rt = vn_list_ops['ContrailConfig']['elements']['route_target_list']
+                elif option  == 'ERT':
+                    ops_rt = vn_list_ops['ContrailConfig']['elements']['export_route_target_list']
+                elif option == 'IRT':
+                    ops_rt = vn_list_ops['ContrailConfig']['elements']['import_route_target_list']
+                if ops_rt:
+                    reg_rt_no = re.search(var_list[0] + "\:" + var_list[1],str(ops_rt))
+                    reg_rt_ip = re.search(var_list[2] + "\:" + var_list[1],str(ops_rt))
+                    if reg_rt_no or reg_rt_ip:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+        if flag:
+                self.logger.info("Verification of %s is successful through OPS server" % (option))
+        else:
+                self.logger.error("%s got changed in OPS after editing VN" % (value))
+                result = result and False
+        return result
+
+    def verify_vn_after_edit_ui(self, option, value, var_list):
+        result = True
+        try:
+            flag = 1
+            point = 0
+            if option == 'UUID':
+                uuid = self.ui.get_vn_display_name(option)
+                if uuid == value:
+                    self.logger.info("Verification of UUID is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for UUID")
+                    result = result and False
+            elif option == 'Display Name':
+                disp_name = self.ui.get_vn_display_name(option)
+                if disp_name == value:
+                    self.logger.info("Verification of display name is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for display name")
+                    result = result and False
+            elif option == 'Policy':
+                regexp = ".*\:.*\:(.*)"
+                pol_out = re.search(regexp,self.pol_name)
+                policy_name = pol_out.group(1)
+                out = re.search(policy_name,value)
+                if out:
+                    self.logger.info("Verification of policy is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for policy")
+                    result = result and False
+            elif re.search('Subnet',option):
+                regexp= var_list[0] + ".*)"
+                subnet_out = re.search(regexp,value)
+                if subnet_out:
+                    out = option.strip('Subnet')
+                    reg_mask = re.search(var_list[0]+ "\/" + var_list[1],subnet_out.group(1))
+                    reg_alloc_pool = re.search(var_list[2] + "-" + var_list[3],subnet_out.group(1))
+                    if out == "":
+                        reg_gateway = re.search(var_list[5],subnet_out.group(1))
+                        reg_dns = re.search("Enabled",subnet_out.group(1))
+                        reg_dhcp = re.search("Enabled",subnet_out.group(1))
+                    else:
+                        if re.search('ga',out):
+                            reg_gateway = re.search(var_list[6],subnet_out.group(1))
+                            reg_dns = re.search("Enabled",subnet_out.group(1))
+                            reg_dhcp = re.search("Enabled",subnet_out.group(1))
+                        elif re.search('dn',out):
+                            reg_dns = re.search("Disabled",subnet_out.group(1))
+                            reg_gateway = re.search(var_list[5],subnet_out.group(1))
+                            reg_dhcp = re.search("Enabled",subnet_out.group(1))
+                        else:
+                            reg_dhcp = re.search("Disabled",subnet_out.group(1))
+                            reg_gateway = re.search(var_list[5],subnet_out.group(1))
+                            reg_dns = re.search("Enabled",subnet_out.group(1))
+                    if reg_mask and reg_gateway and reg_dns and reg_dhcp and reg_alloc_pool:
+                        self.logger.info("Verification of subnet is successful in WebUI")
+                    else:
+                        self.logger.error("WebUI verification is failed for subnet")
+                        result = result and False
+                else:
+                    result = result and False
+            elif option == 'Host Route':
+                regexp = var_list[0] + ".*" + var_list[1]
+                reg_host = re.search(regexp,value)
+                if reg_host:
+                    self.logger.info("Verification of host route is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for host route")
+                    result = result and False
+            elif option == 'Adv Option':
+                reg_shared = re.search('Shared(.*)External',value)
+                reg_ext = re.search('External(.*)Attached Network',value)
+                reg_allow_trans = re.search('Allow Transit(.*)Reverse',value)
+                reg_reverse = re.search('Reverse Path Forwarding(.*)Flood',value)
+                reg_multi_chain = re.search('Multiple Service Chains(.*)Host',value)
+                reg_hash = re.search('Ecmp Hashing Fields(.*)Provider',value)
+                reg_prov = re.search('Provider Network(.*)Ext',value)
+                if str(reg_shared.group(1)).strip('-') == 'Enabled' and str(reg_ext.group(1)).strip('-') == 'Enabled' and str(reg_allow_trans.group(1)).strip('-') == 'Enabled' and str(reg_reverse.group(1)).strip('-') == 'Enabled' and str(reg_multi_chain.group(1)).strip('-') == 'Enabled' and str(reg_hash and reg_prov.group(1)).strip('-') == 'Physical Network: ' + var_list[1] + ' , VLAN: ' + var_list[0] :
+                    self.logger.info("Verification for Advanced option is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for advanced option")
+            elif option == 'DNS':
+                regexp_dns = re.search(var_list[0],value)
+                if regexp_dns:
+                    self.logger.info("Verification of dns is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for DNS")
+                    result = result and False
+            elif option == 'FIP':
+                regexp = self.project
+                regexp_fip = re.search(str(regexp),str(value))
+                if regexp_fip:
+                    self.logger.info("Verification of FIP is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for FIP")
+                    result = result and False
+            elif re.search('RT',option):
+                regexp_rt_no = re.search(var_list[0] + "\:" + var_list[1],str(value))
+                regexp_rt_ip = re.search(var_list[2] + "\:" + var_list[1],str(value))
+                if regexp_rt_no or regexp_rt_ip:
+                    self.logger.info("Verificatoin of RT is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for RT")
+                    result = result and False
+            return result
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def add_vn_with_policy(self):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('s2id_network_policy_refs_dropdown', 'id')
+                select = self.ui.find_element("//li[contains(@class,'select2-highlighted')]", 'xpath')
+                self.pol_name = select.text
+                select.click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def del_vn_with_policy(self):
+        result = True
+        option = "Networks"
+        try:
+            policy_ui = str(self.ui.get_vn_display_name('Policy'))
+            policy = self.pol_name.split(":")
+            out = re.search(policy[-1],policy_ui)
+            if out:
+                index = 1
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                del_row = self.ui.find_element('s2id_network_policy_refs_dropdown', 'id')
+                c = 0
+                if index > 0:
+                    for i in self.ui.find_element("//a[contains(@class,'select2-search-choice-close')]", 'xpath', elements=True):
+                        c = c+1
+                        if c == index:
+                            i.click()
+                            self.logger.info("Policy got removed successfully")
+                            self.ui.click_element('configure-networkbtn1', 'id')
+                            time.sleep(5)
+                else:
+                    self.logger.warn("There is no policy to edit")
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_with_subnet(self, category, subnet, dfrange, dfgate):
+        result = True
+        option = "Networks"
+        try:
+            self.ui.wait_till_ajax_done(self.browser)
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.wait_till_ajax_done(self.browser)
+                self.ui.click_element('ui-accordion-subnets-header-0', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                self.ui.find_element('icon-plus', 'class').click()
+                data = self.ui.find_element("//tr[contains(@class,'data-row')]", 'xpath', elements=True)
+                data_new = []
+                for i in data:
+                    if i == '':
+                        pass
+                    else:
+                        data_new.append(i)
+                data_len = len(data_new)
+                ipam = self.ui.find_element("//td[contains(@id,'user_created_ipam_fqn')]", 'xpath', elements=True)
+                cidr = self.ui.find_element("//input[contains(@name,'user_created_cidr')]", 'xpath', elements=True)
+                pool = self.ui.find_element("//textarea[contains(@name,'allocation_pools')]", 'xpath', elements=True)
+                if data_len> 3 :
+                    index = data_len-3
+                elif data_len<=1 or data_len <=3:
+                    index = data_len-1
+                else:
+                    index = 0
+                cidr[index].send_keys(subnet)
+                pool[index].send_keys(dfrange)
+                if category == 'Subnet':
+                    def_gate = self.ui.find_element("//input[contains(@name,'default_gateway')]", 'xpath', elements=True)
+                    def_gate[index].clear()
+                    def_gate[index].send_keys(dfgate)
+                elif category == 'Subnet-gate':
+                    gate = self.ui.find_element("//input[contains(@name,'user_created_enable_gateway')]", 'xpath', elements=True)
+                    gate[index].click()
+                elif category == 'Subnet-dns':
+                    dns = self.ui.find_element("//input[contains(@name,'user_created_enable_dns')]", 'xpath', elements=True)
+                    dns[index].click()
+                elif category == 'Subnet-dhcp':
+                    dhcp = self.ui.find_element("//input[contains(@name,'enable_dhcp')]", 'xpath', elements=True)
+                    dhcp[index].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def del_vn_with_subnet(self):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('ui-accordion-subnets-header-0', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                data = self.ui.find_element("//tr[contains(@class,'data-row')]", 'xpath', elements=True)
+                index = 0
+                act_cell = self.ui.find_element('action-cell', 'class')
+                minus = self.ui.find_element("//i[contains(@class,'icon-minus')]", 'xpath', elements=True)
+                minus[index].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_with_host_route(self, button, tc, hprefix, hnexthop):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('host_routes', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                if button == 'add':
+                    add_link = self.ui.find_element("//a[contains(@class,'editable-grid-add-link')]", 'xpath', elements=True)
+                    add_link[1].click()
+                    if tc == 'pos':
+                        prefix = self.browser.find_element_by_xpath("//input[contains(@name,'prefix')]")
+                        prefix.send_keys(hprefix)
+                        next_hop = self.browser.find_element_by_xpath("//input[contains(@name,'next_hop')]")
+                        next_hop.send_keys(hnexthop)
+                    else:
+                        prefix = self.browser.find_element_by_xpath("//input[contains(@name,'prefix')]")
+                        prefix.send_keys(hprefix)
+                        next_hop = self.browser.find_element_by_xpath("//input[contains(@name,'next_hop')]")
+                        next_hop.send_keys(hnexthop)
+                else:
+                    minus = self.ui.find_element("//i[contains(@class,'icon-minus')]", 'xpath', elements=True)
+                    index = len(minus)
+                    minus[index-1].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                if tc == 'neg':
+                    warn_button = self.browser.find_element_by_xpath("//span[contains(@data-bind,'hostRoutes')]")
+                    if warn_button.get_attribute('style') == "":
+                        self.ui.click_on_cancel_if_failure('cancelBtn')
+                        self.ui.wait_till_ajax_done(self.browser)
+                        return result
+                    else:
+                        result = result and False
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_with_adv_option(self, category, tc, pnet, vlan):
+        result = True
+        option = "Networks"
+        try:
+            self.ui.wait_till_ajax_done(self.browser)
+            if not self.ui.click_configure_networks():
+                result = result and False
+            if category == 1:
+                add = self.ui.find_element("//i[contains(@class,'icon-plus')]", 'xpath')
+                add.click()
+                time.sleep(3)
+                self.ui.find_element("//input[contains(@name,'display_name')]", 'xpath').send_keys('vn1')
+                self.ui.find_element('ui-accordion-subnets-header-0', 'id').click()
+                time.sleep(3)
+                self.ui.find_element("icon-plus", 'class').click()
+                self.ui.find_element("//input[contains(@name,'user_created_cidr')]", 'xpath').send_keys('10.10.10.0/24')
+                time.sleep(3)
+                save_btn= self.ui.find_element("configure-networkbtn1", 'id')
+                save_btn.click()
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('advanced_options', 'id')
+                check = self.ui.find_element("//input[contains(@name,'is_shared')]", 'xpath')
+                check.click()
+                ext = self.ui.find_element("//input[contains(@name,'router_external')]", 'xpath')
+                ext.click()
+                allow = self.ui.find_element("//input[contains(@name,'allow_transit')]", 'xpath')
+                allow.click()
+                flood = self.ui.find_element("//input[contains(@name,'flood_unknown_unicast')]", 'xpath')
+                flood.click()
+                multi_sc = self.ui.find_element("//input[contains(@name,'multi_policy_service_chains_enabled')]", 'xpath')
+                multi_sc.click()
+                hash_field = self.ui.find_element("//div[contains(@id,'s2id_ecmp_hashing_include_fields_dropdown')]", 'xpath')
+                hash_field.click()
+                route_table = self.ui.find_element("//li[contains(@class,'select2-highlighted')]", 'xpath')
+                route_table.click()
+                if tc == 'pos-phy':
+                    self.ui.click_element('s2id_route_table_refs_dropdown', 'id')
+                    time.sleep(3)
+                    route_table = self.ui.find_element("//li[contains(@class,'select2-highlighted')]", 'xpath')
+                    route_table.click()
+                    prov_net = self.ui.find_element("//input[contains(@name,'user_created_sriov_enabled')]", 'xpath')
+                    prov_net.click()
+                    phy_net = self.ui.find_element("//input[contains(@name,'physical_network')]", 'xpath')
+                    phy_net.send_keys(pnet)
+                    seg_id = self.ui.find_element("//input[contains(@name,'segmentation_id')]", 'xpath')
+                    seg_id.send_keys(vlan)
+                else:
+                    phy_net = self.ui.find_element("//input[contains(@name,'physical_network')]", 'xpath')
+                    phy_net.clear()
+                    phy_net.send_keys(pnet)
+                    seg_id = self.ui.find_element("//input[contains(@name,'segmentation_id')]", 'xpath')
+                    seg_id.clear()
+                    seg_id.send_keys(vlan)
+
+                self.ui.click_element('configure-networkbtn1', 'id')
+                if tc == 'neg-phy':
+                    warn_button = self.ui.find_element("//span[contains(@data-bind,'advanced')]", 'xpath')
+                    if warn_button.get_attribute('style') == "":
+                        self.ui.click_on_cancel_if_failure('cancelBtn')
+                        self.wait_till_ajax_done(self.browser)
+                        return result
+                    else:
+                        result = result and False
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_with_dns(self, button, tc, dns_ip):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('ui-accordion-dns_servers-header-0','id')
+                time.sleep(3)
+                if button == 'add':
+                    self.ui.click_element('user_created_dns_servers', 'id')
+                    text = self.ui.find_element("//input[contains(@name,'ip_address')]", 'xpath')
+                    if tc == 'pos':
+                        text.send_keys(dns_ip)
+                    else:
+                        text.send_keys(dns_ip)
+                else:
+                    minus = self.ui.find_element("//i[contains(@class,'icon-minus')]", 'xpath', elements=True)
+                    index = len(minus)
+                    minus[index-1].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                if tc == 'neg':
+                    warn_button = self.ui.find_element("//span[contains(@data-bind,'dnsServers')]", 'xpath')
+                    if warn_button.get_attribute('style') == "":
+                        self.ui.click_on_cancel_if_failure('cancelBtn')
+                        self.ui.wait_till_ajax_done(self.browser)
+                        return result
+                    else:
+                        result = result and False
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_with_fpool(self, button, fpool):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('fip_pool_accordian', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                if button == 'add':
+                    add_link = self.ui.find_element("//a[contains(@class,'editable-grid-add-link')]", 'xpath', elements=True)
+                    add_link[3].click()
+                    self.ui.wait_till_ajax_done(self.browser)
+                    pool = self.ui.find_element("//input[contains(@placeholder,'Enter Pool Name')]", 'xpath')
+                    pool.send_keys(fpool)
+                    self.ui.wait_till_ajax_done(self.browser)
+                    self.ui.click_element('s2id_projects_dropdown', 'id')
+                    select = self.ui.find_element("//li[contains(@class,'select2-highlighted')]", 'xpath')
+                    self.project = select.text
+                    select.click()
+                    choice = self.ui.find_element("//li[contains(@class,'select2-search-choice')]", 'xpath')
+                else:
+                    minus = self.ui.find_element("//i[contains(@class,'icon-minus')]", 'xpath', elements=True)
+                    index = len(minus)
+                    minus[index-1].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_with_route_target(self, button, tc, rt_type, asn_no_ip, target_no):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            time.sleep(10)
+            if self.edit_vn_result:
+                if rt_type == 'RT':
+                    route = self.ui.find_element('route_target_accordian', 'id')
+                    route.click()
+                    ind = 4
+                elif rt_type == 'ERT':
+                    route = self.ui.find_element('export_route_target_accordian', 'id')
+                    ind = 5
+                    route.click()
+                elif rt_type == 'IRT':
+                    if button == 'add':
+                        time.sleep(10)
+                        imp_route = self.ui.find_element('import_route_target_accordian', 'id')
+                        route = self.ui.find_element('ui-accordion-import_route_target_accordian-header-0', 'id')
+                        route.click()
+                        ind = 6
+                        route.click()
+                        time.sleep(5)
+                        rt = self.ui.find_element("//div[contains(@id,'import_route_target_vcfg')]", 'xpath')
+                        user_irt = self.ui.find_element("//div[contains(@id,'user_created_import_route_targets')]", 'xpath')
+                        user_irt.click()
+                        grid_table = self.ui.find_element('contrail-editable-grid-table','class')
+                self.ui.wait_till_ajax_done(self.browser)
+                if button == 'add':
+                    add_link = self.ui.find_element("//a[contains(@class,'editable-grid-add-link')]", 'xpath', elements=True)
+                    add_link[ind].click()
+                    self.ui.wait_till_ajax_done(self.browser)
+                    asn = self.ui.find_element("//input[contains(@name,'asn')]", 'xpath')
+                    asn.send_keys(asn_no_ip)
+                    target = self.ui.find_element("//input[contains(@name,'target')]", 'xpath')
+                    target.send_keys(target_no)
+                else:
+                    if rt_type == 'IRT':
+                        self.ui.click_element('import_route_target_accordian', 'id')
+                        time.sleep(5)
+                        irt = self.ui.find_element("//div[contains(@id,'import_route_target_vcfg')]", 'xpath', elements=True)
+                        user_irt = self.ui.find_element("//div[contains(@id,'user_created_import_route_targets')]", 'xpath', elements=True)
+                    minus = self.ui.find_element("//i[contains(@class,'icon-minus')]", 'xpath', elements=True)
+                    index = len(minus) - 1
+                    minus[index].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                time.sleep(10)
+                if tc == 'neg':
+                    if rt_type == 'RT':
+                        warn_button = self.ui.find_element("//span[contains(@data-bind,'route_target_vcfg')]", 'xpath')
+                    elif rt_type == 'ERT':
+                        warn_button = self.ui.find_element("//span[contains(@data-bind,'export_route_target_vcfg')]", 'xpath')
+                    elif rt_type == 'IRT':
+                        warn_button = self.ui.find_element("//span[contains(@data-bind,'import_route_target_vcfg')]", 'xpath')
+                    if warn_button.get_attribute('style') == "":
+                        self.ui.click_on_cancel_if_failure('cancelBtn')
+                        self.ui.wait_till_ajax_done(self.browser)
+                        return result
+                    else:
+                        result = result and False
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
 
