@@ -11,6 +11,7 @@ from tcutils.util import *
 from vnc_api.vnc_api import *
 from contrail_fixtures import *
 from webui.webui_common import WebuiCommon
+#from webui.webui_topoloy import *
 import re
 
 
@@ -24,16 +25,17 @@ class WebuiTest:
         self.logger = self.inputs.logger
         self.browser = self.connections.browser
         self.browser_openstack = self.connections.browser_openstack
-        self.project_name_input = self.inputs.project_name
         self.delay = 20
         self.frequency = 3
+	self.project_name_input = self.inputs.project_name
         self.logger = inputs.logger
         self.ui = WebuiCommon(self)
+        #self.topo = sdn_webui_config(self)
         self.dash = "-" * 60
         self.vnc_lib = connections.vnc_lib_fixture
         self.log_path = None
         if not WebuiTest.os_release:
-            WebuiTest.os_release = self.inputs.get_build_sku()
+            WebuiTest.os_release = self.inputs.get_openstack_release()
     # end __init__
 
     def _click_if_element_found(self, element_name, elements_list):
@@ -113,11 +115,7 @@ class WebuiTest:
             device_owner=None):
         result = True
         try:
-            if not self.ui.click_on_create(
-                    'Port',
-                    'ports',
-                    port_name,
-                    prj_name=self.project_name_input):
+            if not self.ui.click_on_create('Port', 'ports', port_name):
                 result = result and False
             self.ui.click_on_select2_arrow('s2id_virtualNetworkName_dropdown')
             self.ui.select_from_dropdown(net)
@@ -184,11 +182,12 @@ class WebuiTest:
             snat=True):
         result = True
         try:
+            project_name = 'admin'
             if not self.ui.click_on_create(
                     'Routers',
                     'routers',
                     router_name,
-                    prj_name=self.project_name_input):
+                    prj_name=project_name):
                 result = result and False
             self.ui.send_keys(router_name, 'name', 'name')
             self.ui.click_on_select2_arrow('s2id_enable_dropdown')
@@ -264,15 +263,16 @@ class WebuiTest:
             ipam_list=None,
             ttl=None,
             dns_forwarder=None):
+        project_name = 'admin'
         if ipam_list:
-            ipam_list = [self.project_name_input + ':' + ipam for ipam in ipam_list]
+            ipam_list = [project_name + ':' + ipam for ipam in ipam_list]
         result = True
         try:
             if not self.ui.click_on_create(
                     'DNS Server',
                     'dns_servers',
                     server_name,
-                    prj_name=self.project_name_input):
+                    prj_name=project_name):
                 result = result and False
             self.ui.send_keys(server_name, 'display_name', 'name')
             self.ui.send_keys(domain_name, 'domain_name', 'name')
@@ -311,6 +311,7 @@ class WebuiTest:
             type=None,
             dns_class=None,
             ttl=None):
+        project_name = 'admin'
         result = True
         try:
             if not self.ui.click_on_create(
@@ -1311,8 +1312,7 @@ class WebuiTest:
                     process_down_list = reduced_process_keys_dict.keys()
                     overall_node_status_string = str(
                         process_down_count) + ' Process down'
-                if down_intf:
-                    interfaces+= ', ' + str(down_intf) + ' Down'
+
                 generator_list = self.ui.get_generators_list_ops()
                 for element in generator_list:
                     if element['name'] == ops_vrouter_name + \
@@ -1392,6 +1392,7 @@ class WebuiTest:
                             'key': 'CPU', 'value': cpu}, {
                                 'key': 'Memory', 'value': memory}, {
                                     'key': 'Version', 'value': version}, {
+                                        'key': 'Status', 'value': overall_node_status_string}, {
                                             'key': 'Interfaces', 'value': interfaces}])
 
                 if self.verify_vrouter_ops_grid_page_data(host_name, ops_data):
@@ -1446,17 +1447,6 @@ class WebuiTest:
                 self.ui.click_monitor_vrouters_advance(match_index)
                 vrouters_ops_data = self.ui.get_details(
                     vrouters_list_ops[n]['href'])
-                new_list = []
-                element_list = [
-                    ('connected_networks', 10),
-                    ('interface_list', 9), ('virtual_machine_list', 7),
-                    ('dns_server_list_cfg', 6), ('self_ip_list', 5)]
-                agent_name = 'VrouterAgent'
-                for element in element_list:
-                    key1, val1, flag = self.ui.get_advanced_view_list(
-                        agent_name, element[0], element[1])
-                    if flag:
-                        new_list.append({'key' : key1, 'value' : val1})
                 self.ui.expand_advance_details()
                 dom_arry = self.ui.parse_advanced_view()
                 dom_arry_str = self.ui.get_advanced_view_str()
@@ -1467,8 +1457,6 @@ class WebuiTest:
                         {'key': item['key'].replace('\\', '"').replace(' ', ''), 'value': item['value']})
                 dom_arry_num = dom_arry_num_new
                 merged_arry = dom_arry + dom_arry_str + dom_arry_num
-                if new_list:
-                    merged_arry+= new_list
                 if 'VrouterStatsAgent' in vrouters_ops_data:
                     ops_data = vrouters_ops_data['VrouterStatsAgent']
                     modified_ops_data = []
@@ -1969,7 +1957,6 @@ class WebuiTest:
         self.logger.debug(self.dash)
         if not self.ui.click_monitor_instances():
             result = result and False
-        self.ui.select_project(self.project_name_input)
         self.ui.select_network(network_name)
         rows = self.ui.get_rows()
         vm_list_ops = self.ui.get_vm_list_ops()
@@ -2072,6 +2059,7 @@ class WebuiTest:
                 intf_dict['Virtual Networks'] = vn_names
                 self.ui.extract_keyvalue(intf_dict, ops_list)
                 self.ui.type_change(ops_list)
+
                 if self.ui.match_ui_values(
                         ops_list, ui_list):
                     self.logger.info("VM basic view data matched")
@@ -2100,8 +2088,8 @@ class WebuiTest:
         servers_ver = self.ui.find_element(
             ['system-info-stat', 'value'], ['id', 'class'], if_elements=[1])
         servers = servers_ver[0].text
-        logical_nodes = servers_ver[1].text
         version = servers_ver[2].text
+        logical_nodes = servers_ver[1].text
         dom_data = []
         dom_data.append(
             {'key': 'logical_nodes', 'value': logical_nodes})
@@ -2209,7 +2197,7 @@ class WebuiTest:
             ops_fq_name = vn_list_ops[k]['name']
             if not self.ui.click_monitor_networks():
                 result = result and False
-            self.ui.select_project(self.project_name_input)
+            self.ui.select_project(fixture.project_name)
             rows = self.browser.find_element_by_class_name('grid-canvas')
             rows = self.ui.get_rows(rows)
             self.logger.info(
@@ -2403,7 +2391,7 @@ class WebuiTest:
                 config_nodes_ops_data = self.ui.get_details(
                     config_nodes_list_ops[n]['href'])
                 key1, val1, flag = self.ui.get_advanced_view_list(
-                        'ModuleCpuState', 'config_node_ip', 1)
+                        'configNode', 'config_node_ip', 1)
                 self.ui.expand_advance_details()
                 dom_arry = self.ui.parse_advanced_view()
                 dom_arry_str = self.ui.get_advanced_view_str()
@@ -2414,14 +2402,7 @@ class WebuiTest:
                         {'key': item['key'].replace('\\', '"').replace(' ', ''), 'value': item['value']})
                 dom_arry_num = dom_arry_num_new
                 merged_arry = dom_arry + dom_arry_str + dom_arry_num
-                key_found = False
                 if flag:
-                    for item in merged_arry:
-                        if item['key'] == 'config_node_ip':
-                            item['value'] = val1
-                            key_found = True
-                            break
-                if not key_found:
                     merged_arry.append({'key': key1, 'value': val1})
                 if 'ModuleCpuState' in config_nodes_ops_data:
                     ops_data = config_nodes_ops_data['ModuleCpuState']
@@ -2472,7 +2453,7 @@ class WebuiTest:
         self.logger.debug(self.dash)
         if not self.ui.click_monitor_networks():
             result = result and False
-        self.ui.select_project(self.project_name_input)
+        self.ui.select_project(fixture.project_name)
         rows = self.ui.get_rows()
         vn_list_ops = self.ui.get_vn_list_ops()
         result = True
@@ -2543,8 +2524,8 @@ class WebuiTest:
                             complete_ops_data[k]['value'] = str(
                                 complete_ops_data[k]['value'])
                     if self.ui.match_ui_kv(
-                            merged_arry,
-                            complete_ops_data):
+                            complete_ops_data,
+                            merged_arry):
                         self.logger.info(
                             "VN advance view data matched in webui")
                     else:
@@ -2561,7 +2542,6 @@ class WebuiTest:
         self.logger.debug(self.dash)
         if not self.ui.click_monitor_instances():
             result = result and False
-        self.ui.select_project(self.project_name_input)
         self.ui.select_network(network_name)
         rows = self.ui.get_rows()
         vm_list_ops = self.ui.get_vm_list_ops()
@@ -3154,9 +3134,7 @@ class WebuiTest:
         result = True
         fip_list_api = self.ui.get_fip_list_api()
         for fips in range(len(fip_list_api['floating-ips'])):
-            api_fq_name = fip_list_api[
-                'floating-ips'][fips]['fq_name'][2] + ':' + fip_list_api[
-                    'floating-ips'][fips]['fq_name'][3]
+            api_fq_id = fip_list_api['floating-ips'][fips]['uuid']
             self.ui.click_configure_fip()
             project_name = fip_list_api.get(
                 'floating-ips')[fips].get('fq_name')[1]
@@ -3165,53 +3143,35 @@ class WebuiTest:
             self.ui.select_project(project_name)
             rows = self.ui.get_rows()
             self.logger.info(
-                "fip fq_name %s exists in api server..checking if exists in webui as well" %
-                (api_fq_name))
+                "fip fq_id %s exists in api server..checking if exists in webui as well" %
+                (api_fq_id))
             for i in range(len(rows)):
                 match_flag = 0
                 j = 0
                 if rows[i].find_elements_by_tag_name(
-                        'div')[4].text == api_fq_name:
+                        'div')[4].text == api_fq_id:
                     self.logger.info(
-                        "fip fq_name %s matched in webui..Verifying basic view details now" %
-                        (api_fq_name))
+                        "fip fq_id %s matched in webui..Verifying basic view details now" %
+                        (api_fq_id))
                     self.logger.info(self.dash)
                     match_index = i
                     match_flag = 1
                     dom_arry_basic = []
                     dom_arry_basic.append(
-                        {'key': 'IP Address', 'value': rows[i].find_elements_by_tag_name('div')[2].text})
-                    interface_val = rows[i].find_elements_by_tag_name('div')[3].text
-                    int_val = '-'
-                    if not interface_val == '-':
-                        int_val = interface_val.split()[1].strip('()')
+                        {'key': 'IP Address', 'value': rows[i].find_elements_by_tag_name('div')[1].text})
                     dom_arry_basic.append(
-                        {'key': 'Mapped Interface', 'value': int_val})
+                        {'key': 'Instance', 'value': rows[i].find_elements_by_tag_name('div')[2].text})
                     dom_arry_basic.append({'key': 'Floating IP and Pool', 'value': rows[
-                                          i].find_elements_by_tag_name('div')[4].text})
+                                          i].find_elements_by_tag_name('div')[3].text})
+                    dom_arry_basic.append(
+                        {'key': 'UUID', 'value': rows[i].find_elements_by_tag_name('div')[4].text})
                     break
             if not match_flag:
                 self.logger.error(
-                    "fip fq_name %s exists in api server but %s not found in webui..." %
-                    (api_fq_name))
+                    "fip fq_id exists in apiserver but %s not found in webui..." %
+                    (api_fq_id))
                 self.logger.info(self.dash)
             else:
-                self.ui.click_configure_fip_basic(match_index)
-                rows = self.ui.get_rows()
-                self.logger.info(
-                    "Verify basic view details for fip fq_name %s " %
-                    (api_fq_name))
-                detail_rows = self.ui.find_element([
-                    'slick-row-detail-container', 'row-fluid'], [
-                    'class', 'class'], browser = rows[match_index + 1])
-                rows_detail = self.ui.find_element(
-                    'inline', 'class', elements=True,
-                        browser = detail_rows)[1]
-                key1 = self.ui.find_element(
-                    'key', 'class', browser = rows_detail).text
-                val1 = self.ui.find_element(
-                    'value', 'class', browser = rows_detail).text
-                dom_arry_basic.append({'key': key1, 'value': val1})
                 fip_api_data = self.ui.get_details(
                     fip_list_api['floating-ips'][fips]['href'])
                 complete_api_data = []
@@ -3223,15 +3183,24 @@ class WebuiTest:
                     complete_api_data.append(
                         {'key': 'IP Address', 'value': api_data_basic['floating_ip_address']})
                 if api_data_basic.get('virtual_machine_interface_refs'):
-                    complete_api_data.append({
-                        'key': 'Mapped Interface', 'value': api_data_basic[
-                            'virtual_machine_interface_refs'][0]['uuid']})
+                    vm_api_data = self.ui.get_details(
+                        api_data_basic['virtual_machine_interface_refs'][0]['href'])
+                    if 'virtual-machine-interface' in vm_api_data:
+                        if vm_api_data[
+                                'virtual-machine-interface'].get('virtual_machine_refs'):
+                            complete_api_data.append({'key': 'Instance', 'value': vm_api_data[
+                                                     'virtual-machine-interface']['virtual_machine_refs'][0]['to']})
                 else:
                     complete_api_data.append(
-                        {'key': 'Mapped Interface', 'value': '-'})
+                        {'key': 'Instance', 'value': '-'})
                 if api_data_basic.get('fq_name'):
-                    complete_api_data.append({
-                        'key': 'Floating IP and Pool', 'value': api_fq_name})
+                    complete_api_data.append(
+                        {
+                            'key': 'Floating IP and Pool',
+                            'value': api_data_basic['fq_name'][2] +
+                            ':' +
+                            api_data_basic['fq_name'][3]})
+                if api_data_basic.get('fq_name'):
                     complete_api_data.append(
                         {'key': 'UUID', 'value': api_data_basic['fq_name'][4]})
                 if self.ui.match_ui_kv(
@@ -4043,10 +4012,8 @@ class WebuiTest:
             con.login(
                 self.browser_openstack,
                 con.os_url,
-                self.connections.username,
-                self.connections.password)
-            self.browser_openstack.refresh()
-            time.sleep(2)
+                con.username,
+                con.password)
             self.ui.select_project_in_openstack(
                 fixture.project_name,
                 self.browser_openstack, self.os_release)
@@ -4165,7 +4132,6 @@ class WebuiTest:
             fixture.vm_objs = fixture.nova_h.get_vm_list(
                 name_pattern=fixture.vm_name,
                 project_id=fixture.project_fixture.uuid)
-            fixture.vm_id = fixture.vm_obj.id
             fixture.verify_on_setup()
         except WebDriverException:
             self.logger.error(
@@ -4248,7 +4214,7 @@ class WebuiTest:
                     'instance',
                     'name',
                     browser=rows[i]).text
-                vm_vn = self.ui.get_slick_cell_text(rows[i], 3).split(' ')[0]
+                vm_vn = self.ui.get_slick_cell_text(rows[i], 2).split(' ')[0]
                 if(vm_name == fixture.vm_name and fixture.vn_name == vm_vn):
                     self.logger.info(
                         "VM %s vm exists..will verify row expansion basic details" %
@@ -4260,7 +4226,7 @@ class WebuiTest:
                             self.logger.error('Vm details failed to load')
                             break
                         self.browser.find_element_by_xpath(
-                            "//*[@id='mon_networking_instances']").find_element_by_tag_name('a').click()
+                            "//*[@id='mon_net_instances']").find_element_by_tag_name('a').click()
                         time.sleep(1)
                         rows = self.ui.get_rows()
                         rows[i].find_elements_by_tag_name(
@@ -4276,38 +4242,15 @@ class WebuiTest:
                         except WebDriverException:
                             pass
                     rows = self.ui.get_rows()
-                    row_details = self.ui.find_element(
-                        'row-fluid', 'class',
-                        elements=True, browser=rows[i + 1])[0]
-                    shifted = False
-                    vm_ids = self.ui.find_element(
-                        'label', 'tag',
-                        elements=True, browser=row_details)[0].text.split()[1]
-                    vm_state = self.ui.find_element(
-                        'label', 'tag',
-                        elements=True, browser=row_details)[8].text
-                    if vm_state.split()[1] == 'true':
-                        vm_status = 'Active'
-                    else:
-                        vm_state = self.ui.find_element(
-                            'label', 'tag',
-                            elements=True, browser=row_details)[6].text
-                        if vm_state.split()[1] == 'true':
-                            vm_status = 'Active'
-                            shifted = True
-                        else:
-                            vm_status = 'Inactive'
-                    if not shifted:
-                        vm_ip2 = self.ui.find_element(
-                            'label', 'tag',
-                            elements=True, browser=row_details)[9].text.split()[2]
-                    else:
-                        vm_ip2 = self.ui.find_element(
-                            'label', 'tag', elements=True,
-                            browser=row_details)[7].text.split()[2]
+                    row_details = rows[i + 1].find_element_by_xpath(
+                        "//*[contains(@id, 'basicDetails')]").find_elements_by_class_name('row-fluid')[5]
+                    vm_status = row_details.find_elements_by_tag_name(
+                        'div')[8].text
+                    vm_ip_and_mac = row_details.find_elements_by_tag_name(
+                        'div')[2].text
                     assert vm_status == 'Active'
-                    assert vm_ids == fixture.vm_id
-                    assert vm_ip2 == fixture.vm_ip
+                    assert vm_ip_and_mac.splitlines()[0].split(
+                        ':')[1].strip() == fixture.vm_ip
                     vm_flag = 1
                     break
             assert vm_flag, "VM name or VM uuid or VM ip or VM status verifications in WebUI for VM %s failed" % (
@@ -4315,7 +4258,7 @@ class WebuiTest:
             self.logger.info(
                 "Vm name,vm uuid,vm ip and vm status,vm network verification in WebUI for VM %s passed" %
                 (fixture.vm_name))
-            mon_net_networks = self.ui.find_element('mon_networking_networks')
+            mon_net_networks = self.ui.find_element('mon_net_networks')
             self.ui.click_element('Networks', 'link_text', mon_net_networks)
             time.sleep(4)
             self.ui.wait_till_ajax_done(self.browser)
@@ -4327,16 +4270,15 @@ class WebuiTest:
                     time.sleep(2)
                     self.ui.wait_till_ajax_done(self.browser)
                     rows = self.ui.get_rows()
-                    vm_ids = self.ui.find_element(
-                        'label', 'tag',
-                        elements=True, browser=rows[i + 1])[3].text.split()[1]
-                    if vm_ids > 0:
+                    vm_ids = rows[i + 1].find_element_by_xpath("//div[contains(@id, 'basicDetails')]").find_elements_by_class_name(
+                        'row-fluid')[7].find_elements_by_tag_name('div')[1].text
+                    if fixture.vm_id in vm_ids:
                         self.logger.info(
-                            "Vm created seen on Monitor->Networking->Networks basic details page %s" %
+                            "Vm id matched on Monitor->Netoworking->Networks basic details page %s" %
                             (fixture.vn_name))
                     else:
                         self.logger.error(
-                            "Vm created not seen on Monitor->Networking->Networks basic details page %s" %
+                            "Vm id not matched on Monitor->Netoworking->Networks basic details page %s" %
                             (fixture.vm_name))
                         self.ui.screenshot(
                             'vm_create_check' +
@@ -5074,9 +5016,9 @@ class WebuiTest:
                     for temp in range(
                             len(service_temp_list_api['service-templates']) - 1):
                         if template_string == service_temp_list_api[
-                                'service-templates'][temp]['fq_name'][1]:
+                                'service-templates'][temp + 1]['fq_name'][1]:
                             service_temp_api_data = self.ui.get_details(
-                                service_temp_list_api['service-templates'][temp]['href'])
+                                service_temp_list_api['service-templates'][temp + 1]['href'])
                             if 'service-template' in service_temp_api_data:
                                 api1_data_basic = service_temp_api_data.get(
                                     'service-template')
@@ -5429,4 +5371,870 @@ class WebuiTest:
             else:
                 return False
 
+    def edit_option(self, option, category):
+        result = True
+        self.option = option
+        try:
+            if self.option == "Networks":
+                self.logger.info("Go to Configure->Networking->Networks page")
+                if not self.ui.click_configure_networks():
+                    result = result and False
+            rows = self.ui.get_rows(canvas=True)
+
+            if rows:
+                self.logger.info("%d rows are there under %s " % (len(rows),self.option))
+                self.logger.info("%s are available to edit. Editing the %s" % (option,option))
+                index = len(rows)
+                if len(rows) :
+                    self.ui.click_icon_cog(rows[index-1], self.browser, category)
+                    time.sleep(5)
+            else:
+                self.logger.error("No %s are available to edit" % (option))
+		self.ui.screenshot(option)
+            self.ui.wait_till_ajax_done(self.browser)
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+
+    def edit_vn_without_change(self):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                try:
+                    self.logger.info("Click on save button")
+                    self.ui.click_element('configure-networkbtn1', 'id')
+                except WebDriverException:
+                    self.logger.error("Error while trying to save %s" %(option))
+                    result = result and False
+                    self.ui.screenshot(option)
+                    self.ui.click_on_cancel_if_failure('cancelBtn')
+                    raise
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_disp_name_change(self, vn_name):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('display_name', 'id')
+                net_name = self.ui.find_element('span12', 'class')
+                net_name.clear()
+                net_name.send_keys(vn_name)
+                self.ui.click_element('configure-networkbtn1', 'id')
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def verify_vn_after_edit_api(self, option, value, uuid, var_list):
+        result = True
+        flag = 1
+        point = 0
+        vn_list_api = self.ui.get_vn_detail_api(uuid)
+        if vn_list_api:
+            if option == 'UUID':
+                api_fq = vn_list_api['virtual-network']['uuid']
+                if api_fq == value:
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'Display Name':
+                api_fq = vn_list_api['virtual-network']['display_name']
+                if api_fq == value :
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'Policy':
+                api_fq = vn_list_api['virtual-network']['network_policy_refs']
+                if len(api_fq):
+                    for i in api_fq:
+                        regexp = ".*\:.*\:(.*)"
+                        pol_out = re.search(regexp,self.pol_name)
+                        policy_name = pol_out.group(1)
+                        out = re.search(policy_name,str(i))
+                        if out:
+                            flag = 1
+                            break
+                        else:
+                            flag = 0
+                else:
+                    flag = 0
+            elif re.search('Subnet',option):
+                api_fq = vn_list_api['virtual-network']['network_ipam_refs']
+                regexp = var_list[0] + ".*uuid"
+                api_out = re.search(regexp,str(api_fq))
+                if api_out:
+                    out = option.strip('Subnet')
+                    reg_mask = re.search(var_list[0]  + ".*ip_prefix_len.*" + var_list[1],api_out.group())
+                    reg_alloc_pool = re.search("allocation_pools.*start.*" + var_list[2] + ".*end.*" + var_list[3],api_out.group())
+                    if out == "":
+                        reg_dns = re.search("dns_server_address.*" + var_list[4],api_out.group())
+                        reg_dhcp = re.search("enable_dhcp.*True",api_out.group())
+                        reg_gate = re.search("default_gateway.*" + var_list[5],api_out.group())
+                    else:
+                        if re.search('ga',out):
+                            reg_gate = re.search("default_gateway.*" + var_list[6],api_out.group())
+                            reg_dns = re.search("dns_server_address.*" + var_list[4],api_out.group())
+                            reg_dhcp = re.search("enable_dhcp.*True",api_out.group())
+                        elif re.search('dn',out):
+                            reg_dns = re.search("dhcp_option_value.*" + var_list[6] + ".*dhcp_option_name.*6",api_out.group())
+                            reg_dhcp = re.search("enable_dhcp.*True",api_out.group())
+                            reg_gate = re.search("default_gateway.*" + var_list[5],api_out.group())
+                        else:
+                            reg_dns = re.search("dns_server_address.*" + var_list[4],api_out.group())
+                            reg_dhcp = re.search("enable_dhcp.*False",api_out.group())
+                            reg_gate = re.search("default_gateway.*" + var_list[5],api_out.group())
+                    if reg_mask and reg_dns and reg_dhcp and reg_gate and reg_alloc_pool:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif option == 'Host Route':
+                api_fq = vn_list_api['virtual-network']['network_ipam_refs']
+                api_host_out = re.search("host_routes.*prefix.*" + var_list[0] + ".*next_hop.*" + var_list[1],str(api_fq))
+                if api_host_out:
+                   flag = 1
+                else:
+                   flag = 0
+            elif option == 'Adv Option':
+                allow_rpf_api = vn_list_api['virtual-network']['virtual_network_properties']
+                allow_rpf_api_out = re.search("'allow_transit': True",str(allow_rpf_api))
+                hash_api = vn_list_api['virtual-network']['ecmp_hashing_include_fields']['hashing_configured']
+                share_api = vn_list_api['virtual-network']['is_shared']
+                prov_props_seg = vn_list_api['virtual-network']['provider_properties']['segmentation_id']
+                prov_props_phy = vn_list_api['virtual-network']['provider_properties']['physical_network']
+                ext_api = vn_list_api['virtual-network']['router_external']
+                flood_api = vn_list_api['virtual-network']['flood_unknown_unicast']
+                multi_pol_api = vn_list_api['virtual-network']['multi_policy_service_chains_enabled']
+                if allow_rpf_api_out and hash_api == True and share_api == True and str(prov_props_seg) == var_list[0] and str(prov_props_phy) == var_list[1] and ext_api == True and flood_api == True and multi_pol_api == True:
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'DNS':
+                api_dns = vn_list_api['virtual-network']['network_ipam_refs']
+                if api_dns:
+                    reg_dns = re.search("dhcp_option_value.*" + var_list[0] + ".*dhcp_option_name.*6",str(api_dns))
+                    if reg_dns:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif option == 'FIP':
+                api_fip = vn_list_api['virtual-network']['floating_ip_pools']
+                if api_fip:
+                    reg_fip = re.search(var_list[0],str(api_fip))
+                    if reg_fip:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif re.search('RT',option):
+                if option == 'RT':
+                    api_rt = vn_list_api['virtual-network']['route_target_list']
+                elif option == 'ERT':
+                    api_rt = vn_list_api['virtual-network']['export_route_target_list']
+                elif option == 'IRT':
+                    api_rt = vn_list_api['virtual-network']['import_route_target_list']
+                if api_rt:
+                    reg_rt_no = re.search(var_list[0] + "\:" + var_list[1],str(api_rt))
+                    reg_rt_ip = re.search(var_list[2] + "\:" + var_list[1],str(api_rt))
+                    if reg_rt_no or reg_rt_ip:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                     flag = 0
+        if flag:
+            self.logger.info("Verification of %s is successful through API server" %(option))
+        else:
+            self.logger.error("%s got changed in API after editing VN" % (value))
+            result = result and False
+        return result
+
+    def verify_vn_after_edit_ops(self, option, value, uuid, var_list):
+        result = True
+        flag = 1
+        vn_list_ops = self.ui.get_vn_detail_ops("default-domain:", self.project_name_input, value)
+        if vn_list_ops:
+            if option == 'UUID':
+                ops_uuid = vn_list_ops['ContrailConfig']['elements']['uuid']
+                uuid_new = "\"" + uuid + "\""
+                if ops_uuid == uuid_new:
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'Display Name':
+                 ops_fq = vn_list_ops['ContrailConfig']['elements']['display_name']
+                 disp_name = "\"" + value + "\""
+                 if ops_fq == disp_name:
+                     flag = 1
+                 else:
+                     flag = 0
+            elif option == 'Policy':
+                ops_policy = vn_list_ops['ContrailConfig']['elements']['network_policy_refs']
+                if len(ops_policy):
+                    regexp = ".*\:.*\:(.*)"
+                    pol_out = re.search(regexp,self.pol_name)
+                    policy_name = pol_out.group(1)
+                    out = re.search(policy_name,str(ops_policy))
+                    if out:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif re.search('Subnet',option) :
+                ops_subnet = vn_list_ops['ContrailConfig']['elements']['network_ipam_refs']
+                ops_sub_out = re.search(var_list[0] + ".*uuid",str(ops_subnet))
+                if ops_sub_out:
+                    reg_mask = re.search(var_list[0],ops_sub_out.group())
+                    reg_alloc_pool = re.search("allocation_pools.*start.*" + var_list[2] + ".*end.*" + var_list[3],ops_sub_out.group())
+                    out = option.strip('Subnet')
+                    if out == "":
+                        reg_dns = re.search("dns_server_address.*" + var_list[3],ops_sub_out.group())
+                        reg_dhcp = re.search("enable_dhcp.*true",ops_sub_out.group())
+                        reg_gate = re.search("default_gateway.*" + var_list[4],ops_sub_out.group())
+                    else:
+                        if re.search('ga',out):
+                            reg_gate = re.search("default_gateway.*" + var_list[6],ops_sub_out.group())
+                            reg_dns = re.search("dns_server_address.*" + var_list[3],ops_sub_out.group())
+                            reg_dhcp = re.search("enable_dhcp.*true",ops_sub_out.group())
+                        elif re.search('dn',out):
+                            reg_dns = re.search("dhcp_option_value.*" + var_list[6] + ".*dhcp_option_name.*6",ops_sub_out.group())
+                            reg_dhcp = re.search("enable_dhcp.*true",ops_sub_out.group())
+                            reg_gate = re.search("default_gateway.*" + var_list[4],ops_sub_out.group())
+                        else:
+                            reg_dhcp = re.search("enable_dhcp.*false",ops_sub_out.group())
+                            reg_dns = re.search("dns_server_address.*" + var_list[3],ops_sub_out.group())
+                            reg_gate = re.search("default_gateway.*" + var_list[3],ops_sub_out.group())
+                    if reg_mask and reg_dns and reg_dhcp and reg_gate and reg_alloc_pool:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif option == 'Host Route':
+                ops_host = vn_list_ops['ContrailConfig']['elements']['network_ipam_refs']
+                ops_host_out = re.search("host_routes.*prefix.*" + var_list[0] + ".*next_hop.*" + var_list[1],ops_host)
+                if ops_host_out:
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'Adv Option':
+                ops_multi_pol = vn_list_ops['ContrailConfig']['elements']['multi_policy_service_chains_enabled']
+                ops_allow_rpf = vn_list_ops['ContrailConfig']['elements']['virtual_network_properties']
+                ops_allow_rpf_out = re.search("\"allow_transit\"\: true\, \"rpf\": \"enable\"",str(ops_allow_rpf))
+                ops_hash = vn_list_ops['ContrailConfig']['elements']['ecmp_hashing_include_fields']
+                ops_hash_out = re.search("\"hashing_configured\"\: true",str(ops_hash))
+                ops_share = vn_list_ops['ContrailConfig']['elements']['is_shared']
+                ops_ext = vn_list_ops['ContrailConfig']['elements']['router_external']
+                ops_flood = vn_list_ops['ContrailConfig']['elements']['flood_unknown_unicast']
+                ops_static_route = vn_list_ops['ContrailConfig']['elements']['route_table_refs']
+                ops_static_route_out = re.search('default-route-table',str(ops_static_route))
+                ops_prov_props = vn_list_ops['ContrailConfig']['elements']['provider_properties']
+                ops_prov_seg_phy = re.search("\"segmentation_id\"\: " + int(var_list[0]) + ".*\"physical_network\"\: \""+ var_list[1],str(ops_prov_props))
+                if str(ops_multi_pol) == 'true' and ops_allow_rpf_out and ops_hash_out and str(ops_share) == 'true' and str(ops_ext) =='true' and str(ops_flood) == 'true' and ops_static_route_out and ops_prov_seg_phy:
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'DNS':
+                ops_dns = vn_list_ops['ContrailConfig']['elements']['network_ipam_refs']
+                if ops_dns:
+                    reg_dns = re.search("dhcp_option_value.*" + var_list[0] + ".*dhcp_option_name.*6",str(ops_dns))
+                    flag = 1
+                else:
+                    flag = 0
+            elif option == 'FIP':
+                ops_fip = vn_list_ops['ContrailConfig']['elements']['floating_ip_pools']
+                if ops_fip:
+                    reg_fip =  re.search(var_list[0],str(ops_fip))
+                    if reg_fip:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+            elif re.search('RT',option):
+                if option == 'RT':
+                    ops_rt = vn_list_ops['ContrailConfig']['elements']['route_target_list']
+                elif option  == 'ERT':
+                    ops_rt = vn_list_ops['ContrailConfig']['elements']['export_route_target_list']
+                elif option == 'IRT':
+                    ops_rt = vn_list_ops['ContrailConfig']['elements']['import_route_target_list']
+                if ops_rt:
+                    reg_rt_no = re.search(var_list[0] + "\:" + var_list[1],str(ops_rt))
+                    reg_rt_ip = re.search(var_list[2] + "\:" + var_list[1],str(ops_rt))
+                    if reg_rt_no or reg_rt_ip:
+                        flag = 1
+                    else:
+                        flag = 0
+                else:
+                    flag = 0
+        if flag:
+                self.logger.info("Verification of %s is successful through OPS server" % (option))
+        else:
+                self.logger.error("%s got changed in OPS after editing VN" % (value))
+                result = result and False
+        return result
+
+    def verify_vn_after_edit_ui(self, option, value, var_list):
+        result = True
+        try:
+            flag = 1
+            point = 0
+            if option == 'UUID':
+                uuid = self.ui.get_vn_display_name(option)
+                if uuid == value:
+                    self.logger.info("Verification of UUID is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for UUID")
+                    result = result and False
+            elif option == 'Display Name':
+                disp_name = self.ui.get_vn_display_name(option)
+                if disp_name == value:
+                    self.logger.info("Verification of display name is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for display name")
+                    result = result and False
+            elif option == 'Policy':
+                regexp = ".*\:.*\:(.*)"
+                pol_out = re.search(regexp,self.pol_name)
+                policy_name = pol_out.group(1)
+                out = re.search(policy_name,value)
+                if out:
+                    self.logger.info("Verification of policy is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for policy")
+                    result = result and False
+            elif re.search('Subnet',option):
+                regexp= var_list[0] + ".*)"
+                subnet_out = re.search(regexp,value)
+                if subnet_out:
+                    out = option.strip('Subnet')
+                    reg_mask = re.search(var_list[0]+ "\/" + var_list[1],subnet_out.group(1))
+                    reg_alloc_pool = re.search(var_list[2] + "-" + var_list[3],subnet_out.group(1))
+                    if out == "":
+                        reg_gateway = re.search(var_list[5],subnet_out.group(1))
+                        reg_dns = re.search("Enabled",subnet_out.group(1))
+                        reg_dhcp = re.search("Enabled",subnet_out.group(1))
+                    else:
+                        if re.search('ga',out):
+                            reg_gateway = re.search(var_list[6],subnet_out.group(1))
+                            reg_dns = re.search("Enabled",subnet_out.group(1))
+                            reg_dhcp = re.search("Enabled",subnet_out.group(1))
+                        elif re.search('dn',out):
+                            reg_dns = re.search("Disabled",subnet_out.group(1))
+                            reg_gateway = re.search(var_list[5],subnet_out.group(1))
+                            reg_dhcp = re.search("Enabled",subnet_out.group(1))
+                        else:
+                            reg_dhcp = re.search("Disabled",subnet_out.group(1))
+                            reg_gateway = re.search(var_list[5],subnet_out.group(1))
+                            reg_dns = re.search("Enabled",subnet_out.group(1))
+                    if reg_mask and reg_gateway and reg_dns and reg_dhcp and reg_alloc_pool:
+                        self.logger.info("Verification of subnet is successful in WebUI")
+                    else:
+                        self.logger.error("WebUI verification is failed for subnet")
+                        result = result and False
+                else:
+                    result = result and False
+            elif option == 'Host Route':
+                regexp = var_list[0] + ".*" + var_list[1]
+                reg_host = re.search(regexp,value)
+                if reg_host:
+                    self.logger.info("Verification of host route is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for host route")
+                    result = result and False
+            elif option == 'Adv Option':
+                reg_shared = re.search('Shared(.*)External',value)
+                reg_ext = re.search('External(.*)Attached Network',value)
+                reg_allow_trans = re.search('Allow Transit(.*)Reverse',value)
+                reg_reverse = re.search('Reverse Path Forwarding(.*)Flood',value)
+                reg_multi_chain = re.search('Multiple Service Chains(.*)Host',value)
+                reg_hash = re.search('Ecmp Hashing Fields(.*)Provider',value)
+                reg_prov = re.search('Provider Network(.*)Ext',value)
+                if str(reg_shared.group(1)).strip('-') == 'Enabled' and str(reg_ext.group(1)).strip('-') == 'Enabled' and str(reg_allow_trans.group(1)).strip('-') == 'Enabled' and str(reg_reverse.group(1)).strip('-') == 'Enabled' and str(reg_multi_chain.group(1)).strip('-') == 'Enabled' and str(reg_hash and reg_prov.group(1)).strip('-') == 'Physical Network: ' + var_list[1] + ' , VLAN: ' + var_list[0] :
+                    self.logger.info("Verification for Advanced option is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for advanced option")
+            elif option == 'DNS':
+                regexp_dns = re.search(var_list[0],value)
+                if regexp_dns:
+                    self.logger.info("Verification of dns is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for DNS")
+                    result = result and False
+            elif option == 'FIP':
+                regexp = self.project
+                regexp_fip = re.search(str(regexp),str(value))
+                if regexp_fip:
+                    self.logger.info("Verification of FIP is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for FIP")
+                    result = result and False
+            elif re.search('RT',option):
+                regexp_rt_no = re.search(var_list[0] + "\:" + var_list[1],str(value))
+                regexp_rt_ip = re.search(var_list[2] + "\:" + var_list[1],str(value))
+                if regexp_rt_no or regexp_rt_ip:
+                    self.logger.info("Verificatoin of RT is successful in WebUI")
+                else:
+                    self.logger.error("WebUI verification is failed for RT")
+                    result = result and False
+            return result
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def add_vn_with_policy(self):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('s2id_network_policy_refs_dropdown', 'id')
+                select = self.ui.find_element("//li[contains(@class,'select2-highlighted')]", 'xpath')
+                self.pol_name = select.text
+                select.click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+
+    def del_vn_with_policy(self):
+        result = True
+        option = "Networks"
+        try:
+            policy_ui = str(self.ui.get_vn_display_name('Policy'))
+            policy = self.pol_name.split(":")
+            out = re.search(policy[-1],policy_ui)
+            if out:
+                index = 1 
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                del_row = self.ui.find_element('s2id_network_policy_refs_dropdown', 'id')
+                c = 0
+                if index > 0:
+                    for i in self.ui.find_element("//a[contains(@class,'select2-search-choice-close')]", 'xpath', elements=True):
+                        c = c+1
+                        if c == index:
+                            i.click()
+                            self.logger.info("Policy got removed successfully")
+                            self.ui.click_element('configure-networkbtn1', 'id')
+                            time.sleep(5)
+                else:
+                    self.logger.warn("There is no policy to edit")
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_with_subnet(self, category, subnet, dfrange, dfgate):
+        result = True
+        option = "Networks"
+        try:
+            self.ui.wait_till_ajax_done(self.browser)
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.wait_till_ajax_done(self.browser)
+                self.ui.click_element('ui-accordion-subnets-header-0', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                self.ui.find_element('icon-plus', 'class').click()
+                data = self.ui.find_element("//tr[contains(@class,'data-row')]", 'xpath', elements=True)
+                data_new = []
+                for i in data:
+                    if i == '':
+                        pass
+                    else:
+                        data_new.append(i)
+                data_len = len(data_new)
+                ipam = self.ui.find_element("//td[contains(@id,'user_created_ipam_fqn')]", 'xpath', elements=True)
+                cidr = self.ui.find_element("//input[contains(@name,'user_created_cidr')]", 'xpath', elements=True)
+                pool = self.ui.find_element("//textarea[contains(@name,'allocation_pools')]", 'xpath', elements=True)
+                if data_len> 3 :
+                    index = data_len-3
+                elif data_len<=1 or data_len <=3:
+                    index = data_len-1
+                else:
+                    index = 0
+                cidr[index].send_keys(subnet)
+                pool[index].send_keys(dfrange)
+                if category == 'Subnet':
+                    def_gate = self.ui.find_element("//input[contains(@name,'default_gateway')]", 'xpath', elements=True)
+                    def_gate[index].clear()
+                    def_gate[index].send_keys(dfgate)
+                elif category == 'Subnet-gate':
+                    gate = self.ui.find_element("//input[contains(@name,'user_created_enable_gateway')]", 'xpath', elements=True)
+                    gate[index].click()
+                elif category == 'Subnet-dns':
+                    dns = self.ui.find_element("//input[contains(@name,'user_created_enable_dns')]", 'xpath', elements=True)
+                    dns[index].click()
+                elif category == 'Subnet-dhcp':
+                    dhcp = self.ui.find_element("//input[contains(@name,'enable_dhcp')]", 'xpath', elements=True)
+                    dhcp[index].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+
+    def del_vn_with_subnet(self):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('ui-accordion-subnets-header-0', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                data = self.ui.find_element("//tr[contains(@class,'data-row')]", 'xpath', elements=True)
+                index = 0 
+                act_cell = self.ui.find_element('action-cell', 'class')
+                minus = self.ui.find_element("//i[contains(@class,'icon-minus')]", 'xpath', elements=True)
+                minus[index].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_with_host_route(self, button, tc, hprefix, hnexthop):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('host_routes', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                if button == 'add':
+                    add_link = self.ui.find_element("//a[contains(@class,'editable-grid-add-link')]", 'xpath', elements=True)
+                    add_link[1].click()
+                    if tc == 'pos':
+                        prefix = self.browser.find_element_by_xpath("//input[contains(@name,'prefix')]")
+                        prefix.send_keys(hprefix)
+                        next_hop = self.browser.find_element_by_xpath("//input[contains(@name,'next_hop')]")
+                        next_hop.send_keys(hnexthop)
+                    else:
+                        prefix = self.browser.find_element_by_xpath("//input[contains(@name,'prefix')]")
+                        prefix.send_keys(hprefix)
+                        next_hop = self.browser.find_element_by_xpath("//input[contains(@name,'next_hop')]")
+                        next_hop.send_keys(hnexthop)
+                else:
+                    minus = self.ui.find_element("//i[contains(@class,'icon-minus')]", 'xpath', elements=True)
+                    index = len(minus)
+                    minus[index-1].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                if tc == 'neg':
+                    warn_button = self.browser.find_element_by_xpath("//span[contains(@data-bind,'hostRoutes')]")
+                    if warn_button.get_attribute('style') == "":
+                        self.ui.click_on_cancel_if_failure('cancelBtn')
+                        self.ui.wait_till_ajax_done(self.browser)
+                        return result
+                    else:
+                        result = result and False
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+
+    def edit_vn_with_adv_option(self, category, tc, pnet, vlan):
+        result = True
+        option = "Networks"
+        try:
+            self.ui.wait_till_ajax_done(self.browser)
+            if not self.ui.click_configure_networks():
+                result = result and False
+            if category == 1:
+                add = self.ui.find_element("//i[contains(@class,'icon-plus')]", 'xpath')
+                add.click()
+                time.sleep(3)
+                self.ui.find_element("//input[contains(@name,'display_name')]", 'xpath').send_keys('vn1')
+                self.ui.find_element('ui-accordion-subnets-header-0', 'id').click()
+                time.sleep(3)
+                self.ui.find_element("icon-plus", 'class').click()
+                self.ui.find_element("//input[contains(@name,'user_created_cidr')]", 'xpath').send_keys('10.10.10.0/24')
+                time.sleep(3)
+                save_btn= self.ui.find_element("configure-networkbtn1", 'id')
+                save_btn.click()
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('advanced_options', 'id')
+                check = self.ui.find_element("//input[contains(@name,'is_shared')]", 'xpath')
+                check.click()
+                ext = self.ui.find_element("//input[contains(@name,'router_external')]", 'xpath')
+                ext.click()
+                allow = self.ui.find_element("//input[contains(@name,'allow_transit')]", 'xpath')
+                allow.click()
+                flood = self.ui.find_element("//input[contains(@name,'flood_unknown_unicast')]", 'xpath')
+                flood.click()
+                multi_sc = self.ui.find_element("//input[contains(@name,'multi_policy_service_chains_enabled')]", 'xpath')
+                multi_sc.click()
+                hash_field = self.ui.find_element("//div[contains(@id,'s2id_ecmp_hashing_include_fields_dropdown')]", 'xpath')
+                hash_field.click()
+                route_table = self.ui.find_element("//li[contains(@class,'select2-highlighted')]", 'xpath')
+                route_table.click()
+                if tc == 'pos-phy':
+                    self.ui.click_element('s2id_route_table_refs_dropdown', 'id')
+                    time.sleep(3)
+                    route_table = self.ui.find_element("//li[contains(@class,'select2-highlighted')]", 'xpath')
+                    route_table.click()
+                    prov_net = self.ui.find_element("//input[contains(@name,'user_created_sriov_enabled')]", 'xpath')
+                    prov_net.click()
+                    phy_net = self.ui.find_element("//input[contains(@name,'physical_network')]", 'xpath')
+                    phy_net.send_keys(pnet)
+                    seg_id = self.ui.find_element("//input[contains(@name,'segmentation_id')]", 'xpath')
+                    seg_id.send_keys(vlan)
+                else:
+                    phy_net = self.ui.find_element("//input[contains(@name,'physical_network')]", 'xpath')
+                    phy_net.clear()
+                    phy_net.send_keys(pnet)
+                    seg_id = self.ui.find_element("//input[contains(@name,'segmentation_id')]", 'xpath')
+                    seg_id.clear()
+                    seg_id.send_keys(vlan)
+
+                self.ui.click_element('configure-networkbtn1', 'id')
+                if tc == 'neg-phy':
+                    warn_button = self.ui.find_element("//span[contains(@data-bind,'advanced')]", 'xpath')
+                    if warn_button.get_attribute('style') == "":
+                        self.ui.click_on_cancel_if_failure('cancelBtn')
+                        self.wait_till_ajax_done(self.browser)
+                        return result
+                    else:
+                        result = result and False
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_with_dns(self, button, tc, dns_ip):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('ui-accordion-dns_servers-header-0','id')
+                time.sleep(3)
+                if button == 'add':
+                    self.ui.click_element('user_created_dns_servers', 'id')
+                    text = self.ui.find_element("//input[contains(@name,'ip_address')]", 'xpath')
+                    if tc == 'pos':
+                        text.send_keys(dns_ip)
+                    else:
+                        text.send_keys(dns_ip)
+                else:
+                    minus = self.ui.find_element("//i[contains(@class,'icon-minus')]", 'xpath', elements=True)
+                    index = len(minus)
+                    minus[index-1].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                if tc == 'neg':
+                    warn_button = self.ui.find_element("//span[contains(@data-bind,'dnsServers')]", 'xpath')
+                    if warn_button.get_attribute('style') == "":
+                        self.ui.click_on_cancel_if_failure('cancelBtn')
+                        self.ui.wait_till_ajax_done(self.browser)
+                        return result
+                    else:
+                        result = result and False
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_with_fpool(self, button, fpool):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            if self.edit_vn_result:
+                self.ui.click_element('fip_pool_accordian', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+                if button == 'add':
+                    add_link = self.ui.find_element("//a[contains(@class,'editable-grid-add-link')]", 'xpath', elements=True)
+                    add_link[3].click()
+                    self.ui.wait_till_ajax_done(self.browser)
+                    pool = self.ui.find_element("//input[contains(@placeholder,'Enter Pool Name')]", 'xpath')
+                    pool.send_keys(fpool)
+                    self.ui.wait_till_ajax_done(self.browser)
+                    self.ui.click_element('s2id_projects_dropdown', 'id')
+                    select = self.ui.find_element("//li[contains(@class,'select2-highlighted')]", 'xpath')
+                    self.project = select.text
+                    select.click()
+                    choice = self.ui.find_element("//li[contains(@class,'select2-search-choice')]", 'xpath')
+                else:
+                    minus = self.ui.find_element("//i[contains(@class,'icon-minus')]", 'xpath', elements=True)
+                    index = len(minus)
+                    minus[index-1].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                self.ui.wait_till_ajax_done(self.browser)
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+
+    def edit_vn_with_route_target(self, button, tc, rt_type, asn_no_ip, target_no):
+        result = True
+        option = "Networks"
+        try:
+            self.edit_vn_result = self.edit_option(option, 'edit')
+            time.sleep(10)
+            if self.edit_vn_result:
+                if rt_type == 'RT':
+                    route = self.ui.find_element('route_target_accordian', 'id')
+                    route.click()
+                    ind = 4
+                elif rt_type == 'ERT':
+                    route = self.ui.find_element('export_route_target_accordian', 'id')
+                    ind = 5
+                    route.click()
+                elif rt_type == 'IRT':
+                    if button == 'add':
+                        time.sleep(10)
+                        imp_route = self.ui.find_element('import_route_target_accordian', 'id')
+                        route = self.ui.find_element('ui-accordion-import_route_target_accordian-header-0', 'id')
+                        route.click()
+                        ind = 6
+                        route.click()
+                        time.sleep(5)
+                        rt = self.ui.find_element("//div[contains(@id,'import_route_target_vcfg')]", 'xpath')
+                        user_irt = self.ui.find_element("//div[contains(@id,'user_created_import_route_targets')]", 'xpath')
+                        user_irt.click()
+                        grid_table = self.ui.find_element('contrail-editable-grid-table','class') 
+                self.ui.wait_till_ajax_done(self.browser)
+                if button == 'add':
+                    add_link = self.ui.find_element("//a[contains(@class,'editable-grid-add-link')]", 'xpath', elements=True)
+                    add_link[ind].click()
+                    self.ui.wait_till_ajax_done(self.browser)
+                    asn = self.ui.find_element("//input[contains(@name,'asn')]", 'xpath')
+                    asn.send_keys(asn_no_ip)
+                    target = self.ui.find_element("//input[contains(@name,'target')]", 'xpath')
+                    target.send_keys(target_no)
+                else:
+                    if rt_type == 'IRT':
+                        self.ui.click_element('import_route_target_accordian', 'id')
+                        time.sleep(5)
+                        irt = self.ui.find_element("//div[contains(@id,'import_route_target_vcfg')]", 'xpath', elements=True)
+                        user_irt = self.ui.find_element("//div[contains(@id,'user_created_import_route_targets')]", 'xpath', elements=True)
+                    minus = self.ui.find_element("//i[contains(@class,'icon-minus')]", 'xpath', elements=True)
+                    index = len(minus) - 1
+                    minus[index].click()
+                self.ui.click_element('configure-networkbtn1', 'id')
+                time.sleep(10)
+                if tc == 'neg':
+                    if rt_type == 'RT':
+                        warn_button = self.ui.find_element("//span[contains(@data-bind,'route_target_vcfg')]", 'xpath')
+                    elif rt_type == 'ERT':
+                        warn_button = self.ui.find_element("//span[contains(@data-bind,'export_route_target_vcfg')]", 'xpath')
+                    elif rt_type == 'IRT':
+                        warn_button = self.ui.find_element("//span[contains(@data-bind,'import_route_target_vcfg')]", 'xpath')
+                    if warn_button.get_attribute('style') == "":
+                        self.ui.click_on_cancel_if_failure('cancelBtn')
+                        self.ui.wait_till_ajax_done(self.browser)
+                        return result
+                    else:
+                        result = result and False
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
 
