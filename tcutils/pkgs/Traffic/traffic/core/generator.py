@@ -8,7 +8,7 @@ from time import sleep
 from optparse import OptionParser
 from multiprocessing import Process, Event
 
-from scapy.all import send, sr1, sendpfast
+from scapy.all import send, sr1, sendpfast,sendp
 from scapy.packet import Raw
 from scapy.layers.inet import Ether, IP, UDP, TCP, ICMP
 from scapy.layers.inet6 import IPv6, ICMPv6EchoRequest
@@ -38,11 +38,12 @@ class CreatePkt(object):
     def __init__(self, profile):
         self.profile = profile
         self.stream = profile.stream
-        self._str_port_to_int()
-        log.debug("Stream: %s", self.stream.__dict__)
-        log.debug("Stream L3: %s", self.stream.l3.__dict__)
-        if self.stream.l4 is not None:
-            log.debug("Stream L4: %s", self.stream.l4.__dict__)
+    if self.stream.protocol != 'ether':
+            self._str_port_to_int()
+            log.debug("Stream: %s", self.stream.__dict__)
+            log.debug("Stream L3: %s", self.stream.l3.__dict__)
+            if self.stream.l4 is not None:
+                log.debug("Stream L4: %s", self.stream.l4.__dict__)
         self.pkt = None
         self._create()
         if isinstance(self.profile, ContinuousSportRange):
@@ -61,13 +62,21 @@ class CreatePkt(object):
 
     def _create(self):
         l2_hdr = None
+        l3_hdr = None
+        l4_hdr = None
         # To incease rate, we need to send pkt at L2 usinf sendpfast
-        if isinstance(self.profile, ContinuousSportRange):
+        if isinstance(self.profile, ContinuousSportRange) :
             l2_hdr = self._l2_hdr()
-        l3_hdr = self._l3_hdr()
-        l4_hdr = self._l4_hdr()
-        if self.stream.get_l4_proto() == 'icmpv6':
-            self.profile.size = 0
+        if isinstance(self.profile,L2Traffic):
+            l2_hdr = self._l2_hdr()
+            l2_hdr.src = self.profile.src
+            l2_hdr.dst = self.profile.dst
+            self.pkt = l2_hdr
+        else:
+            l3_hdr = self._l3_hdr()
+            l4_hdr = self._l4_hdr()
+            if self.stream.get_l4_proto() == 'icmpv6':
+                self.profile.size = 0
         self.payload = self._payload()
         if l2_hdr:
             log.debug("L2 Header: %s", `l2_hdr`)
@@ -205,6 +214,10 @@ class Generator(Process, GeneratorBase):
             if self.stopit.is_set():
                 break
         self.stopped.set()
+    
+    def _l2_traffic(self):
+        sendp(self.pkt,iface=self.profile.iface,count=self.profile.count)
+        self.stopped.set()
 
     def _start(self):
         # Preserve the order of the if-elif, because the Profiles are
@@ -216,6 +229,8 @@ class Generator(Process, GeneratorBase):
             self._continuous_traffic()
         elif isinstance(self.profile, BurstProfile):
             self._burst_traffic()
+        elif isinstance(self.profile, L2Traffic):
+            self._l2_traffic()
         elif isinstance(self.profile, StandardProfile):
             self._standard_traffic()
 
