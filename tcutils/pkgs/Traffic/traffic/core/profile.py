@@ -2,6 +2,7 @@
 """
 
 from cPickle import dumps, loads
+#from pip.cmdoptions import src
 
 try:
     # Running from the source repo "test".
@@ -118,3 +119,13 @@ class ContinuousSportRange(StandardProfile):
         self.startport = startport
         self.endport = endport
         self.pps = pps
+        
+class L2Traffic(StandardProfile):
+    
+    def __init__(self,stream, size=100, payload=None, count=10,
+                 src_mac=None, dst_mac=None, iface=None):
+        super(L2Traffic,self).__init__(stream=stream, size=size, payload=payload, count=count,
+                                       iface=iface)
+        self.src=src_mac
+        self.dst=dst_mac
+        
