@@ -63,14 +63,17 @@ class Stream(object):
             dst = self.all_fields['dst']
             if is_v6(dst):
                 self.protocol = "ipv6"
-        try:
-            proto = self.all_fields['proto']
-        except KeyError, err:
-            print err, "Must specify proto."
+        if self.protocol == 'ether':
+            proto = None
+        else:
+            try:
+                proto = self.all_fields['proto']
+            except KeyError, err:
+                print err, "Must specify proto."
         if 'dst' in self.all_fields.keys():
             self.all_fields['dst'] = str(self.all_fields['dst'])
-
-        self.l2 = self._eth_header()
+        if self.protocol == 'ether': 
+            self.l2 = self._eth_header()
         if self.protocol == 'ip':
             self.l3 = self._ip_header()
         elif self.protocol == 'ipv6':
@@ -83,7 +86,7 @@ class Stream(object):
             self.l4 = self._icmp_header()
 
     def _eth_header(self):
-        return {}
+        return EthHeader(**self.all_fields).get_header()
 
     def _ip_header(self):
         return IPHeader(**self.all_fields).get_header()
@@ -103,7 +106,9 @@ class Stream(object):
         return ICMPHeader(**self.all_fields).get_header()
 
     def get_l4_proto(self):
-        return getattr(self.l3, 'proto', None) or \
+        if self.protocol == 'ether':
+            return None
+    return getattr(self.l3, 'proto', None) or \
                getattr(self.l3, 'nh', None).lower()
 
 
@@ -220,3 +225,12 @@ class IP6Header(AnyHeader):
             hdr_obj.hlim = hdr_obj.ttl
             del hdr_obj.ttl
         return hdr_obj
+class EthHeader(AnyHeader):
+    
+    def __init__(self,**kwargs):
+        super(EthHeader,self).__init__(**kwargs)
+        self.fields = ("dst","src","type")
+        
+    def get_header(self):
+        header = self.create_header(self.fields)
+        return Header(header)
