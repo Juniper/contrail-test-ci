@@ -2405,6 +2405,17 @@ class VMFixture(fixtures.Fixture):
         return name
     # end get_vm_interface_name
 
+    def get_vm_interface_with_ip(self, ip=None):
+        '''if ip is None, returns all interfaces list'''
+
+        cmd = 'ifconfig -a'
+        if ip:
+            cmd = cmd + '| grep %s -A2 -B2' % (ip)
+        cmd = cmd +  '| grep -i hwaddr | awk \'{print $1}i\''
+        name = self.run_cmd_on_vm([cmd])[cmd].splitlines()
+
+        return name
+
     def arping(self, ip, interface=None):
         if not interface:
             interface_mac = self.mac_addr.values()[0]
