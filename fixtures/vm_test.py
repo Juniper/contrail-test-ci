@@ -2247,24 +2247,11 @@ class VMFixture(fixtures.Fixture):
         '''Start Web server on the specified port.
         '''
         self.wait_till_vm_is_up()
-        host = self.inputs.host_data[self.vm_node_ip]
-        fab_connections.clear()
+        cmd = []
         try:
-            vm_host_string = '%s@%s'%(self.vm_username, self.local_ip)
-            cmd = 'echo %s >& index.html'%(content or self.vm_name)
-            output = remote_cmd(
-                vm_host_string, cmd, gateway_password=host['password'],
-                gateway='%s@%s' % (host['username'], self.vm_node_ip),
-                with_sudo=True, password=self.vm_password,
-                logger=self.logger
-            )
-            cmd = 'python -m SimpleHTTPServer %d &> /dev/null' % listen_port
-            output = remote_cmd(
-                vm_host_string, cmd, gateway_password=host['password'],
-                gateway='%s@%s' % (host['username'], self.vm_node_ip),
-                with_sudo=True, as_daemon=True, password=self.vm_password,
-                logger=self.logger
-            )
+            cmd.append('echo %s >& index.html'%(content or self.vm_name))
+            cmd.append('python -m SimpleHTTPServer %d &> /dev/null' % listen_port)
+            output = self.run_cmd_on_vm(cmds=cmd, as_sudo=True, timeout=10)
             self.logger.debug(output)
         except Exception, e:
             self.logger.exception(
@@ -2275,19 +2262,10 @@ class VMFixture(fixtures.Fixture):
     def stop_webserver(self):
         ''' Stop Web Server on the specified port.
         '''
-        host = self.inputs.host_data[self.vm_node_ip]
-        fab_connections.clear()
-        #listen_port = "\"Server "+listen_port+"$\""
         try:
-            vm_host_string = '%s@%s'%(self.vm_username, self.local_ip)
             cmd = "pkill -e -f SimpleHTTPServer"
             self.logger.info("cmd  is is %s" %cmd)
-            output = remote_cmd(
-                vm_host_string, cmd, gateway_password=host['password'],
-                gateway='%s@%s' % (host['username'], self.vm_node_ip),
-                with_sudo=True, password=self.vm_password,
-                logger=self.logger
-            )
+            output = self.run_cmd_on_vm(cmds=[cmd], as_sudo=True, timeout=10)
             self.logger.debug(output)
         except Exception, e:
             self.logger.exception(
