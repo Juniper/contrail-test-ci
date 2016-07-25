@@ -2351,7 +2351,14 @@ class AnalyticsVerification(fixtures.Fixture):
         role_alarms = None
         all_alarms = None
 
-        supervisors =['supervisor-analytics', 'supervisor-control', 'supervisor-config', 'supervisor-database', 'supervisor-vrouter']
+        supervisors = [
+            'supervisor-analytics',
+            'supervisor-control',
+            'supervisor-config',
+            'supervisor-database',
+            'supervisor-vrouter',
+            'contrail-database-nodemgr']
+
         if service in supervisors:
             alarm_type = ['node-status']
 
