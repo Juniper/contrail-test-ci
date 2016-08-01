@@ -1736,6 +1736,7 @@ class VMFixture(fixtures.Fixture):
     # end scp_file_to_vm
 
     def put_pub_key_to_vm(self):
+        fab_connections.clear()
         self.logger.debug('Copying public key to VM %s' % (self.vm_name))
         self.orch.put_key_file_to_host(self.vm_node_ip)
         auth_file = '.ssh/authorized_keys'
@@ -2132,7 +2133,7 @@ class VMFixture(fixtures.Fixture):
         ''' Get VM IPV6 from Ifconfig output executed on VM
         '''
         vm_ipv6 = None
-        cmd = "ifconfig %s| awk '/inet6/ {print $3}'" % (intf)
+        cmd = "ifconfig %s| awk '/inet6/'" % (intf)
         self.run_cmd_on_vm(cmds=[cmd])
         if cmd in self.return_output_cmd_dict.keys():
             output = self.return_output_cmd_dict[cmd]
@@ -2395,13 +2396,14 @@ class VMFixture(fixtures.Fixture):
             mac_address = self.mac_addr.values()[0]
         if mac_address in self._vm_interface.keys():
             return self._vm_interface[mac_address]
-        ubuntu_cmd = 'ifconfig | grep "%s" | awk \'{print \\\\$1}\' | head -1' %(
+        ubuntu_cmd = 'ifconfig | grep "%s" | awk \'{print $1}\' | head -1' %(
             mac_address)
         redhat_cmd = 'ifconfig | grep -i -B 2 "%s" | grep flags | '\
-                        'awk \'{print \\\\$1}\'' % (mac_address)
+                        'awk \'{print $1}\'' % (mac_address)
         cmd = 'test -f /etc/redhat-release && %s || %s' % (redhat_cmd, 
             ubuntu_cmd)
-        name = self.run_cmd_on_vm([cmd]).strip(':')
+        output = self.run_cmd_on_vm([cmd])
+        name = output.values()[0]
         self._vm_interface[mac_address] = name 
         return name
     # end get_vm_interface_name
@@ -2424,12 +2426,12 @@ class VMFixture(fixtures.Fixture):
             interface = self.get_vm_interface_name(interface_mac)
 
         cmd = 'arping -i %s -c 1 -r %s' % (interface, ip)
-        outputs = self.run_cmd_on_vm([cmd])
+        outputs = self.run_cmd_on_vm([cmd], as_sudo=True)
         my_output = outputs.values()[0]
         self.logger.debug('On VM %s, arping to %s on %s returned :%s' % (
             self.vm_name, ip, interface, my_output))
         formatted_output = remove_unwanted_output(my_output)
-        return (my_output.succeeded, formatted_output)
+        return (my_output, formatted_output)
     # end arping
 
     def run_dhclient(self, interface=None):
@@ -2451,7 +2453,8 @@ class VMFixture(fixtures.Fixture):
                                                               self.vm_name))
     # end add_static_arp
 
-    def run_python_code(self, code, as_sudo=True):
+    def run_python_code(self, code, as_sudo=True, as_daemon=False,
+                        pidfile=None, stdout_path=None, stderr_path=None):
         folder = tempfile.mkdtemp()
         filename_short = 'program.py'
         filename = '%s/%s' % (folder, filename_short)
@@ -2465,12 +2468,35 @@ class VMFixture(fixtures.Fixture):
             password=host['password'],
             warn_only=True, abort_on_prompts=False,
             hide='everything'):
-            self.copy_file_to_vm(filename, '/tmp', force=True)
-            outputs = self.run_cmd_on_vm(['python /tmp/%s' % (filename_short)], 
-                as_sudo=as_sudo)
+            dest_gw_username = self.inputs.host_data[
+                                        self.vm_node_ip]['username']
+            dest_gw_password = self.inputs.host_data[
+                                        self.vm_node_ip]['password']
+            dest_gw_ip = self.vm_node_ip
+            dest_gw_login = "%s@%s" % (dest_gw_username,dest_gw_ip)
+            dest_login = '%s@%s' % (self.vm_username,self.local_ip)
+            dest_path = dest_login + ":/tmp"
+            remote_copy(filename, dest_path, dest_password=self.vm_password,
+                        dest_gw=dest_gw_login,dest_gw_password=dest_gw_password,
+                        with_sudo=True)
+            if as_daemon:
+                pidfile = pidfile or "/tmp/pidfile_%s.pid" % (get_random_name())
+                pidfilename = pidfile.split('/')[-1]
+                stdout_path = stdout_path or "/tmp/%s_stdout.log" % pidfilename
+                stderr_path = stderr_path or "/tmp/%s_stderr.log" % pidfilename
+                outputs = self.run_cmd_on_vm(\
+                        ['python /tmp/%s 1>%s 2>%s'\
+                        % (filename_short,stdout_path,stderr_path)],
+                        as_sudo=as_sudo, as_daemon=as_daemon, pidfile=pidfile)
+            else:
+                outputs = self.run_cmd_on_vm(\
+                        ['python /tmp/%s'\
+                        % (filename_short)],
+                        as_sudo=as_sudo, as_daemon=as_daemon)
         shutil.rmtree(folder)
         return outputs.values()[0]
     # end run_python_code
+    
     def get_vmi_type(self, vm_obj):
         try:
             for element in vm_obj['virtual-machine-interface']['virtual_machine_interface_bindings']['key_value_pair']:
