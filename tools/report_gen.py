@@ -156,6 +156,7 @@ class ContrailReportInit:
         self.ds_server_name = []
         self.host_ips = []
         self.webui_ips = []
+        self.openstack_ips = [] 
         self.host_data = {}
         self.physical_routers_data = {}
         self.vgw_data = {}
@@ -175,7 +176,7 @@ class ContrailReportInit:
             roles = host["roles"]
             for role in roles:
                 if role['type'] == 'openstack':
-                    self.openstack_ip = host_ip
+                    self.openstack_ips.append(host_ip)
                 if role['type'] == 'cfgm':
                     self.cfgm_ip = host_ip
                     self.cfgm_ips.append(host_ip)
@@ -233,6 +234,7 @@ class ContrailReportInit:
         self.database_ips = [single_node]
         self.webui_ip = single_node
         self.openstack_ip = single_node
+        self.openstack_ips = [single_node]
         json_data = {}
         self.host_data = {}
         hostname = socket.gethostbyaddr(single_node)[0]
@@ -294,7 +296,7 @@ class ContrailReportInit:
         phy_dev = self.physical_routers_data.keys()
         phy_dev.append(ext_rtr)
         if self.orch == 'openstack':
-            openstack_node = self.get_node_name(self.openstack_ip)
+            openstack_nodes = [self.get_node_name(x) for x in self.openstack_ips]
         database_nodes = [self.get_node_name(x) for x in self.database_ips]
 
         newline = '<br/>'
@@ -366,7 +368,7 @@ class ContrailReportInit:
             tries -= 1
         build_sku = self.get_os_env("SKU")
         if build_sku is None:
-            build_sku=get_build_sku(self.openstack_ip,self.host_data[self.openstack_ip]['password'])
+            build_sku=get_build_sku(self.openstack_ips[0],self.host_data[self.openstack_ip]['password'])
         if (build_id.count('.') > 3):
             build_id = build_id.rsplit('.', 2)[0]
         return [build_id.rstrip('\n'), build_sku]
