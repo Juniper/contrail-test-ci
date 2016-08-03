@@ -142,6 +142,8 @@ class VMFixture(fixtures.Fixture):
             self.vm_obj = self.orch.get_vm_by_id(vm_id=self.vm_id)
             if not self.vm_obj:
                 raise Exception('VM with id %s not found'%self.vm_id)
+            if not self.orch.get_vm_detail(self.vm_obj):
+                raise Exception('VM %s is not yet launched'%self.vm_id)
             self.vm_objs = [self.vm_obj]
             self.vm_name = self.vm_obj.name
             self.vn_names = self.orch.get_networks_of_vm(self.vm_obj)
@@ -2328,8 +2330,16 @@ class VMFixture(fixtures.Fixture):
             self.tap_intf[vn_fq_name] = inspect_h.get_vna_intf_details(
                 self.tap_intf[vn_fq_name]['name'])[0]
     # end refresh_agent_vmi_objects
-        
-        
+
+    def clear_vmi_info(self):
+        self.clear_local_ips()
+        self.vmi_ids = dict()
+        self.mac_addr = dict()
+        self.agent_label = dict()
+        self.cs_vmi_objs = dict()
+        self.cs_instance_ip_objs = dict()
+        self.vm_ips = list()
+        self.vm_ip_dict = dict()
 
     def interface_attach(self, port_id=None, net_id=None, fixed_ip=None):
         self.logger.info('Attaching port %s to VM %s' %
@@ -2339,7 +2349,9 @@ class VMFixture(fixtures.Fixture):
     def interface_detach(self, port_id):
         self.logger.info('Detaching port %s from VM %s' %
                          (port_id, self.vm_obj.name))
-        return self.vm_obj.interface_detach(port_id)
+        retval = self.vm_obj.interface_detach(port_id)
+        self.clear_vmi_info()
+        return retval
 
     def reboot(self, type='SOFT'):
         self.vm_obj.reboot(type)
