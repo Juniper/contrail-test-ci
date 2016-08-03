@@ -142,6 +142,8 @@ class VMFixture(fixtures.Fixture):
             self.vm_obj = self.orch.get_vm_by_id(vm_id=self.vm_id)
             if not self.vm_obj:
                 raise Exception('VM with id %s not found'%self.vm_id)
+            if not self.orch.get_vm_detail(self.vm_obj):
+                raise Exception('VM %s is not yet launched'%self.vm_id)
             self.vm_objs = [self.vm_obj]
             self.vm_name = self.vm_obj.name
             self.vn_names = self.orch.get_networks_of_vm(self.vm_obj)
