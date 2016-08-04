@@ -39,7 +39,7 @@ class ContrailConnections():
         self.agent_inspect = custom_dict(self.get_vrouter_agent_inspect_handle,
                                          'agent_inspect')
         self.ops_inspects = custom_dict(self.get_opserver_inspect_handle,
-                                        'ops_inspect')
+                                        'ops_inspect:'+self.project_name+':'+self.username)
         self.cn_inspect = custom_dict(self.get_control_node_inspect_handle,
                                       'cn_inspect')
         self.ds_inspect = custom_dict(self.get_discovery_service_inspect_handle,
@@ -156,7 +156,8 @@ class ContrailConnections():
         if ip not in self.ops_inspects:
             self.ops_inspects[ip] = VerificationOpsSrv(ip,
                                         port=self.inputs.analytics_api_port,
-                                        logger=self.logger)
+                                        logger=self.logger,
+                                        inputs=self.inputs)
         return self.ops_inspects[ip]
 
     def get_discovery_service_inspect_handle(self, host):
