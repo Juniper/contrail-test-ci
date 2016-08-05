@@ -367,7 +367,11 @@ class ContrailReportInit:
         build_sku = self.get_os_env("SKU")
         if build_sku is None:
             build_sku=get_build_sku(self.openstack_ip,self.host_data[self.openstack_ip]['password'])
-        if (build_id.count('.') > 3):
+        #redhat will have 4 '.' like 3.1.0.0-14.el7
+        if (build_id.count('.') == 4):
+            build_id = build_id.rsplit('.', 1)[0]
+        #centos will have 5 '.' like 3.1.0.0-17.el7.centos
+        elif (build_id.count('.') == 5):
             build_id = build_id.rsplit('.', 2)[0]
         return [build_id.rstrip('\n'), build_sku]
 
