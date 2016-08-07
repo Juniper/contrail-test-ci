@@ -2340,17 +2340,25 @@ class AnalyticsVerification(fixtures.Fixture):
         return self.verify_alarms( role='analytics-node')
     # end analytics_alarms
 
-    def _verify_alarms_stop_svc(self, service, service_ip, role, alarm_type, multi_instances=False):
+    def _verify_alarms_stop_svc(self, service, service_ip, role, alarm_type, multi_instances=False, soak_timer=20):
         result = True
         self.logger.info("Verify alarms generated after stopping the service %s:" % (service))
         self.inputs.stop_service(service, host_ips=[service_ip], contrail_service=True)
         self.logger.info("Process %s stopped" % (service))
-        MAX_RETRY_COUNT = 300
+        soaking = False
+        supervisor = False
+        if re.search('supervisor', str(service)) or re.search('nodemgr', str(service)):
+            supervisor = True 
+        if 'process-status' in alarm_type and not supervisor:
+            soaking = True
+        if soaking:
+            self.logger.info("Soaking enabled..waiting %s secs for soak timer to expire" % (soak_timer))
+            time.sleep(soak_timer)
+        MAX_RETRY_COUNT = 200
         SLEEP_DURATION = .2
         retry = 0
         role_alarms = None
         all_alarms = None
-
         supervisors = [
             'supervisor-analytics',
             'supervisor-control',
@@ -2376,7 +2384,8 @@ class AnalyticsVerification(fixtures.Fixture):
                         if not all_alarms:
                             time.sleep(SLEEP_DURATION)
                             retry = retry + 1
-                            self.logger.info("No alarms found...Iteration  %s " %(retry))
+                            if retry % 10 == 0:
+                                self.logger.info("No alarms found...Iteration  %s " %(retry))
                         if retry > MAX_RETRY_COUNT:
                             self.logger.error("No alarms have been generated")
                             return False
@@ -2385,7 +2394,8 @@ class AnalyticsVerification(fixtures.Fixture):
                     if not role_alarms:
                         retry = retry + 1
                         time.sleep(SLEEP_DURATION)
-                        self.logger.info("Iteration  %s " %(retry))
+                        if retry % 10 == 0:
+                            self.logger.info("Iteration  %s " %(retry))
                     else:
                         time_taken = retry * SLEEP_DURATION
                         # Display warning if time taken to generate is more than 5 secs
@@ -2450,6 +2460,8 @@ class AnalyticsVerification(fixtures.Fixture):
         '''
 
         supervisor = False
+        if re.search('supervisor', str(service)) or re.search('nodemgr', str(service)):
+            supervisor = True
         if role in alarms:
             role_alarms = alarms[role]
             self.logger.info("%s alarms generated for %s " % (role, hostname))
@@ -2471,14 +2483,22 @@ class AnalyticsVerification(fixtures.Fixture):
                             if not service:
                                 return type_alarms
                             else:
-                                if re.search('supervisor', str(service)) or re.search('nodemgr', str(service)):
-                                    supervisor = True
-                                any_of = type_alarms['any_of']
-                                for any_alarms in any_of:
-                                    all_of = any_alarms['all_of']
-                                    for all_of_alarms in all_of:
+                                alarm_rules = type_alarms.get('alarm_rules')
+                                if not alarm_rules:
+                                    self.logger.error("alarm_rules dict missing ")
+                                    return False
+                                or_list = alarm_rules.get('or_list')
+                                if not or_list:
+                                    self.logger.error("or_list not found")
+                                    return False
+                                for any_alarms in or_list:
+                                    and_list = any_alarms.get('and_list')
+                                    for and_list_elem in and_list:
+                                        condition_dict = and_list_elem.get('condition')
+                                        match_list = and_list_elem.get('match')
                                         if not supervisor:
-                                            json_vars = all_of_alarms.get('json_vars')
+                                            json_vars = match_list[0].get('json_variables')
+>>>>>>> 37327c7... Alarm schema related script changes
                                         else:
                                             json_vars = None
                                         if json_vars:
