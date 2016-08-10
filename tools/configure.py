@@ -262,9 +262,11 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     tenant_isolation = env.test.get('tenant_isolation',
                            os.getenv('TENANT_ISOLATION') or '')
 
-    stop_on_fail = env.get('stop_on_fail', False)
+    stop_on_fail = env.test.get('stop_on_fail',
+                       os.getenv('STOP_ON_FAIL') or False)
     mail_to = env.test.get('mail_to', os.getenv('MAIL_TO') or '')
-    log_scenario = env.get('log_scenario', 'Sanity')
+    log_scenario = env.test.get('log_scenario',
+                       os.getenv('LOG_SCENARIO') or 'Sanity')
     stack_region_name = get_region_name()
     admin_user, admin_password = get_authserver_credentials()
     admin_tenant = get_admin_tenant_name()
