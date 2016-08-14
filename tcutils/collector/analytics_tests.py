@@ -119,7 +119,10 @@ class AnalyticsVerification(fixtures.Fixture):
         self.logger = logger
         self.get_all_generators()
         self.uve_verification_flags = []
-
+        self.ha_setup = self.inputs.ha_setup
+        self.contrail_internal_vip = None
+        if self.ha_setup:
+            self.contrail_internal_vip = self.inputs.contrail_internal_vip
     def get_all_generators(self):
         self.generator_hosts = []
         self.bgp_hosts = []
@@ -3559,6 +3562,8 @@ class AnalyticsVerification(fixtures.Fixture):
             assert result   
             result = False    
             for ip in self.inputs.cfgm_control_ips:
+                if self.contrail_internal_vip:
+                    ip = self.contrail_internal_vip
                 server = "%s:%s"%(ip,port_dict['disco'])
                 result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-api',\
@@ -3621,6 +3626,8 @@ class AnalyticsVerification(fixtures.Fixture):
             assert result   
             result = False    
             for ip in self.inputs.cfgm_control_ips:
+               if self.contrail_internal_vip:
+                   ip = self.contrail_internal_vip
                server = "%s:%s"%(ip,port_dict['disco'])
                result = result or self.verify_connection_infos(ops_inspect,\
                         'DeviceManager',\
@@ -3628,6 +3635,8 @@ class AnalyticsVerification(fixtures.Fixture):
             assert result   
             result = False    
             for ip in self.inputs.cfgm_control_ips:
+               if self.contrail_internal_vip:
+                   ip = self.contrail_internal_vip
                server = "%s:%s"%(ip,port_dict['api'])
                result = result or self.verify_connection_infos(ops_inspect,\
                             'DeviceManager',\
@@ -3676,6 +3685,8 @@ class AnalyticsVerification(fixtures.Fixture):
             assert result   
             result = False    
             for ip in self.inputs.cfgm_control_ips:
+               if self.contrail_internal_vip:
+                   ip = self.contrail_internal_vip
                server = "%s:%s"%(ip,port_dict['disco'])
                result = result or self.verify_connection_infos(ops_inspect,\
                         'contrail-schema',\
@@ -3683,6 +3694,8 @@ class AnalyticsVerification(fixtures.Fixture):
             assert result   
             result = False    
             for ip in self.inputs.cfgm_control_ips:
+               if self.contrail_internal_vip:
+                   ip = self.contrail_internal_vip
                server = "%s:%s"%(ip,port_dict['api'])
                result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-schema',\
@@ -3724,6 +3737,8 @@ class AnalyticsVerification(fixtures.Fixture):
             assert result   
             result = False    
             for ip in self.inputs.cfgm_control_ips:
+               if self.contrail_internal_vip:
+                   ip = self.contrail_internal_vip
                server = "%s:%s"%(ip,port_dict['disco'])
                result = result or self.verify_connection_infos(ops_inspect,\
                         'contrail-svc-monitor',\
@@ -3731,6 +3746,8 @@ class AnalyticsVerification(fixtures.Fixture):
             assert result   
             result = False    
             for ip in self.inputs.cfgm_control_ips:
+               if self.contrail_internal_vip:
+                   ip = self.contrail_internal_vip
                server = "%s:%s"%(ip,port_dict['api'])
                result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-svc-monitor',\
@@ -3765,6 +3782,8 @@ class AnalyticsVerification(fixtures.Fixture):
             assert result    
             result = False
             for ip in self.inputs.cfgm_control_ips:
+                if self.contrail_internal_vip:
+                    ip = self.contrail_internal_vip
                 server = "%s:%s"%(ip,port_dict['disco'])
                 result = result or self.verify_connection_infos(ops_inspect,\
                                 'contrail-control',\
@@ -3847,6 +3866,8 @@ class AnalyticsVerification(fixtures.Fixture):
             result = False
             try:    
                 for ip in self.inputs.cfgm_control_ips:
+                    if self.contrail_internal_vip:
+                        ip = self.contrail_internal_vip
                     server = "%s:%s"%(ip,port_dict['disco'])
                     result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-collector',\
@@ -3918,6 +3939,8 @@ class AnalyticsVerification(fixtures.Fixture):
             result = False    
             try:
                 for ip in self.inputs.cfgm_control_ips:
+                    if self.contrail_internal_vip:
+                        ip = self.contrail_internal_vip
                     server = "%s:%s"%(ip,port_dict['disco'])
                     result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-analytics-api',\
@@ -3972,6 +3995,8 @@ class AnalyticsVerification(fixtures.Fixture):
             result = False
             try:    
                 for ip in self.inputs.cfgm_control_ips:
+                    if self.contrail_internal_vip:
+                        ip = self.contrail_internal_vip
                     server = "%s:%s"%(ip,port_dict['disco'])
                     result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-analytics-api',\
