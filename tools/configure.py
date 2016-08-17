@@ -461,9 +461,14 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     # If webui = True, in testbed, setup webui for sanity
     if webui:
         install_webui_packages(testbed)
-        update_config_option('openstack', '/etc/keystone/keystone.conf',
-                             'token', 'expiration',
-                             '86400','keystone')
+        if detect_ostype() in ['centos']:
+            update_config_option('openstack', '/etc/keystone/keystone.conf',
+                                 'token', 'expiration',
+                                 '86400','openstack-keystone')
+        else:
+            update_config_option('openstack', '/etc/keystone/keystone.conf',
+                                 'token', 'expiration',
+                                 '86400','keystone')
         update_js_config('openstack', '/etc/contrail/config.global.js',
                          'contrail-webui')
 
