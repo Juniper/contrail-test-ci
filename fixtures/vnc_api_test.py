@@ -255,4 +255,54 @@ class VncLibFixture(fixtures.Fixture):
         self.logger.info('Setting flow export rate: %s' % (value))
         return True
     # end set_flow_export_rate
+
+    def set_proto_based_flow_aging_time(self, proto, port, timeout=180):
+        '''
+        Set protocol based flow aging timeout value.
+        proto: <string>, port: <int>, timeout: <int-in-seconds>
+        '''
+
+        fq_name = [ 'default-global-system-config',
+                    'default-global-vrouter-config']
+        gv_obj = self.vnc_api_h.global_vrouter_config_read(fq_name=fq_name)
+        flow_aging = gv_obj.get_flow_aging_timeout_list()
+
+        flow_aging_add = FlowAgingTimeout(protocol=proto, port=port, timeout_in_seconds=timeout)
+        if flow_aging:
+            flow_aging.flow_aging_timeout.append(flow_aging_add)
+        else:
+            flow_aging = FlowAgingTimeoutList([flow_aging_add])
+        gv_obj.set_flow_aging_timeout_list(flow_aging)
+        self.vnc_api_h.global_vrouter_config_update(gv_obj)
+
+        self.logger.info('Added global flow aging configuration: %s' % (vars(flow_aging_add)))
+
+        return True
+
+    def delete_proto_based_flow_aging_time(self, proto, port, timeout=180):
+        '''
+        Remove protocol based flow aging timeout value.
+        proto: <string>, port: <int>, timeout: <int-in-seconds>
+        '''
+
+        fq_name = [ 'default-global-system-config',
+                    'default-global-vrouter-config']
+        gv_obj = self.vnc_api_h.global_vrouter_config_read(fq_name=fq_name)
+        flow_aging = gv_obj.get_flow_aging_timeout_list()
+
+        if not flow_aging:
+            return
+        for aging in flow_aging.flow_aging_timeout:
+            values = vars(aging)
+            if values['timeout_in_seconds'] == timeout and \
+                values['protocol'] == proto and values['port'] == port:
+                flow_aging.flow_aging_timeout.remove(aging)
+
+                gv_obj.set_flow_aging_timeout_list(flow_aging)
+                self.vnc_api_h.global_vrouter_config_update(gv_obj)
+
+                self.logger.info('Deleted the flow aging configuration: %s' % (vars(aging)))
+
+                return True
+
 # end VncLibFixture
