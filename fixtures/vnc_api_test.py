@@ -255,4 +255,5 @@ class VncLibFixture(fixtures.Fixture):
         self.logger.info('Setting flow export rate: %s' % (value))
         return True
     # end set_flow_export_rate
+
 # end VncLibFixture
