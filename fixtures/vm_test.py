@@ -2582,7 +2582,32 @@ class VMFixture(fixtures.Fixture):
         #          return False
         return True
         # L2 verification end here
-        
+
+    def add_ip_on_vm(self, ip):
+        '''
+        Adds IP on the VM on the first interface:
+            IPv4: Configures virtual interface on the VM for new IP
+            IPv6: Adds the new ip in existing interface
+        '''
+        interface = self.get_vm_interface_list()[0]
+        if is_v6(ip):
+            intf_conf_cmd = "ifconfig %s inet6 add %s" % (interface,
+                                       ip)
+        else:
+            intf_conf_cmd = "ifconfig %s:0 %s" % (interface,
+                                       ip)
+        vm_cmds = (intf_conf_cmd, 'ifconfig -a')
+        for cmd in vm_cmds:
+            cmd_to_output = [cmd]
+            self.run_cmd_on_vm(cmds=cmd_to_output, as_sudo=True)
+            output = self.return_output_cmd_dict[cmd]
+        if ip not in output:
+            self.logger.error(
+                "IP %s not assigned to any interface" % (ip))
+            return False
+
+        return True
+
 # end VMFixture
 
 class VMData(object):
