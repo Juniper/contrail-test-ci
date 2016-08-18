@@ -2633,6 +2633,26 @@ class VMFixture(fixtures.Fixture):
         return True
         # L2 verification end here
 
+    def config_virtual_interface(self, ip):
+        interface = self.get_vm_interface_list()[0]
+        if is_v6(ip):
+            intf_conf_cmd = "ifconfig %s inet6 add %s" % (interface,
+                                       ip)
+        else:
+            intf_conf_cmd = "ifconfig %s:0 %s" % (interface,
+                                       ip)
+        vm_cmds = (intf_conf_cmd, 'ifconfig -a')
+        for cmd in vm_cmds:
+            cmd_to_output = [cmd]
+            self.run_cmd_on_vm(cmds=cmd_to_output, as_sudo=True)
+            output = self.return_output_cmd_dict[cmd]
+        if ip not in output:
+            self.logger.error(
+                "IP %s not assigned to any interface" % (ip))
+            return False
+
+        return True
+
 # end VMFixture
 
 class VMData(object):
