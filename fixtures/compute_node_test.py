@@ -429,9 +429,9 @@ class ComputeNodeFixture(fixtures.Fixture):
             reqd_entries['sip'] = source_ip
         if dest_ip:
             reqd_entries['dip'] = dest_ip
-        if source_port:
+        if None != source_port:
             reqd_entries['sport'] = str(source_port)
-        if dest_port:
+        if None != dest_port:
             reqd_entries['dport'] = str(dest_port)
         if proto:
             reqd_entries['proto'] = PROTO_MAP[proto]
