@@ -2,6 +2,8 @@ import vnc_api_test
 from tcutils.util import retry
 import json
 import uuid
+from netaddr import EUI
+import netaddr
 
 class PortFixture(vnc_api_test.VncLibFixture):
 
@@ -51,9 +53,13 @@ class PortFixture(vnc_api_test.VncLibFixture):
             self._neutron_create_port()
         else:
             self._contrail_create_port()
-        self.neutron_handle = self.get_neutron_handle()
-        self.obj = self.neutron_handle.get_port(self.uuid)
-        self.mac_address = self.obj['mac_address']
+        #Sandipd:This code was crashing while creating port as part of 
+        #vcenter gateway testing.Hence handled the exception as the mac 
+        #not needed to be obtained always,its passed as an argument to the fixture 
+        if not self.mac_address:
+            self.neutron_handle = self.get_neutron_handle()
+            self.obj = self.neutron_handle.get_port(self.uuid)
+            self.mac_address = self.obj['mac_address']
         self.vmi_obj = self.vnc_api_h.virtual_machine_interface_read(
             id=self.uuid)
         self.logger.debug('Created port %s' % (self.uuid))
