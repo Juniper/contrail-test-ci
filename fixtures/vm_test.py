@@ -2501,7 +2501,7 @@ class VMFixture(fixtures.Fixture):
                                                               self.vm_name))
     # end add_static_arp
 
-    def run_python_code(self, code, as_sudo=True):
+    def run_python_code(self, code, as_sudo=True, as_daemon=True, pidfile=None):
         folder = tempfile.mkdtemp()
         filename_short = 'program.py'
         filename = '%s/%s' % (folder, filename_short)
