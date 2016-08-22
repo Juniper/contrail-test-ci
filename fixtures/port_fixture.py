@@ -1,4 +1,7 @@
 import vnc_api_test
+import uuid
+from netaddr import EUI
+import netaddr
 
 class PortFixture(vnc_api_test.VncLibFixture):
 
