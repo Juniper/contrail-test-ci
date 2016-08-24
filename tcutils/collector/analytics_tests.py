@@ -129,12 +129,6 @@ class AnalyticsVerification(fixtures.Fixture):
         self.compute_hosts = []
         self.collector_hosts = []
 
-#        self.cfgm_host = self.inputs.host_data[self.inputs.cfgm_ip]['name']
-#        if (self.cfgm_host not in self.generator_hosts):
-#            self.generator_hosts.append(self.cfgm_host)
-#        # collector_ip=self.inputs.collector_ip
-#        # self.collector_host=self.inputs.host_data[collector_ip]['name']
-
         for collector_ip in self.inputs.collector_ips:
             c_host = self.inputs.host_data[collector_ip]['name']
             self.collector_hosts.append(c_host)
