@@ -85,7 +85,8 @@ is_image_available () {
 
 # Is container available?
 is_container_available () {
-    docker ps -a -q -f id=$pos_arg | grep -q [[:alnum:]] || docker ps -a -q -f name=$pos_arg | grep -q [[:alnum:]]
+    container=${1:-$pos_arg}
+    docker ps -a -q -f id=$container | grep -q [[:alnum:]] || docker ps -a -q -f name=$container | grep -q [[:alnum:]]
 }
 
 get_container_name () {
@@ -197,6 +198,9 @@ docker_run () {
 
     # Run container in background
     tempfile=$(mktemp)
+    while ! is_container_available $name; do
+	name="contrail_test_$(< /dev/urandom tr -dc a-z | head -c8)"
+    done
     if [[ -n $background ]]; then
         echo "$docker run ${arg_env[*]} $arg_base_vol $local_vol $key_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name $ci_image_arg -e FEATURE=$feature -e TEST_TAGS=$test_tags -d $arg_rm $arg_shell -t $image_name" > $tempfile
         id=. $tempfile
