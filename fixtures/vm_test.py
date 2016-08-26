@@ -19,6 +19,7 @@ from contrail_fixtures import *
 import threading
 import shlex
 from subprocess import Popen, PIPE
+from tcutils.fabutils import *
 
 from collections import defaultdict
 from tcutils.pkgs.install import PkgHost, build_and_install
@@ -2471,9 +2472,9 @@ class VMFixture(fixtures.Fixture):
         self.logger.info('Added static arp %s:%s on VM %s' % (ip, mac,
                                                               self.vm_name))
     # end add_static_arp
-
-    def run_python_code(self, code, as_sudo=True):
-        fab_connections.clear()
+    
+    def run_python_code(self, code, as_sudo=True, as_daemon=False,
+                        pidfile=None, stdout_path=None, stderr_path=None):
         folder = tempfile.mkdtemp()
         filename_short = 'program.py'
         filename = '%s/%s' % (folder, filename_short)
@@ -2487,12 +2488,38 @@ class VMFixture(fixtures.Fixture):
             password=host['password'],
             warn_only=True, abort_on_prompts=False,
             hide='everything'):
-            self.copy_file_to_vm(filename, '/tmp', force=True)
-            outputs = self.run_cmd_on_vm(['python /tmp/%s' % (filename_short)], 
-                as_sudo=as_sudo)
+            dest_gw_username = self.inputs.host_data[
+                                        self.vm_node_ip]['username']
+            dest_gw_password = self.inputs.host_data[
+                                        self.vm_node_ip]['password']
+            dest_gw_ip = self.vm_node_ip
+            dest_gw_login = "%s@%s" % (dest_gw_username,dest_gw_ip)
+            dest_login = '%s@%s' % (self.vm_username,self.local_ip)
+            dest_path = dest_login + ":/tmp"
+            remote_copy(filename, dest_path, dest_password=self.vm_password,
+                        dest_gw=dest_gw_login,dest_gw_password=dest_gw_password,
+                        with_sudo=True)
+            if as_daemon:
+                pidfile = "/tmp/pidfile_%s.pid" % (get_random_name())\
+                        if not pidfile else pidfile
+                pidfilename = pidfile.split('/')[-1]
+                stdout_path = "/tmp/%s_stdout.log" % pidfilename\
+                        if not stdout_path else stdout_path
+                stderr_path = "/tmp/%s_stderr.log" % pidfilename\
+                        if not stderr_path else stderr_path
+                outputs = self.run_cmd_on_vm(\
+                        ['python /tmp/%s 1>%s 2>%s'\
+                        % (filename_short,stdout_path,stderr_path)],
+                        as_sudo=as_sudo, as_daemon=as_daemon, pidfile=pidfile)
+            else:
+                outputs = self.run_cmd_on_vm(\
+                        ['python /tmp/%s'\
+                        % (filename_short)],
+                        as_sudo=as_sudo, as_daemon=as_daemon)
         shutil.rmtree(folder)
         return outputs.values()[0]
     # end run_python_code
+
     def get_vmi_type(self, vm_obj):
         try:
             for element in vm_obj['virtual-machine-interface']['virtual_machine_interface_bindings']['key_value_pair']:
