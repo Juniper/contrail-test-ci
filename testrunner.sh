@@ -20,7 +20,6 @@ testbed=/opt/contrail/utils/fabfile/testbeds/testbed.py
 feature=sanity
 run_path="${HOME}/contrail-test-runs"
 arg_shell=''
-name="contrail_test_$(< /dev/urandom tr -dc a-z | head -c8)"
 declare -a arg_env
 SCRIPT_TIMESTAMP=${SCRIPT_TIMESTAMP:-`date +"%Y_%m_%d_%H_%M_%S"`}
 DEFAULT_CI_IMAGE='cirros-0.3.0-x86_64-uec'
@@ -34,7 +33,7 @@ RED="$ESC[0;31m"
 trap finish EXIT SIGHUP SIGINT SIGTERM
 
 finish () {
-    rm -f $tempfile
+    rm -f $tempfile $run_log
     tput init
 }
 
@@ -85,7 +84,8 @@ is_image_available () {
 
 # Is container available?
 is_container_available () {
-    docker ps -a -q -f id=$pos_arg | grep -q [[:alnum:]] || docker ps -a -q -f name=$pos_arg | grep -q [[:alnum:]]
+    container=${1:-$pos_arg}
+    docker ps -a -q -f id=$container | grep -q [[:alnum:]] || docker ps -a -q -f name=$container | grep -q [[:alnum:]]
 }
 
 get_container_name () {
@@ -216,6 +216,33 @@ docker_run () {
 
     # Run container in background
     tempfile=$(mktemp)
+    run_log=$(mktemp /tmp/contrail_test_XXXXXXXXX.log)
+	run_n=1
+
+    # Execute docker run, if it failed (exit with non-zero), check if it encountered container start timeout error.
+    # If it is, delete the old container if running, and try again.
+    # If it failed because of any other reason, just leave it
+	while [ $run_n -le 5 ]; do
+	    run_docker_cmd; rv=$?
+	    if [ $rv -eq 0 ]; then
+	        break
+	    else
+	        if [[ `grep -c "docker: Error response from daemon: containerd:" $run_log` -ne 0 ]]; then
+	            echo "Docker run failed, retrying (${run_n}/5)".
+	            $docker rm -f $name || true
+	        else
+	            break
+	        fi
+	    fi
+	    run_n=$(($run_n+1))
+	done
+	return $rv
+}
+
+run_docker_cmd () {
+    # Run container in background
+    tempfile=$(mktemp /tmp/contrail_test_XXXXXXXXX)
+    name=$(basename $tempfile)
     if [[ -n $background ]]; then
         echo "$docker run ${arg_env[*]} $arg_base_vol $local_vol $key_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name $ci_image_arg -e FEATURE=$feature -e TEST_TAGS=$test_tags -d $arg_rm $arg_shell -t $image_name" > $tempfile
         id=. $tempfile
@@ -232,6 +259,8 @@ docker_run () {
         done
         return $rv
     fi
+    bash $tempfile | tee $run_log; rv=$?
+    return $rv
 }
 
 check_docker () {
