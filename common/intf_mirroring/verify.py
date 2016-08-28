@@ -8,7 +8,7 @@ from tcutils.commands import ssh, execute_cmd, execute_cmd_out
 from common.servicechain.mirror.verify import VerifySvcMirror
 from random import randint
 from common.openstack_libs import network_exception as exceptions
-
+from vnc_api.gen.resource_xsd import StaticMirrorNhType
 from vnc_api.gen.resource_xsd import MirrorActionType
 from vnc_api.gen.resource_xsd import InterfaceMirrorType
 from vnc_api.gen.resource_xsd import VirtualMachineInterfacePropertiesType
@@ -115,7 +115,172 @@ class VerifyIntfMirror(VerifySvcMirror):
         analyzer_compute = compute_2
         return self.verify_intf_mirroring(src_compute, dst_compute, analyzer_compute)
 
-    def verify_intf_mirroring(self, src_compute, dst_compute, analyzer_compute):
+    def verify_intf_mirroring_6(self):
+        """Validate the interface mirroring
+        src vm, analyzer vm on same CN and dst vm on different CN
+        """
+        host_list = []
+        for host in self.inputs.compute_ips:
+            host_list.append(self.inputs.host_data[host]['name'])
+        compute_1 = host_list[0]
+        compute_2 = host_list[0]
+        compute_3 = host_list[0]
+        if len(host_list) > 1:
+            compute_1 = host_list[0]
+            compute_2 = host_list[1]
+        if len(host_list) > 2:
+            compute_3 = host_list[2]
+        src_compute = compute_1
+        dst_compute = compute_2
+        analyzer_compute = compute_1
+        return self.verify_intf_mirroring(src_compute, dst_compute, analyzer_compute, header = False)
+
+        host_list = []
+        for host in self.inputs.compute_ips:
+            host_list.append(self.inputs.host_data[host]['name'])
+        compute_1 = host_list[0]
+        compute_2 = host_list[0]
+        compute_3 = host_list[0]
+        if len(host_list) > 1:
+            compute_1 = host_list[0]
+            compute_2 = host_list[1]
+        if len(host_list) > 2:
+            compute_3 = host_list[2]
+        src_compute = compute_1
+        dst_compute = compute_2
+        analyzer_compute = compute_3
+        return self.verify_intf_mirroring(src_compute, dst_compute, analyzer_compute, header = False)
+
+        host_list = []
+        for host in self.inputs.compute_ips:
+            host_list.append(self.inputs.host_data[host]['name'])
+        compute_1 = host_list[0]
+        compute_2 = host_list[0]
+        compute_3 = host_list[0]
+        if len(host_list) > 1:
+            compute_1 = host_list[0]
+            compute_2 = host_list[1]
+        if len(host_list) > 2:
+            compute_3 = host_list[2]
+        src_compute = compute_1
+        dst_compute = compute_1
+        analyzer_compute = compute_1
+        return self.verify_intf_mirroring(src_compute, dst_compute, analyzer_compute, header = False)
+
+        host_list = []
+        for host in self.inputs.compute_ips:
+            host_list.append(self.inputs.host_data[host]['name'])
+        compute_1 = host_list[0]
+        compute_2 = host_list[0]
+        compute_3 = host_list[0]
+        if len(host_list) > 1:
+            compute_1 = host_list[0]
+            compute_2 = host_list[1]
+        if len(host_list) > 2:
+            compute_3 = host_list[2]
+        src_compute = compute_1
+        dst_compute = compute_1
+        analyzer_compute = compute_2
+        return self.verify_intf_mirroring(src_compute, dst_compute, analyzer_compute, header = False)
+
+        host_list = []
+        for host in self.inputs.compute_ips:
+            host_list.append(self.inputs.host_data[host]['name'])
+        compute_1 = host_list[0]
+        compute_2 = host_list[0]
+        compute_3 = host_list[0]
+        if len(host_list) > 1:
+            compute_1 = host_list[0]
+            compute_2 = host_list[1]
+        if len(host_list) > 2:
+            compute_3 = host_list[2]
+        src_compute = compute_1
+        dst_compute = compute_2
+        analyzer_compute = compute_2
+        return self.verify_intf_mirroring(src_compute, dst_compute, analyzer_compute, header = False)
+
+        #static
+        host_list = []
+        for host in self.inputs.compute_ips:
+            host_list.append(self.inputs.host_data[host]['name'])
+        compute_1 = host_list[0]
+        compute_2 = host_list[0]
+        compute_3 = host_list[0]
+        if len(host_list) > 1:
+            compute_1 = host_list[0]
+            compute_2 = host_list[1]
+        if len(host_list) > 2:
+            compute_3 = host_list[2]
+        src_compute = compute_1
+        dst_compute = compute_2
+        analyzer_compute = compute_1
+        return self.verify_intf_mirroring(src_compute, dst_compute, analyzer_compute, header = False, nh_mode = 'static')
+
+        host_list = []
+        for host in self.inputs.compute_ips:
+            host_list.append(self.inputs.host_data[host]['name'])
+        compute_1 = host_list[0]
+        compute_2 = host_list[0]
+        compute_3 = host_list[0]
+        if len(host_list) > 1:
+            compute_1 = host_list[0]
+            compute_2 = host_list[1]
+        if len(host_list) > 2:
+            compute_3 = host_list[2]
+        src_compute = compute_1
+        dst_compute = compute_2
+        analyzer_compute = compute_3
+        return self.verify_intf_mirroring(src_compute, dst_compute, analyzer_compute, header = False, nh_mode = 'static')
+
+        host_list = []
+        for host in self.inputs.compute_ips:
+            host_list.append(self.inputs.host_data[host]['name'])
+        compute_1 = host_list[0]
+        compute_2 = host_list[0]
+        compute_3 = host_list[0]
+        if len(host_list) > 1:
+            compute_1 = host_list[0]
+            compute_2 = host_list[1]
+        if len(host_list) > 2:
+            compute_3 = host_list[2]
+        src_compute = compute_1
+        dst_compute = compute_1
+        analyzer_compute = compute_1
+        return self.verify_intf_mirroring(src_compute, dst_compute, analyzer_compute, header = False, nh_mode = 'static')
+
+        host_list = []
+        for host in self.inputs.compute_ips:
+            host_list.append(self.inputs.host_data[host]['name'])
+        compute_1 = host_list[0]
+        compute_2 = host_list[0]
+        compute_3 = host_list[0]
+        if len(host_list) > 1:
+            compute_1 = host_list[0]
+            compute_2 = host_list[1]
+        if len(host_list) > 2:
+            compute_3 = host_list[2]
+        src_compute = compute_1
+        dst_compute = compute_1
+        analyzer_compute = compute_2
+        return self.verify_intf_mirroring(src_compute, dst_compute, analyzer_compute, header = False, nh_mode = 'static')
+
+        host_list = []
+        for host in self.inputs.compute_ips:
+            host_list.append(self.inputs.host_data[host]['name'])
+        compute_1 = host_list[0]
+        compute_2 = host_list[0]
+        compute_3 = host_list[0]
+        if len(host_list) > 1:
+            compute_1 = host_list[0]
+            compute_2 = host_list[1]
+        if len(host_list) > 2:
+            compute_3 = host_list[2]
+        src_compute = compute_1
+        dst_compute = compute_2
+        analyzer_compute = compute_2
+        return self.verify_intf_mirroring(src_compute, dst_compute, analyzer_compute, header = False, nh_mode = 'static')
+
+    def verify_intf_mirroring(self, src_compute, dst_compute, analyzer_compute, header = True, nh_mode = 'dynamic'):
         """Validate the interface mirroring
            Test steps:
            1. Create vn1/vm1_vn1, vn1/vm2_vn1, vn1/mirror_vm_vn1,  vn2/vm2_vn2, vn2/mirror_vm_vn2, vn3/mirror_vm_vn3
@@ -254,22 +419,22 @@ class VerifyIntfMirror(VerifySvcMirror):
             self.policy_fixture_vn1_vn3, self.vn3_fixture)
 
         self.vm1_fixture_vn1 = self.config_vm(
-            vn_fix=self.vn1_fixture, vm_name=self.vm1_name_vn1, node_name=src_compute, image_name=image_name)
+            vm_name=self.vm1_name_vn1, vn_fix=self.vn1_fixture, node_name=src_compute, image_name=image_name)
 
         self.vm2_fixture_vn2 = self.config_vm(
-            vn_fix=self.vn2_fixture, vm_name=self.vm2_name_vn2, node_name=dst_compute, image_name=image_name)
+            vm_name=self.vm2_name_vn2, vn_fix=self.vn2_fixture, node_name=dst_compute, image_name=image_name)
 
         self.mirror_vm_fixture_vn1 = self.config_vm(
-            vn_fix=self.vn1_fixture, vm_name=self.mirror_vm_name_vn1, node_name=analyzer_compute, image_name=image_name)
+            vm_name=self.mirror_vm_name_vn1, vn_fix=self.vn1_fixture, node_name=analyzer_compute, image_name=image_name)
 
         self.vm2_fixture_vn1 = self.config_vm(
-            vn_fix=self.vn1_fixture, vm_name=self.vm2_name_vn1, node_name=dst_compute, image_name=image_name)
+            vm_name=self.vm2_name_vn1, vn_fix=self.vn1_fixture, node_name=dst_compute, image_name=image_name)
  
         self.mirror_vm_fixture_vn3 = self.config_vm(
-           vn_fix=self.vn3_fixture, vm_name=self.mirror_vm_name_vn3, node_name=analyzer_compute, image_name=image_name)
+           vm_name=self.mirror_vm_name_vn3, vn_fix=self.vn3_fixture, node_name=analyzer_compute, image_name=image_name)
 
         self.mirror_vm_fixture_vn2 = self.config_vm(
-           vn_fix=self.vn2_fixture, vm_name=self.mirror_vm_name_vn2, node_name=analyzer_compute, image_name=image_name)
+           vm_name=self.mirror_vm_name_vn2, vn_fix=self.vn2_fixture, node_name=analyzer_compute, image_name=image_name)
 
         assert self.vm1_fixture_vn1.verify_on_setup()
         assert self.vm2_fixture_vn2.verify_on_setup()
@@ -300,31 +465,31 @@ class VerifyIntfMirror(VerifySvcMirror):
         self.logger.info("Verify Port mirroring when src vm in vn1, mirror vm in vn1 and dst vm in vn2..")
         if not self._verify_intf_mirroring(self.vm1_fixture_vn1, self.vm2_fixture_vn2, self.mirror_vm_fixture_vn1, \
                 self.vn1_fq_name, self.vn2_fq_name, self.vn1_fq_name,
-                self.mirror_vm_ip_vn1, self.analyzer_name_vn1, self.routing_instance_vn1) :
+                self.mirror_vm_ip_vn1, self.analyzer_name_vn1, self.routing_instance_vn1, header = header, nh_mode) :
             result = result and False
 
         self.logger.info("Verify Port mirroring when src vm in vn1, mirror vm in vn3, and dst vm in vn2")
         if not self._verify_intf_mirroring(self.vm1_fixture_vn1, self.vm2_fixture_vn2, self.mirror_vm_fixture_vn3, \
                 self.vn1_fq_name, self.vn2_fq_name, self.vn3_fq_name,
-                self.mirror_vm_ip_vn3, self.analyzer_name_vn3, self.routing_instance_vn3) :
+                self.mirror_vm_ip_vn3, self.analyzer_name_vn3, self.routing_instance_vn3, header = header, nh_mode) :
             result = result and False
 
         self.logger.info("Verify Port mirroring when src vm, dst vm and mirror vm all are in vn1")
         if not self._verify_intf_mirroring(self.vm1_fixture_vn1, self.vm2_fixture_vn1, self.mirror_vm_fixture_vn1, \
                 self.vn1_fq_name, self.vn1_fq_name, self.vn1_fq_name,
-                self.mirror_vm_ip_vn1, self.analyzer_name_vn1, self.routing_instance_vn1) :
+                self.mirror_vm_ip_vn1, self.analyzer_name_vn1, self.routing_instance_vn1, header = header, nh_mode) :
             result = result and False
 
         self.logger.info("Verify Port mirroring when src vm in vn1, dst vm in vn2 and mirror vm in vn2")
         if not self._verify_intf_mirroring(self.vm1_fixture_vn1, self.vm2_fixture_vn2, self.mirror_vm_fixture_vn2, \
                 self.vn1_fq_name, self.vn2_fq_name, self.vn2_fq_name,
-                self.mirror_vm_ip_vn2, self.analyzer_name_vn2, self.routing_instance_vn2) :
+                self.mirror_vm_ip_vn2, self.analyzer_name_vn2, self.routing_instance_vn2, header = header, nh_mode) :
             result = result and False
  
         return result
 
     def _verify_intf_mirroring(self, src_vm_fixture, dst_vm_fixture, mirror_vm_fixture, src_vn_fq, dst_vn_fq, mirr_vn_fq,\
-            analyzer_ip_address, analyzer_name, routing_instance):
+            analyzer_ip_address, analyzer_name, routing_instance, header = True, nh_mode = 'dynamic'):
         result = True
 
         src_vm_ip = src_vm_fixture.get_vm_ips(src_vn_fq)[0]
@@ -336,7 +501,7 @@ class VerifyIntfMirror(VerifySvcMirror):
         tap_intf_uuid = src_vm_fixture.get_tap_intf_of_vm()[0]['uuid']
         tap_intf_obj = vnc.virtual_machine_interface_read(id=tap_intf_uuid)
 
-        self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance)
+        self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance, header = header, nh_mode)
 
         self.logger.info("src vm ip %s -> dst vm ip %s => mirror vm ip %s" % (src_vm_ip, dst_vm_ip, mirror_vm_ip))
         if not self.verify_mirroring(None, src_vm_fixture, dst_vm_fixture, mirror_vm_fixture):
@@ -349,14 +514,18 @@ class VerifyIntfMirror(VerifySvcMirror):
     # end verify_intf_mirroring
 
     def enable_intf_mirroring(self, vnc, tap, analyzer_ip_address, analyzer_name, routing_instance,
-                             direction='both', udp_port=8099,  encapsulation=None):
+                             direction='both', udp_port=8099,  encapsulation=None, header = True, nh_mode = 'dynamic'):
         prop_obj = tap.get_virtual_machine_interface_properties()
         if not prop_obj:
             prop_obj = VirtualMachineInterfacePropertiesType()
         interface_mirror = prop_obj.get_interface_mirror()
         if not interface_mirror:
-            mirror_to = MirrorActionType(analyzer_name=analyzer_name, encapsulation=None, 
-                analyzer_ip_address=analyzer_ip_address, routing_instance=routing_instance, udp_port=udp_port)
+            if nh_mode = 'static':
+                hosted_node = str(tap.get_virtual_machine_interface_bindings().get_key_value_pair()[0].value)
+                staticmirror_nh = StaticMirrorNhType(vtep_dst_ip_address = hosted_node, vni = 6)
+                mirror_to = MirrorActionType(analyzer_name=analyzer_name, encapsulation=None,analyzer_ip_address=analyzer_ip_address, juniper_header = header, nh_mode = nh_mode, static_nh_header = staticmirror_nh, routing_instance=routing_instance,udp_port=udp_port)
+            else:
+                mirror_to = MirrorActionType(analyzer_name=analyzer_name, encapsulation=None, analyzer_ip_address=analyzer_ip_address, juniper_header = header, routing_instance=routing_instance, udp_port=udp_port)
             interface_mirror = InterfaceMirrorType(direction, mirror_to)
             prop_obj.set_interface_mirror(interface_mirror)
             tap.set_virtual_machine_interface_properties(prop_obj)
