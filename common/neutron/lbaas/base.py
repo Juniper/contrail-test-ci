@@ -98,34 +98,42 @@ class BaseTestLbaas(BaseNeutronTest):
         return (result,errmsg)
 
     def start_simpleHTTPserver(self, servers):
-        output = ''
+        webserver_script = '/tmp/webserver.sh'
         for server in servers:
-            cmd1 = 'hostname > index.html'
-            cmd2 = 'python -m SimpleHTTPServer 80 &> /tmp/http.log'
+            # unable to launch webserver as daemon with cirros image
+            # hence the workaround of writing to temporary script which
+            # launches the web server
+            webserver_cmd = '''
+echo '#!/bin/sh
+while true; do
+    echo -e "HTTP/1.0 200 OK\\r\\n\\r\\n%s" | nc -l -p 80
+done' > /tmp/test.sh;
+chmod 777 /tmp/test.sh;
+echo '#!/bin/sh
+/tmp/test.sh' > %s;
+chmod 777 %s'''%(server.vm_ip, webserver_script, webserver_script)
+            webserver_cmd = "%s; chmod +x %s"%(webserver_cmd, webserver_script)
             remote_cmd(host_string='%s@%s'%(server.vm_username,
-                                                      server.local_ip),
-                                 password=server.vm_password, cmd=cmd1,
-                                 gateway='@'.join([self.inputs.username,
-                                                   server.vm_node_ip]),
-                                 gateway_password=self.inputs.password,
-                                 cwd='/tmp')
-            try:
-                remote_cmd(host_string = '%s@%s'%(server.vm_username,
-                                                            server.local_ip),
-                                     password=server.vm_password, cmd=cmd2,
-                                     gateway='@'.join([self.inputs.username,
-                                                   server.vm_node_ip]),
-                                     gateway_password=self.inputs.password,
-                                     with_sudo=True, timeout=1, cwd='/tmp')
-            except CommandTimeout:
-                pass
+                                            server.local_ip),
+                       password=server.vm_password,
+                       gateway='@'.join([self.inputs.username,
+                                         server.vm_node_ip]),
+                       gateway_password=self.inputs.password,
+                       cmd=webserver_cmd)
+            remote_cmd(host_string = '%s@%s'%(server.vm_username,
+                                              server.local_ip),
+                       password=server.vm_password, cmd=webserver_script,
+                       gateway='@'.join([self.inputs.username,
+                                         server.vm_node_ip]),
+                       gateway_password=self.inputs.password,
+                       with_sudo=True, as_daemon=True)
         return
 
     def run_wget(self, vm, vip):
         response = ''
         out = ''
         result = False
-        cmd1 = 'wget http://%s' % vip
+        cmd1 = 'rm -f index.html && wget http://%s' % vip
         cmd2 = 'cat index.html'
         result = remote_cmd(
             host_string='%s@%s'%(vm.vm_username, vm.local_ip),
@@ -133,8 +141,7 @@ class BaseTestLbaas(BaseNeutronTest):
             gateway='@'.join([self.inputs.username, vm.vm_node_ip]),
             gateway_password=self.inputs.password
         )
-
-        if result.count('200 OK'):
+        if result and (result.count('200 OK') or result.count('100%')):
             result = True
             self.logger.info("connections to vip %s successful" % (vip))
             response = remote_cmd(
