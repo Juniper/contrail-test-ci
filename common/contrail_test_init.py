@@ -10,7 +10,7 @@ import ast
 from netaddr import *
 
 import fixtures
-from fabric.api import env, run, local
+from fabric.api import env, run, local, sudo
 from fabric.operations import get, put, reboot
 from fabric.context_managers import settings, hide
 from fabric.exceptions import NetworkError
@@ -120,7 +120,16 @@ class TestInputs(object):
             'Basic',
             'stackRegion',
             os.getenv('OS_REGION_NAME', 'RegionOne'))
-
+        self.neutron_username = read_config_option(
+            self.config,
+            'Basic',
+            'neutron_username',
+            None)
+        self.availability_zone = read_config_option(
+            self.config,
+            'Basic',
+            'availability_zone',
+            None)
         self.endpoint_type = read_config_option(
             self.config,
             'Basic',
@@ -163,6 +172,8 @@ class TestInputs(object):
                                                 'Basic', 'multiTenancy', False)
         self.enable_ceilometer = read_config_option(self.config,
                                                     'Basic', 'enable_ceilometer', False)
+        self.ci_flavor = read_config_option(self.config,
+                                            'Basic', 'ci_flavor', None)
         self.fixture_cleanup = read_config_option(
             self.config,
             'Basic',
@@ -640,7 +651,7 @@ class TestInputs(object):
             with settings(
                 host_string='%s@%s' % (username, server_ip), password=password,
                     warn_only=True, abort_on_prompts=False):
-                output = run('%s' % (issue_cmd), pty=pty)
+                output = sudo('%s' % (issue_cmd), pty=pty)
                 return output
     # end run_cmd_on_server
 
@@ -776,7 +787,7 @@ class ContrailTestInit(object):
 
     def verify_control_connection(self, connections):
         discovery = connections.ds_verification_obj
-        return discovery.verify_bgp_connection()
+        return discovery._verify_bgp_connection()
     # end verify_control_connection
 
     def build_compute_to_control_xmpp_connection_dict(self, connections):
