@@ -66,10 +66,8 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
         'gateway: %s, gateway password: %s' %(cmd, host_string, password,
             gateway, gateway_password))
     fab_connections.clear()
-    kwargs = {}
     if as_daemon:
         cmd = 'nohup ' + cmd + ' & '
-        kwargs.update({'pty': False})
         if pidfile:
             cmd = '%s echo $! > %s' % (cmd, pidfile)
 
@@ -102,7 +100,7 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
         output = None
         while tries > 0:
             try:
-                output = _run(cmd, timeout=timeout, **kwargs)
+                output = _run(cmd, timeout=timeout, pty=not as_daemon)
             except (CommandTimeout, NetworkError) as e:
                 logger.warn('Unable to run command %s: %s' % (cmd, str(e)))
                 tries -= 1
