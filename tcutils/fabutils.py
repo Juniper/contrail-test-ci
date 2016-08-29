@@ -59,10 +59,8 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
         raw: If raw is True, will return the fab _AttributeString object itself without removing any unwanted output
     """
     fab_connections.clear()
-    kwargs = {}
     if as_daemon:
         cmd = 'nohup ' + cmd + ' &'
-        kwargs.update({'pty': False})
 
     if cwd:
         cmd = 'cd %s; %s' % (cd, cmd)
@@ -93,7 +91,7 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
         output = None
         while tries > 0:
             try:
-                output = _run(cmd, timeout=timeout, **kwargs)
+                output = _run(cmd, timeout=timeout, pty=not as_daemon)
             except (CommandTimeout, NetworkError) as e:
                 log.warn('Unable to run command %s: %s' % (cmd, str(e)))
                 tries -= 1
