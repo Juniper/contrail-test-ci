@@ -2016,6 +2016,7 @@ class WebuiTest:
                     (vmname))
                 dom_arry_basic = {}
                 ui_list = []
+                time.sleep(1)
                 item_list = self.ui.find_element(
                     'item-list',
                     'class',
