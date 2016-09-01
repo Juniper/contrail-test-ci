@@ -13,6 +13,7 @@ class SvcTemplateFixture(fixtures.Fixture):
                  svc_type, if_list, svc_scaling, ordered_interfaces, version=1, svc_mode='transparent', flavor='contrail_flavor_2cpu',
                  availability_zone_enable = False):
         self.nova_h = connections.nova_h
+        self.orch = connections.orch
         self.vnc_lib_h = connections.vnc_lib
         self.domain_name = domain_name
         self.st_name = st_name
@@ -20,15 +21,17 @@ class SvcTemplateFixture(fixtures.Fixture):
         self.domain_fq_name = [self.domain_name]
         self.st_fq_name = [self.domain_name, self.st_name]
         self.image_name = svc_img_name
-        if self.image_name:
-            self.nova_h.get_image(self.image_name)
+	if self.orch.inputs.orchestrator != 'vcenter':
+            if self.image_name:
+                self.nova_h.get_image(self.image_name)
         self.svc_type = svc_type
         self.version = version
         self.if_list = if_list
         self.svc_mode = svc_mode
         self.svc_scaling = svc_scaling
         self.ordered_interfaces = ordered_interfaces
-        self.flavor = flavor
+        if self.orch.inputs.orchestrator != 'vcenter':
+        	self.flavor = flavor
         self.logger = inputs.logger
         self.inputs = inputs
         self.connections = connections
@@ -72,8 +75,9 @@ class SvcTemplateFixture(fixtures.Fixture):
             svc_properties.set_version(self.version)
             svc_properties.set_service_scaling(self.svc_scaling)
             # Add flavor if not already added
-            self.nova_h.get_flavor(self.flavor)
-            svc_properties.set_flavor(self.flavor)
+            if self.orch.inputs.orchestrator != 'vcenter':
+                self.nova_h.get_flavor(self.flavor)
+                svc_properties.set_flavor(self.flavor)
             svc_properties.set_ordered_interfaces(self.ordered_interfaces)
             svc_properties.set_availability_zone_enable(self.availability_zone_enable)
             for itf in self.if_list:
