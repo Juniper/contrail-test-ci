@@ -110,11 +110,21 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
                     svm_name = get_random_name("pt_svm" + str(i))
                     pt_name = get_random_name("port_tuple" + str(i))
                     if svc_mode == 'transparent':
-                        svm_fixture = self.config_and_verify_vm(
-                            svm_name, image_name=svc_img_name, vns=[self.trans_mgmt_vn_fixture, self.trans_left_vn_fixture, self.trans_right_vn_fixture], count=1, flavor='m1.large')
+                        if svc_type == 'analyzer':
+                            svm_vns = [self.trans_left_vn_fixture]
+                            svm_fixture = self.config_and_verify_vm(
+                                svm_name, image_name=svc_img_name, vns=svm_vns, count=1, flavor=flavor)
+                        else:
+                            svm_vns = [self.trans_mgmt_vn_fixture, self.trans_left_vn_fixture, self.trans_right_vn_fixture]
+                            svm_fixture = self.config_and_verify_vm(
+                                svm_name, image_name=svc_img_name, vns=svm_vns, count=1, flavor='m1.large')
                     else:
-                        svm_fixture = self.config_and_verify_vm(
-                            svm_name, image_name=svc_img_name, vns=[self.mgmt_vn_fixture, self.vn1_fixture, self.vn2_fixture], count=1, flavor='m1.large')
+                        if svc_type == 'analyzer':
+                            svm_fixture = self.config_and_verify_vm(
+                                svm_name, image_name=svc_img_name, vns=[None, self.vn1_fixture, None], count=1, flavor=flavor)
+                        else:
+                            svm_fixture = self.config_and_verify_vm(
+                                svm_name, image_name=svc_img_name, vns=[self.mgmt_vn_fixture, self.vn1_fixture, self.vn2_fixture], count=1, flavor='m1.large')
                     si_fixture.add_port_tuple(svm_fixture, pt_name)
             si_fixture.verify_on_setup()
             si_fixtures.append(si_fixture)
@@ -152,12 +162,12 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
 
     def config_and_verify_vm(self, vm_name, vn_fix=None, image_name='ubuntu-traffic', vns=[], count=1, flavor='contrail_flavor_small'):
         if vns:
-            vn_objs = [vn.obj for vn in vns]
+            vn_objs = [vn.obj for vn in vns if vn]
             vm_fixture = self.config_vm(
-                vm_name, vns=vn_objs, image_name=image_name, count=count)
+                vm_name, vns=vn_objs, image_name=image_name, count=count, flavor=flavor)
         else:
             vm_fixture = self.config_vm(
-                vm_name, vn_fix=vn_fix, image_name=image_name, count=count)
+                vm_name, vn_fix=vn_fix, image_name=image_name, count=count, flavor=flavor)
         assert vm_fixture.verify_on_setup(), 'VM verification failed'
         assert vm_fixture.wait_till_vm_is_up(), 'VM does not seem to be up'
         return vm_fixture

@@ -29,6 +29,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         """
         vn1_subnets = [get_random_cidr(af=self.inputs.get_af())]
         vn2_subnets = [get_random_cidr(af=self.inputs.get_af())]
+        mgmt_vn_subnets = [get_random_cidr(af=self.inputs.get_af())]
+
         self.vn1_fq_name = "default-domain:" + self.inputs.project_name + \
             ":" + get_random_name("in_network_vn1")
         self.vn1_name = self.vn1_fq_name.split(':')[2]
@@ -40,6 +42,11 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         self.vn2_subnets = vn2_subnets
         self.vm2_name = get_random_name("in_network_vm2")
 
+        self.mgmt_vn_fq_name = "default-domain:" + self.inputs.project_name + \
+            ":" + get_random_name("mgmt_vn")
+        self.mgmt_vn_name = self.mgmt_vn_fq_name.split(':')[2]
+        self.mgmt_vn_subnets = mgmt_vn_subnets
+
         si_count = si_count
         self.action_list = []
         self.if_list = []
@@ -48,6 +55,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         self.policy_name = get_random_name("mirror_policy")
         self.vn1_fixture = self.config_vn(self.vn1_name, self.vn1_subnets)
         self.vn2_fixture = self.config_vn(self.vn2_name, self.vn2_subnets)
+        self.mgmt_vn_fixture = self.config_vn(self.mgmt_vn_name, self.mgmt_vn_subnets)
+
         if ci:
             svc_img_name = 'cirros-0.3.0-x86_64-uec'
             image_name = 'cirros-0.3.0-x86_64-uec'
@@ -550,7 +559,9 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             if mirr_vm:
                 tapintf = self.get_svm_tapintf(svm_name)
             else:
-               tapintf = self.get_bridge_svm_tapintf(svm_name, 'left')
+                tapintf = self.get_bridge_svm_tapintf(svm_name, 'left')
+                if not tapintf: # For Svc V2
+                    tapintf = self.get_svm_tapintf(svm_name)
             session = ssh(host['host_ip'], host['username'], host['password'])
             cmd = 'tcpdump -nni %s -c 5 > /tmp/%s_out.log' % (tapintf, tapintf)
             execute_cmd(session, cmd, self.logger)
