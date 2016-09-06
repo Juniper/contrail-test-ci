@@ -12,6 +12,7 @@ class SvcTemplateFixture(fixtures.Fixture):
     def __init__(self, connections, inputs, domain_name, st_name, svc_img_name,
                  svc_type, if_list, svc_scaling, ordered_interfaces, version=1, svc_mode='transparent', flavor='contrail_flavor_2cpu'):
         self.nova_h = connections.nova_h
+        self.orch = connections.orch
         self.vnc_lib_h = connections.vnc_lib
         self.domain_name = domain_name
         self.st_name = st_name
@@ -20,7 +21,7 @@ class SvcTemplateFixture(fixtures.Fixture):
         self.st_fq_name = [self.domain_name, self.st_name]
         self.image_name = svc_img_name
         if self.image_name:
-            self.nova_h.get_image(self.image_name)
+            self.orch.get_image(self.image_name)
         self.svc_type = svc_type
         self.version = version
         self.if_list = if_list
@@ -30,9 +31,8 @@ class SvcTemplateFixture(fixtures.Fixture):
         self.logger = inputs.logger
         self.inputs = inputs
         self.connections = connections
-        self.nova_h = connections.nova_h
-        self.flavor = self.nova_h.get_default_image_flavor(self.image_name)
         self.availability_zone_enable = True if self.inputs.availability_zone else False
+        self.flavor = self.orch.get_default_image_flavor(self.image_name)
         if self.inputs.verify_thru_gui():
             self.browser = connections.browser
             self.browser_openstack = connections.browser_openstack
@@ -71,9 +71,10 @@ class SvcTemplateFixture(fixtures.Fixture):
             svc_properties.set_version(self.version)
             svc_properties.set_service_scaling(self.svc_scaling)
             # Add flavor if not already added
-            self.nova_h.get_flavor(self.flavor)
+            self.orch.get_flavor(self.flavor)
             svc_properties.set_flavor(self.flavor)
             svc_properties.set_ordered_interfaces(self.ordered_interfaces)
+            svc_properties.set_availability_zone_enable(self.availability_zone_enable)
             for itf in self.if_list:
                 if_type = ServiceTemplateInterfaceType(
                     service_interface_type=itf[0], shared_ip=itf[1], static_route_enable=itf[2])
