@@ -67,6 +67,8 @@ class PortFixture(vnc_api_test.VncLibFixture):
         self.logger.debug('Created port %s' % (self.uuid))
 
     def _neutron_create_port(self):
+        if not self.neutron_handle:
+            self.neutron_handle = self.get_neutron_handle()
         neutron_obj = self.neutron_handle.create_port(
             self.vn_id,
             fixed_ips=self.fixed_ips,
@@ -190,6 +192,32 @@ class PortFixture(vnc_api_test.VncLibFixture):
     def verify_port_in_agent_ifmap(self):
         pass
 
+    def add_interface_route_table(self, intf_route_table_obj):
+        '''
+        Adds interface static routes to a port
+
+        Args:
+        intf_route_table_obj:  InterfaceRouteTable instance
+        '''
+        vmi_obj = self.vnc_api_h.virtual_machine_interface_read(id=self.uuid)
+        vmi_obj.add_interface_route_table(intf_route_table_obj)
+        self.vnc_api_h.virtual_machine_interface_update(vmi_obj)
+        self.logger.info('Added intf route table %s to port %s' % (
+            intf_route_table_obj.fq_name, self.uuid))
+    # end add_interface_route_table
+
+    def del_interface_route_table(self, intf_route_table_uuid):
+        '''Unbind intf_route_table_obj from port
+        intf_route_table_obj is InterfaceRouteTable instance
+        '''
+        intf_route_table_obj = self.vnc_api_h.interface_route_table_read(
+            id=intf_route_table_uuid)
+        vmi_obj = self.vnc_api_h.virtual_machine_interface_read(id=self.uuid)
+        vmi_obj.del_interface_route_table(intf_route_table_obj)
+        self.vnc_api_h.virtual_machine_interface_update(vmi_obj)
+        self.logger.info('Removed intf route table %s from port %s' % (
+            intf_route_table_obj.fq_name, self.uuid))
+    # end del_interface_route_table
 # end PortFixture
 
 if __name__ == "__main__":
