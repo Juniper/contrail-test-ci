@@ -252,7 +252,7 @@ class VerifySvcFirewall(VerifySvcMirror):
                 self.vm2_fixture.vm_ip, count='3'), errmsg
         return True
 
-    def verify_svc_in_network_datapath(self, si_count=1, svc_scaling=False,
+    def verify_svc_in_network_datapath(self, connections, si_count=1, svc_scaling=False,
                                        max_inst=1, svc_mode='in-network-nat',
                                        flavor='contrail_flavor_2cpu',
                                        static_route=['None', 'None', 'None'],
@@ -264,6 +264,7 @@ class VerifySvcFirewall(VerifySvcMirror):
                                        ci=False, st_version=1):
         """Validate the service chaining in network  datapath"""
 
+        self.orch = connections.orch
         self.mgmt_vn_name = get_random_name("mgmt_vn")
         self.mgmt_vn_subnets = [get_random_cidr(af=self.inputs.get_af())]
         self.mgmt_vn_fixture = self.config_vn(
@@ -316,7 +317,7 @@ class VerifySvcFirewall(VerifySvcMirror):
             self.policy_fixture, self.vn1_fixture)
         self.vn2_policy_fix = self.attach_policy_to_vn(
             self.policy_fixture, self.vn2_fixture)
-        if ci and self.inputs.get_af() == 'v4':
+        if ci and self.inputs.get_af() == 'v4' and self.orch.inputs.orchestrator != 'vcenter':
             image_name = 'cirros-0.3.0-x86_64-uec'
         else:
             image_name = 'ubuntu-traffic'
@@ -380,7 +381,7 @@ class VerifySvcFirewall(VerifySvcMirror):
             elif si[0] == 'in-net':
                 svc_mode = 'in-network'
                 svc_img_name = 'ubuntu-in-net'
-                (mgmt_vn, left_vn, right_vn) = (None, self.vn1_fixture.vn_fq_name, self.vn2_fixture.vn_fq_name)
+		(mgmt_vn, left_vn, right_vn) = (None, self.vn1_fixture.vn_fq_name, self.vn2_fixture.vn_fq_name)
             else:
                 svc_mode = 'transparent'
                 svc_img_name = 'tiny_trans_fw'
