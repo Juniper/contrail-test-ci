@@ -484,6 +484,8 @@ class TestInputs(object):
                 self.auth_ip = self.external_vip
             else:
                 self.auth_ip = self.openstack_ip
+
+        self.many_computes = (len(self.compute_ips) > 10) or False
         return json_data
     # end read_prov_file
 
