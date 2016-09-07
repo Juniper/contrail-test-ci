@@ -119,6 +119,7 @@ class VNFixture(fixtures.Fixture):
         self.vn_with_route_target = []
         self.ri_ref = None
         self.api_s_routing_instance = None
+        self._vrf_ids = {}
     # end __init__
 
     def read(self):
@@ -169,6 +170,28 @@ class VNFixture(fixtures.Fixture):
 
     def get_vrf_name(self):
         return self.vn_fq_name + ':' + self.vn_name
+
+    def get_vrf_ids(self, refresh=False):
+        if not getattr(self, '_vrf_ids', None) or refresh:
+            vrf_id_dict = {}
+            for ip in self.inputs.compute_ips:
+                inspect_h = self.agent_inspect[ip]
+                vrf_id = inspect_h.get_vna_vrf_id(self.vn_fq_name)
+                if vrf_id:
+                    vrf_id_dict.update({ip:vrf_id})
+            self._vrf_ids = vrf_id_dict
+        return self._vrf_ids
+	# end get_vrf_ids
+
+    @property
+    def vrf_ids(self):
+        return self.get_vrf_ids()
+
+    def get_vrf_id(self, node_ip, refresh=False):
+        vrf_ids = self.get_vrf_ids(refresh=refresh)
+        if vrf_ids.get(node_ip):
+            return vrf_ids.get(node_ip)[0]
+    # end get_vrf_id
 
     @property
     def ri_name(self):
@@ -489,6 +512,10 @@ class VNFixture(fixtures.Fixture):
                 result = result and False
                 self.logger.error("Attached policy not shown in vn uve %s" %
                                  (self.vn_name))
+        if not self.verify_vn_in_agent():
+            result = result and False
+            self.logger.error('One or more verifications in agent for VN %s'
+                'failed' % (self.vn_name))
 
         self.verify_is_run = True
         self.verify_result = result
@@ -762,6 +789,18 @@ class VNFixture(fixtures.Fixture):
     # end verify_vn_not_in_api_server
 
     @retry(delay=5, tries=25)
+    def verify_vn_in_agent(self):
+        # No real verification for now, collect vrfs so that they can be
+        # verified during cleanup
+        self.get_vrf_ids(refresh=True)
+        if not self.vrf_ids:
+            self.logger.debug('Do not have enough data to verify')
+        self.logger.debug('VRF ids for VN %s: %s' % (self.vn_name,
+                                                     self.vrf_ids))
+        return True
+    # end verify_vn_in_agent
+
+    @retry(delay=5, tries=25)
     def verify_vn_in_control_nodes(self):
         """ Checks for VN details in Control-nodes.
 
@@ -875,6 +914,39 @@ class VNFixture(fixtures.Fixture):
         return result
     # end verify_vn_not_in_control_nodes
 
+    @retry(delay=2, tries=20)
+    def verify_vn_not_in_vrouter(self):
+        ''' Validate that route table is deleted in  local vrouter
+        '''
+        for compute_ip in self.inputs.compute_ips:
+            if not compute_ip in self.vrf_ids.keys():
+                continue
+            inspect_h = self.agent_inspect[compute_ip]
+            vrf_id = self.vrf_ids[compute_ip]
+            # Check again if agent does not have this vrf by chance
+            curr_vrf_id = inspect_h.get_vna_vrf_id(
+                    self.vn_fq_name)
+            if curr_vrf_id:
+                self.logger.warn('VRF ID %s is still seen in agent %s' % (
+                    curr_vrf_id, compute_ip))
+                return False
+
+            # Agent has deleted this vrf. Check in kernel too that it is gone
+            vrouter_route_table = inspect_h.get_vrouter_route_table(
+                    vrf_id)
+            if vrouter_route_table:
+                self.logger.warn('Vrouter on Compute node %s still has vrf '
+                    ' %s for VN %s. Check introspect logs' %(
+                        compute_ip, vrf_id,self.vn_name))
+                return False
+            self.logger.debug('Vrouter %s does not have vrf %s for VN %s' %(
+                compute_ip, vrf_id, self.vn_name))
+        # endif
+        self.logger.info('Validated that all vrouters do not '
+            ' have the route table for VN %s' %(self.vn_fq_name))
+        return True
+    # end verify_vn_not_in_vrouter
+
     @retry(delay=5, tries=30)
     def verify_vn_not_in_agent(self):
         ''' Verify that VN is removed in all agent nodes.
@@ -898,6 +970,8 @@ class VNFixture(fixtures.Fixture):
                 return False
             self.logger.debug('VN %s is not present in Agent %s ' %
                              (self.vn_name, compute_ip))
+
+            # Check in vrouter that route table for the vrf is empty
         # end for
         self.not_in_agent_verification_flag = True
         self.logger.info('Validated that VN %s is not in any agent' % (
@@ -1182,6 +1256,9 @@ class VNFixture(fixtures.Fixture):
                     ' seen in API Server' % (self.vn_name))
                 assert self.verify_vn_not_in_agent(), ('VN %s is still '
                     'seen in one or more agents' %(self.vn_name))
+                if self.vrf_ids:
+                    assert self.verify_vn_not_in_vrouter(),('VRF cleanup'
+                        ' verification failed')
                 assert self.verify_vn_not_in_control_nodes(), ('VN %s: '
                     'is still seen in Control nodes' % (self.vn_name))
         else:

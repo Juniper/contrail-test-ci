@@ -9,7 +9,7 @@ class ContrailVncApi:
         self._vnc = vnc
         self._log = logger or logging.getLogger(__name__)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name, *args, **kwargs):
         # Call self._vnc method if no matching method exists
         method = getattr(self._vnc, name)
         return method(*args, **kwargs)
@@ -283,7 +283,6 @@ class ContrailVncApi:
                 return entry[0]
     # end get_code_point_entry
 
-
     def del_qos_config_entry(self, uuid, dscp=None, dot1p=None, exp=None):
         ''' Remove the entry from qos config which has the code-point
         '''
@@ -322,3 +321,92 @@ class ContrailVncApi:
             self._vnc.virtual_router_update(vr) 
         except Exception as e:
             pass
+
+    def create_interface_route_table(self, name, parent_obj=None, prefixes=[]):
+        '''
+        Create and return InterfaceRouteTable object
+
+        Args:
+            prefixes : list of x.y.z.a/mask entries
+        '''
+        route_table = RouteTableType(name)
+        nw_prefixes = [ IPNetwork(x) for x in prefixes]
+        route_table.set_route([])
+        intf_route_table = InterfaceRouteTable(
+                                interface_route_table_routes = route_table,
+                                parent_obj=parent_obj,
+                                name=name)
+        if prefixes:
+            rt_routes = intf_route_table.get_interface_route_table_routes()
+            routes = rt_routes.get_route()
+            for prefix in prefixes:
+                rt1 = RouteType(prefix = prefix)
+                routes.append(rt1)
+            intf_route_table.set_interface_route_table_routes(rt_routes)
+        uuid = self._vnc.interface_route_table_create(intf_route_table)
+        intf_route_table_obj = self._vnc.interface_route_table_read(id=uuid)
+        self._log.info('Created InterfaceRouteTable %s(UUID %s), prefixes : %s'\
+            %(intf_route_table_obj.fq_name, intf_route_table_obj.uuid, prefixes))
+        return intf_route_table_obj
+    # end create_interface_route_table
+
+    def add_interface_route_table_routes(self, uuid, prefixes=[]):
+        '''
+        Add prefixes to an existing InterfaceRouteTable object
+        Args:
+            uuid     : uuid of InterfaceRouteTable
+            prefixes : list of x.y.z.a/mask entries
+        '''
+        intf_route_table = self._vnc.interface_route_table_read(id=uuid)
+        nw_prefixes = [ IPNetwork(x) for x in prefixes]
+        intf_route_table = self._vnc.interface_route_table_read(id=uuid)
+        if nw_prefixes:
+            rt_routes = intf_route_table.get_interface_route_table_routes()
+            routes = rt_routes.get_route()
+            for prefix in prefixes:
+                rt1 = RouteType(prefix = prefix)
+                routes.append(rt1)
+                self._log.info('Adding prefix %s to intf route table'
+                    '%s' % str((prefix)))
+            intf_route_table.set_interface_route_table_routes(rt_routes)
+        self._vnc.interface_route_table_update(intf_route_table)
+        return intf_route_table
+    #end add_interface_route_table_routes
+
+    def delete_interface_route_table_routes(self, uuid, prefixes):
+        '''
+        Delete prefixes from an existing InterfaceRouteTable object
+
+        Args:
+        uuid     : uuid of InterfaceRouteTabl
+        prefixes : list of x.y.z.a/mask entries
+        '''
+        intf_rtb_obj = self._vnc.interface_route_table_read(id=uuid)
+        rt_routes = intf_rtb_obj.get_interface_route_table_routes()
+        routes = rt_routes.get_route()
+        for prefix in prefixes:
+            prefix_found = False
+            for route in routes:
+                if route.prefix == prefix:
+                    prefix_found = True
+                    routes.remove(route)
+                if not prefix_found:
+                    self._log.warn('Prefix %s not found in intf route table'
+                        ' %s' % (prefix, self.name))
+                else:
+                    self._log.info('Prefix %s deleted from intf route table'
+                        ' %s' % (prefix, self.name))
+        intf_route_table.set_interface_route_table_routes(rt_routes)
+        self._vnc.interface_route_table_update(intf_route_table)
+    # end delete_interface_route_table_routes
+
+    def delete_interface_route_table(self, uuid):
+        '''
+        Delete InterfaceRouteTable object
+
+        Args:
+            uuid : UUID of InterfaceRouteTable object
+        '''
+        self._vnc.interface_route_table_delete(id=uuid)
+        self._log.info('Deleted Interface route table %s' % (uuid))
+    # end delete_interface_route_table
