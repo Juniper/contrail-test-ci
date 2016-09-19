@@ -998,6 +998,7 @@ class VMFixture(fixtures.Fixture):
                     for path in agent_path['path_list']:
                         if not path['nh'].get('mc_list', None):
                             agent_label = path['label']
+                            self.agent_label[vn_fq_name].append(agent_label)
                             break
                         if agent_label not in self.agent_label[vn_fq_name]:
                             self.logger.warn(
@@ -1023,7 +1024,6 @@ class VMFixture(fixtures.Fixture):
                 agent_l2_path = inspect_h.get_vna_layer2_route(
                     vrf_id=agent_vrf_id,
                     mac=self.get_mac_addr_from_config()[vn_fq_name])
-                self.agent_label[vn_fq_name].append(agent_label)
                 agent_l2_label = agent_l2_path[
                     'routes'][0]['path_list'][0]['label']
                 if agent_l2_label != self.agent_l2_label[vn_fq_name]:
