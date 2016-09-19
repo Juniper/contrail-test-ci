@@ -122,7 +122,10 @@ class WebuiTest:
             self.ui.click_on_select2_arrow('s2id_virtualNetworkName_dropdown')
             self.ui.select_from_dropdown(net)
             if port_name:
-                self.ui.send_keys(port_name, 'name', 'name')
+                self.ui.send_keys(
+                    port_name,
+                    "//input[@placeholder='Port Name']",
+                    'xpath')
             self.ui.click_element('advanced_options', 'id')
             if mac:
                 self.ui.send_keys(mac, 'macAddress', 'name')
