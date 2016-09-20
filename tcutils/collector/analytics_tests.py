@@ -2340,7 +2340,7 @@ class AnalyticsVerification(fixtures.Fixture):
         return self.verify_alarms( role='analytics-node')
     # end analytics_alarms
 
-    def _verify_alarms_stop_svc(self, service, service_ip, role, alarm_type, multi_instances=False, soak_timer=20):
+    def _verify_alarms_stop_svc(self, service, service_ip, role, alarm_type, multi_instances=False, soak_timer=14):
         result = True
         self.logger.info("Verify alarms generated after stopping the service %s:" % (service))
         self.inputs.stop_service(service, host_ips=[service_ip], contrail_service=True)
@@ -2348,8 +2348,8 @@ class AnalyticsVerification(fixtures.Fixture):
         soaking = False
         supervisor = False
         if re.search('supervisor', str(service)) or re.search('nodemgr', str(service)):
-            supervisor = True 
-        if 'process-status' in alarm_type and not supervisor:
+            supervisor = True
+        if 'ProcessStatus' in alarm_type and not supervisor:
             soaking = True
         if soaking:
             self.logger.info("Soaking enabled..waiting %s secs for soak timer to expire" % (soak_timer))
@@ -2368,7 +2368,7 @@ class AnalyticsVerification(fixtures.Fixture):
             'contrail-database-nodemgr']
 
         if service in supervisors:
-            alarm_type = ['node-status']
+            alarm_type = ['ProcessStatus']
 
         try:
             for alarm_t in alarm_type:
@@ -2483,21 +2483,12 @@ class AnalyticsVerification(fixtures.Fixture):
                             if not service:
                                 return type_alarms
                             else:
-                                alarm_rules = type_alarms.get('alarm_rules')
-                                if not alarm_rules:
-                                    self.logger.error("alarm_rules dict missing ")
-                                    return False
-                                or_list = alarm_rules.get('or_list')
-                                if not or_list:
-                                    self.logger.error("or_list not found")
-                                    return False
-                                for any_alarms in or_list:
-                                    and_list = any_alarms.get('and_list')
-                                    for and_list_elem in and_list:
-                                        condition_dict = and_list_elem.get('condition')
-                                        match_list = and_list_elem.get('match')
+                                any_of = type_alarms['any_of']
+                                for any_alarms in any_of:
+                                    all_of = any_alarms['all_of']
+                                    for all_of_alarms in all_of:
                                         if not supervisor:
-                                            json_vars = match_list[0].get('json_variables')
+                                            json_vars = all_of_alarms.get('json_vars')
                                         else:
                                             json_vars = None
                                         if json_vars:
