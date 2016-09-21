@@ -140,6 +140,7 @@ class VMFixture(fixtures.Fixture):
     def read(self):
         if self.vm_id:
             self.vm_obj = self.orch.get_vm_by_id(vm_id=self.vm_id)
+            self.orch.wait_till_vm_is_active(self.vm_obj)
             if not self.vm_obj:
                 raise Exception('VM with id %s not found'%self.vm_id)
             self.vm_objs = [self.vm_obj]
@@ -905,10 +906,14 @@ class VMFixture(fixtures.Fixture):
                 host_string='%s@%s' % (host['username'], self.vm_node_ip),
                 password=host['password'],
                     warn_only=True, abort_on_prompts=False):
-                output = run('ping %s -c 1' % (self.local_ips[vn_fq_name]))
-                expected_result = ' 0% packet loss'
+#               Workaround till Bug 1615048 is fixed
+#                output = run('ping %s -c 1' % (self.local_ips[vn_fq_name]))
+#                expected_result = ' 0% packet loss'
+                output = run('ping %s -c 2' % (self.local_ips[vn_fq_name]))
+                failure = ' 100% packet loss'
                 self.logger.debug(output)
-                if expected_result not in output:
+#                if expected_result not in output:
+                if failure in output:
                     self.logger.debug(
                         "Ping to Metadata IP %s of VM %s failed!" %
                         (self.local_ips[vn_fq_name], self.vm_name))
