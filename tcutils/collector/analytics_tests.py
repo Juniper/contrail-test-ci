@@ -3219,8 +3219,7 @@ class AnalyticsVerification(fixtures.Fixture):
         dct = {}
         for ln in links:
             try:
-                response = urllib2.urlopen(str(ln))
-                data = json.load(response)
+                data = self.ops_inspect[self.inputs.collector_ips[0]].dict_get(url=ln)
                 if selected_uve:
                     if selected_uve in ln:
                         return data
