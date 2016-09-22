@@ -298,6 +298,37 @@ class ComputeNodeFixture(fixtures.Fixture):
             (now, self.name, flow_count))
         return flow_count
 
+    def get_vrouter_matching_flow(self, flow_data, filters='Action:'):
+        '''
+        This method is only to be used for test cases specific to flow command testing.
+        For other test cases, to verify the action method verify_flow_action
+            from vrouter/base.py should be used.
+        flow_data: dict of 6 tuples to identify the flow
+        dict format: flow_data={'src_ip':<src IP>, 'dst_ip':<dst IP>,
+                                   'src_port':<src port>, 'dst_port':<dst port>,
+                                   'proto':<protocol-integer>, 'vrf':<vrf-id>}
+        '''
+        cmd = 'flow -l | grep \"%s\|%s\" -A1 | grep \"%s\|%s\" -A1' % (
+                           flow_data['src_ip'], flow_data['dst_ip'],
+                           flow_data['src_port'], flow_data['dst_port']) + \
+                            '| grep \"%s (%s)\" -A2' % (
+                               flow_data['proto'], flow_data['vrf']
+                               )
+        if filters:
+            cmd = cmd + '| grep %s' %  filters
+
+        now = datetime.now()
+        flow = self.execute_cmd(cmd)
+        flow_count = self.execute_cmd(cmd + '| wc -l')
+        self.logger.info(
+            "Flow count @ time %s in node %s is %s" %
+            (now, self.ip, flow_count))
+        self.logger.debug(
+            "Flow @ time %s in node %s is %s" %
+            (now, self.ip, flow))
+
+        return (int(flow_count), flow)
+
     def get_vrouter_matching_flow_count(self, flow_data_l=[]):
         '''Return dict of flow data from node matching the parameters supplied
         Currently this filters flows based on tx_vm_ip, rx_vm_ip, proto & vrf_id.
@@ -387,7 +418,10 @@ class ComputeNodeFixture(fixtures.Fixture):
         return self.control_node
 
     def get_vrf_id(self, vn_fq_name):
-        return self.agent_inspect_h.get_vna_vrf_id(vn_fq_name)[0]
+        vrf_id = self.agent_inspect_h.get_vna_vrf_id(vn_fq_name)
+        if vrf_id:
+            return vrf_id[0]
+        return None
 
     def get_flow_table(self, index=None, refresh=True, show_evicted=False):
         ''' Returns FlowTable instance
@@ -429,9 +463,9 @@ class ComputeNodeFixture(fixtures.Fixture):
             reqd_entries['sip'] = source_ip
         if dest_ip:
             reqd_entries['dip'] = dest_ip
-        if source_port:
+        if None != source_port:
             reqd_entries['sport'] = str(source_port)
-        if dest_port:
+        if None != dest_port:
             reqd_entries['dport'] = str(dest_port)
         if proto:
             reqd_entries['proto'] = PROTO_MAP[proto]
@@ -605,5 +639,3 @@ class ComputeNodeFixture(fixtures.Fixture):
             self.agent_generator_name = self.agent_inspect_h.get_generator_name()
         return self.agent_generator_name
     # end get_agent_generator_name
-
-
