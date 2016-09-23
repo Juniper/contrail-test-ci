@@ -29,6 +29,7 @@ class VNCApiInspect (VerificationUtilBase):
             'secgrp': {},
             'si': {},
             'st': {},
+            'pt': {},
             'dns': {},
             'dns_rec': {},
             'lb_pool': {},
