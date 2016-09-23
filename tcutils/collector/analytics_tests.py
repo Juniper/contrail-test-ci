@@ -2343,7 +2343,16 @@ class AnalyticsVerification(fixtures.Fixture):
     def _verify_alarms_stop_svc(self, service, service_ip, role, alarm_type, multi_instances=False, soak_timer=14):
         result = True
         self.logger.info("Verify alarms generated after stopping the service %s:" % (service))
-        self.inputs.stop_service(service, host_ips=[service_ip], contrail_service=True)
+        dist = self.inputs.get_os_version(service_ip)
+        cfgm_ndmgr_ctl_required = False
+        if service == 'contrail-config-nodemgr' and dist in ['centos', 'fedora', 'redhat']:
+            supervisorctl_cfg = 'supervisorctl -s unix:///tmp/supervisord_config.sock'
+            issue_stop_cmd = supervisorctl_cfg + ' stop ' + service
+            issue_start_cmd = supervisorctl_cfg + ' start ' + service
+            cfgm_ndmgr_ctl_required = True
+            self.inputs.run_cmd_on_server(service_ip, issue_stop_cmd, username='root', password='c0ntrail123', pty=True)
+        else:
+            self.inputs.stop_service(service, host_ips=[service_ip], contrail_service=True)
         self.logger.info("Process %s stopped" % (service))
         soaking = False
         supervisor = False
@@ -2415,8 +2424,11 @@ class AnalyticsVerification(fixtures.Fixture):
         except Exception, e:
             self.logger.exception('Exception occured while checking for alarms')
         finally:
-            self.inputs.start_service(service, host_ips=[service_ip],
-                contrail_service=True)
+            if cfgm_ndmgr_ctl_required:
+                self.inputs.run_cmd_on_server(service_ip, issue_start_cmd, username='root', password='c0ntrail123', pty=True)
+            else:
+                self.inputs.start_service(service, host_ips=[service_ip],
+                    contrail_service=True)
             time.sleep(10)
         return result
 
