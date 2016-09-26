@@ -672,10 +672,10 @@ class VMFixture(fixtures.Fixture):
         tap_intfs = inspect_h.get_vna_tap_interface_by_vm(vm_id=self.vm_id)
         return tap_intfs
 
-    def get_vmi_ids(self):
-        if not getattr(self, 'vmi_ids', None):
+    def get_vmi_ids(self, refresh=False):
+        if not getattr(self, 'vmi_ids', None) or refresh:
             self.vmi_ids = dict()
-            vmi_objs = self.get_vmi_obj_from_api_server()[1]
+            vmi_objs = self.get_vmi_obj_from_api_server(refresh=refresh)[1]
             for vmi_obj in vmi_objs:
                 self.vmi_ids[vmi_obj.vn_fq_name] = vmi_obj.uuid
         return self.vmi_ids
@@ -695,7 +695,7 @@ class VMFixture(fixtures.Fixture):
 
     def get_local_ips(self, refresh=False):
         if refresh or not getattr(self, 'local_ips', None):
-            for (vn_fq_name, vmi) in self.get_vmi_ids().iteritems():
+            for (vn_fq_name, vmi) in self.get_vmi_ids(refresh).iteritems():
                 self.local_ips[vn_fq_name] = self.get_tap_intf_of_vmi(vmi)['mdata_ip_addr']
         return self.local_ips
 
