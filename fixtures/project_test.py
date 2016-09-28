@@ -35,7 +35,9 @@ class ProjectFixture(fixtures.Fixture):
         self.role = role
         self.user_dict = {}
         self._create_user_set = {}
-        self.project_connections = None
+     #   self.project_connections = None
+        self.project_connections = dict()
+        self.project_inputs = dict()
         self.api_server_inspects = self.connections.api_server_inspects
         self.verify_is_run = False
         if not self.auth:
@@ -156,16 +158,27 @@ class ProjectFixture(fixtures.Fixture):
         username = username or self.project_username or self.inputs.stack_user
         password = password or self.project_user_password or \
             self.inputs.stack_password
-        if not self.project_connections:
-            self.project_connections = ContrailConnections(
+        if username not in self.project_connections:
+            self.project_connections[username] = ContrailConnections(
                 inputs=self.inputs,
                 logger=self.logger,
                 project_name=self.project_name,
                 username=username,
                 password=password,
                 domain_name=self.domain_name)
-        return self.project_connections
+        return self.project_connections[username]
+       # return self.project_connections
     # end get_project_connections
+
+    def get_inputs(self, username=None, password=None):
+        username = username or self.project_username or self.inputs.stack_user
+        password = password or self.project_user_password or self.inputs.stack_password
+        if username not in self.project_inputs:
+            self.project_inputs[username] = ContrailTestInit(self.inputs.ini_file,
+                 stack_user=self.project_username,
+                 stack_password=self.project_user_password,
+                 stack_tenant=self.project_name,logger=self.logger)
+        return self.project_inputs[username]
 
     def verify_on_setup(self):
         result = True
