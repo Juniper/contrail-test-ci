@@ -200,7 +200,7 @@ class BaseVrouterTest(BaseLBaaSTest):
             cirros does not support IPv6.
         '''
         nc_options = '-4' if (self.inputs.get_af() == 'v4') else '-6'
-        nc_options = nc_options + ' -q 2'
+        nc_options = nc_options + ' -q 2 -w 5'
         if proto == 'udp':
             nc_options = nc_options + ' -u'
 

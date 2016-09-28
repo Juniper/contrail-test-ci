@@ -2096,6 +2096,14 @@ class VMFixture(fixtures.Fixture):
 
     # end scp_file_transfer_cirros
 
+    @retry(delay=6, tries=10)
+    def run_nc_with_retry(self, nc_cmd):
+        output = self.run_cmd_on_vm(cmds=[nc_cmd])
+        if output and output[nc_cmd]:
+            if "bind failed: Address already in use" in output[nc_cmd]:
+                return False
+        return True
+
     def nc_send_file_to_ip(self, filename, dest_ip, size='100',
         local_port='10001', remote_port='10000', nc_options=''):
         '''
@@ -2104,12 +2112,13 @@ class VMFixture(fixtures.Fixture):
         nc_cmd = 'nc ' + nc_options
         # Create file
         cmd = 'dd bs=%s count=1 if=/dev/zero of=%s' % (size, filename)
-        self.run_cmd_on_vm(cmds=[cmd])
+        self.run_cmd_on_vm(cmds=[cmd], as_sudo=True)
         host = self.inputs.host_data[self.vm_node_ip]
 
         # Transfer the file
-        self.run_cmd_on_vm(cmds=['%s -p %s %s %s < %s' % (nc_cmd, local_port,
-            dest_ip, remote_port, filename)])
+        cmd = '%s -p %s %s %s < %s' % (nc_cmd, local_port, dest_ip, remote_port,
+            filename)
+        self.run_nc_with_retry(nc_cmd=cmd)
 
     @retry(delay=3, tries=10)
     def verify_file_size_on_vm(self, filename, size='100', expectation=True):
@@ -2157,7 +2166,7 @@ class VMFixture(fixtures.Fixture):
         #so run without -p option also
         nc_l = ['%s -ll -p %s > %s' % (nc_cmd, listen_port, filename),
                     '%s -ll %s > %s' % (nc_cmd, listen_port, filename)]
-        cmds=[ 'rm -f %s' % (filename) ]
+        cmds=[ 'rm -f %s;ls -la' % (filename) ]
         dest_vm_fixture.run_cmd_on_vm(cmds=cmds, as_sudo=True, as_daemon=True)
         dest_vm_fixture.run_cmd_on_vm(cmds=nc_l, as_sudo=True, as_daemon=True)
 
