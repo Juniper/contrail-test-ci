@@ -71,11 +71,11 @@ class ContrailReportInit:
                                          'Mail', 'mailTo', None)
         self.mailSender = read_config_option(self.config,
                                              'Mail', 'mailSender', 'contrailbuild@juniper.net')
-        self.ts = self.get_os_env('SCRIPT_TS') or \
+        self.tag = self.get_os_env('SCRIPT_TS') or \
             datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
         self.single_node = self.get_os_env('SINGLE_NODE_IP')
         self.jenkins_trigger = self.get_os_env('JENKINS_TRIGGERED')
-        self.report_details_file = 'report_details_%s.ini' % (self.ts)
+        self.report_details_file = 'report_details_%s.ini' % (self.tag)
         self.distro = None
 
     # end __init__
@@ -88,7 +88,7 @@ class ContrailReportInit:
         (self.build_id, self.sku) = self.get_build_id()
         self.setup_detail = '%s %s~%s' % (self.get_distro(), self.build_id,
                                           self.sku)
-        self.build_folder = self.build_id + '_' + self.ts
+        self.build_folder = self.build_id + '_' + self.tag
         self.html_log_link = 'http://%s/%s/%s/junit-noframes.html' % (
                              self.web_server, self.web_root, self.build_folder)
         self.log_link = 'http://%s/%s/%s/logs/' % (self.web_server, self.web_root,
@@ -104,7 +104,7 @@ class ContrailReportInit:
     # end setUp
 
     def upload_png_files(self):
-        self.build_folder = self.build_id + '_' + self.ts
+        self.build_folder = self.build_id + '_' + self.tag
         self.web_server_path = self.web_server_log_path + \
             '/' + self.build_folder + '/'
         cwd = os.getcwd()
@@ -160,6 +160,9 @@ class ContrailReportInit:
         self.physical_routers_data = {}
         self.vgw_data = {}
         for host in json_data['hosts']:
+            if not host['roles']:
+                continue #This will skip esxi servers to be connected 
+                         #for the cores,we are not interested in esxi server cores
             self.host_names.append(host['name'])
             host_ip = str(IPNetwork(host['ip']).ip)
             host_data_ip = str(IPNetwork(host['data-ip']).ip)
@@ -322,7 +325,7 @@ class ContrailReportInit:
         config.add_section('Test')
         config.set('Test', 'Build', self.build_id)
         config.set('Test', 'Distro_Sku', self.setup_detail)
-        config.set('Test', 'timestamp', self.ts)
+        config.set('Test', 'tag', self.tag)
         config.set('Test', 'Report', self.html_log_link)
         config.set('Test', 'LogsLocation', self.log_link)
         config.set('Test', 'Cores', self.get_cores())
