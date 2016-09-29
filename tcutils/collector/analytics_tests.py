@@ -123,6 +123,7 @@ class AnalyticsVerification(fixtures.Fixture):
         self.contrail_internal_vip = None
         if self.ha_setup:
             self.contrail_internal_vip = self.inputs.contrail_internal_vip
+
     def get_all_generators(self):
         self.generator_hosts = []
         self.bgp_hosts = []
