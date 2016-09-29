@@ -818,6 +818,22 @@ class CsLbHealthMonitor(Result):
     def properties(self):
         return self.xpath('loadbalancer-healthmonitor', 'loadbalancer_healthmonitor_properties')
 
+class CsAcl(Result):
+    '''
+        CsAcl access api-access-list dict
+    '''
+    def api_access_list_entries(self):
+     return ':'.join(self.xpath('api-access-list', 'api_access_list_entries'))
+
+    def perms2(self):
+        return self.xpath('api-access-list', 'perms2')
+
+    def id_perms(self):
+        return self.xpath('api-access-list', 'id_perms')
+
+    def fq_name(self):
+        return self.xpath('api-access-list', 'fq_name')
+
 class CsVrouters(Result):
     def __iter__(self):
         for vrouter in self.xpath('virtual-routers'):
