@@ -28,6 +28,9 @@ class FloatingIpBaseTest(test_v1.BaseTestCase_v1):
             ini_file=cls.ini_file,
             logger=cls.logger)
         cls.public_vn_obj.configure_control_nodes()
+        if cls.inputs.vcenter_gw_setup:#For vcenter gateway setup
+            cls.vcenter_orch = cls.connections.slave_orch 
+            cls.vcenter_orch.create_vn_vmi_for_stp_bpdu_to_be_flooded()
     # end setUpClass
 
     @classmethod
