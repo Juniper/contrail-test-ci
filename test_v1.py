@@ -59,5 +59,15 @@ class BaseTestCase_v1(BaseTestCase):
         self.logger.debug('Sleeping for %s seconds..' % (value))
         time.sleep(value)
     # end sleep
+
+    def if_vcenter_gw_setup_return_gw_orch_class(self):
+        if self.inputs.vcenter_gw_setup:
+            return self.connections.slave_orch   
+        else:
+            return self.connections.orch
+  
+    @property
+    def orchestrator(self):
+        return self.if_vcenter_gw_setup_return_gw_orch_class()
         
 
