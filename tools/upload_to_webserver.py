@@ -55,14 +55,14 @@ def upload_to_webserver(config_file, report_config_file, elem):
        return False
     report_config = ConfigParser.ConfigParser()
     report_config.read(report_config_file)
-    ts = report_config.get('Test', 'timestamp')
+    tag = report_config.get('Test', 'tag')
     log_scenario = report_config.get('Test', 'logScenario')
     build_id = report_config.get('Test', 'build')
     distro_sku = report_config.get('Test','distro_sku')
     branch = get_os_env('BRANCH', 'unknown-branch')
 
     test_type = get_os_env('TEST_TYPE','daily')
-    build_folder = build_id + '_' + ts
+    build_folder = build_id + '_' + tag
     web_server_path = web_server_log_path + '/' + build_folder + '/'
 
     log = 'logs'
@@ -83,7 +83,7 @@ def upload_to_webserver(config_file, report_config_file, elem):
                     report_name = '%s %s' % (distro_sku.replace('"',''),
                                             log_scenario)
                     report_file = "%s-%s.html" % (
-                        '-'.join(report_name.split(' ')), ts)
+                        '-'.join(report_name.split(' ')), tag)
                     # create report path if doesnt exist
                     run('mkdir -p %s' % (sanity_report))
                     # create folder by release name passed from jenkins
