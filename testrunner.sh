@@ -371,7 +371,7 @@ EOF
     if [[ -n $list_all || -n $list_images ]]; then
         echo; echo "$GREEN=========== Images =============$NO_COLOR"
         docker images  | awk 'BEGIN {printf "%-50s %-20s %-20s\n", "IMAGE","IMAGE ID", "VIRTUAL SIZE"}
-                            /(contrail-test|contrail_test)/ {printf "%-50s %-20s %-20s\n", $1":"$2, $3, $(NF-1)" "$NF}'
+                            /(contrail-test|contrail_test|rally)/ {printf "%-50s %-20s %-20s\n", $1":"$2, $3, $(NF-1)" "$NF}'
     fi
     if [[ -n $list_all || -n $list_containers ]]; then
         echo;echo "$GREEN=========== Container Instances =============$NO_COLOR"
