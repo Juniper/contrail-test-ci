@@ -345,6 +345,7 @@ class WebuiTest:
     def create_svc_template(self, fixture):
         result = True
         version_num = 'v1'
+        flavor_name = 'm1.medium'
         try:
             if not self.ui.click_on_create(
                     'Service Template',
@@ -420,7 +421,7 @@ class WebuiTest:
                 if 'm1' in flavor_text:
                     flavor_txt = re.search(r'(m1.(\S+))', flavor_text)
                     flavor_text = flavor_txt.group(2)
-                if flavor_text.find(fixture.flavor) != -1:
+                if flavor_name.find(flavor_text) != -1:
                     flavor.click()
                     break
             if fixture.svc_scaling:
