@@ -311,6 +311,21 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     ui_config = getattr(testbed, 'ui_config', False)
     ui_browser = getattr(testbed, 'ui_browser', False)
 
+    if not env.has_key('openstack'):
+        env.openstack = {}
+    if not env.has_key('cfgm'):
+        env.cfgm = {}
+
+    config_amqp_ip = env.openstack.get('amqp_host', '')
+    if config_amqp_ip:
+        config_amqp_ips = [config_amqp_ip]
+    else:
+        config_amqp_ips = []
+
+    # If amqp details are in env.cfgm as well, use that 
+    config_amqp_port = env.cfgm.get('amqp_port', '5672')
+    config_amqp_ips = env.cfgm.get('amqp_hosts', config_amqp_ips)
+
     key_filename = env.get('key_filename', '')
     pubkey_filename = env.get('pubkey_filename', '')
 
@@ -398,6 +413,9 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
          '__config_api_ip__'       : config_api_ip,
          '__analytics_api_ip__'    : analytics_api_ip,
          '__user_isolation__'      : user_isolation,
+         '__config_amqp_ips__'     : ','.join(config_amqp_ips),
+         '__config_amqp_port__'    : config_amqp_port,
+
         })
 
     ini_file = test_dir + '/' + 'sanity_params.ini'
