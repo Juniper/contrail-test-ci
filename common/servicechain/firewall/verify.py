@@ -7,6 +7,8 @@ from tcutils.util import get_random_cidr
 from tcutils.util import get_random_name
 from common.ecmp.ecmp_traffic import ECMPTraffic
 from common.ecmp.ecmp_verify import ECMPVerify
+import re
+import itertools
 
 
 class VerifySvcFirewall(VerifySvcMirror):
@@ -942,3 +944,175 @@ class VerifySvcFirewall(VerifySvcMirror):
                     count = 20
             self.verify_icmp_mirror(svm_name, session, pcap, count)
         return True
+
+    def test_ecmp_config_hash_svc(self, si_count=1, svc_scaling=False, max_inst=1,
+                                  svc_mode='in-network-nat', flavor='m1.medium',
+                                  static_route=[None, None, None],
+                                  ordered_interfaces=True, ci=False,
+                                  svc_img_name='ubuntu-in-net', st_version=1):
+        """Validate the ECMP configuration hash with service chaining in network  datapath"""
+
+        # Default ECMP hash with 5 tuple
+        ecmp_hash_default = {"source_ip": True, "destination_ip": True,
+                             "source_port": True, "destination_port": True,
+                             "ip_protocol": True}
+
+        ecmp_hash_default_config = ecmp_hash_default.copy()
+        ecmp_hash_default_config['hashing_configured'] = True
+        # Bringing up base setup. i.e 2 VNs (vn1 and vn2), 2 VMs, 3 service
+        # instances, policy for service instance and applying policy on 2 VNs
+        if svc_mode == 'in-network-nat' or svc_mode == 'in-network':
+            self.verify_svc_in_network_datapath(si_count=1, svc_scaling=True,
+                                                max_inst=max_inst,
+                                                svc_mode=svc_mode,
+                                                flavor=flavor,
+                                                svc_img_name=svc_img_name,
+                                                st_version=st_version)
+        elif svc_mode == 'transparent':
+            self.verify_svc_transparent_datapath(si_count=1, svc_scaling=True,
+                                                 max_inst=max_inst,
+                                                flavor=flavor,
+                                                 svc_img_name=svc_img_name,
+                                                 st_version=st_version)
+        else:
+            self.logger.error('Inavlid svc_mode. Please check')
+
+        svm_ids = self.si_fixtures[0].svm_ids
+        svm_list = self.si_fixtures[0].svm_list
+        dst_vm_list = [self.vm2_fixture]
+
+        # Testing ECMP hash with default config (i.e 5 tuple) when explicitly
+        # configured at Global, VN and VMI levels
+        self.logger.info('Validating when explicit default ECMP hash is configured at Global, VN and VMI levels')
+        self.config_ecmp_hash_global(ecmp_hash_default_config)
+        self.vn1_fixture.set_ecmp_hash(ecmp_hash_default_config)
+        self.config_ecmp_hash_vmi(svm_list, ecmp_hash_default_config)
+        self.verify_traffic_flow(self.vm1_fixture, dst_vm_list,
+                                 self.si_fixtures[0], self.vn1_fixture,
+                                 ecmp_hash=ecmp_hash_default)
+
+        # Iterate over all the combinations of ecmp_hash and validate it
+        # Right now, restricting the combination to length 1. i.e
+        # source_ip, destination_ip, source_port, destination_port, ip_protocol.
+        # More combinations can be easily tested modifying the length
+        ecmp_hash_length = 1
+
+        # Uncmomment below line if all combinations of 5 tuple needs to be tested
+        #ecmp_hash_length = len(ecmp_hash_default)
+
+        for i in range(1, ecmp_hash_length+1):
+            ecmp_hash_map = map(dict, itertools.combinations(ecmp_hash_default.iteritems(), ecmp_hash_length))
+
+            for ecmp_hash in ecmp_hash_map:
+                self.logger.info('Validating following ECMP hash combination:%s' % ecmp_hash)
+                ecmp_hash_config = ecmp_hash.copy()
+                ecmp_hash_config['hashing_configured'] = True
+
+                # Testing ECMP Hash when configured at Global level only
+                self.logger.info('Validating following ECMP hash combination:%s at Global level' % ecmp_hash)
+                self.del_ecmp_hash_config(vn_fixture=self.vn1_fixture, svm_list=svm_list)
+                self.config_ecmp_hash_global(ecmp_hash_config)
+                self.verify_traffic_flow(self.vm1_fixture, dst_vm_list,
+                                        self.si_fixtures[0], self.vn1_fixture,
+                                        ecmp_hash=ecmp_hash)
+
+                # Testing ECMP Hash when configured at vn level only
+                self.logger.info('Validating following ECMP hash combination:%s at vn level' % ecmp_hash)
+                self.del_ecmp_hash_config(vn_fixture=self.vn1_fixture, svm_list=svm_list)
+                self.vn1_fixture.set_ecmp_hash(ecmp_hash_config)
+                self.verify_traffic_flow(self.vm1_fixture, dst_vm_list,
+                                        self.si_fixtures[0], self.vn1_fixture,
+                                        ecmp_hash=ecmp_hash)
+
+               # Testing ECMP Hash when configured at VMI level only
+                self.logger.info('Validating following ECMP hash combination:%s at vmi level' % ecmp_hash)
+                self.del_ecmp_hash_config(vn_fixture=self.vn1_fixture, svm_list=svm_list)
+                self.config_ecmp_hash_vmi(svm_list, ecmp_hash_config)
+                self.verify_traffic_flow(self.vm1_fixture, dst_vm_list,
+                                        self.si_fixtures[0], self.vn1_fixture,
+                                        ecmp_hash=ecmp_hash)
+
+                # Testing ECMP Hash config precedence between Global and VN level.
+                # When both are configured, VN config should get priority
+                # over Global config. Configure default hash config at Global
+                # level and specific ecmp hash at VN level
+                self.logger.info('Validating following ECMP hash combination:%s between Global and VN levels' % ecmp_hash)
+                self.del_ecmp_hash_config(vn_fixture=self.vn1_fixture, svm_list=svm_list)
+                self.config_ecmp_hash_global(ecmp_hash_default_config)
+                self.vn1_fixture.set_ecmp_hash(ecmp_hash_config)
+                self.verify_traffic_flow(self.vm1_fixture, dst_vm_list,
+                                        self.si_fixtures[0], self.vn1_fixture,
+                                        ecmp_hash=ecmp_hash)
+
+                # Testing ECMP Hash config precedence between Global and VMI
+                # level. When both are configured, VMI config should get priority
+                # over Global config. Configure default hash config at Global
+                # level and specific ecmp hash at VMI level
+                self.logger.info('Validating following ECMP hash combination:%s between Global and VMI levels' % ecmp_hash)
+                self.del_ecmp_hash_config(vn_fixture=self.vn1_fixture, svm_list=svm_list)
+                self.config_ecmp_hash_global(ecmp_hash_default_config)
+                self.config_ecmp_hash_vmi(svm_list, ecmp_hash_config)
+                self.verify_traffic_flow(self.vm1_fixture, dst_vm_list,
+                                        self.si_fixtures[0], self.vn1_fixture,
+                                        ecmp_hash=ecmp_hash)
+
+                # Testing ECMP Hash config precedence between VN and VMI
+                # level. When both are configured, VMI config should get priority
+                # over VN config. Configure default hash config at VN
+                # level and specific ecmp hash at VMI level
+                self.logger.info('Validating following ECMP hash combination:%s between VN and VMI levels' % ecmp_hash)
+                self.del_ecmp_hash_config(vn_fixture=self.vn1_fixture, svm_list=svm_list)
+                self.vn1_fixture.set_ecmp_hash(ecmp_hash_default_config)
+                self.config_ecmp_hash_vmi(svm_list, ecmp_hash_config)
+                self.verify_traffic_flow(self.vm1_fixture, dst_vm_list,
+                                        self.si_fixtures[0], self.vn1_fixture,
+                                        ecmp_hash=ecmp_hash)
+
+                # Testing ECMP Hash config precedence between Global, VN and VMI
+                # level. When all are configured, VMI config should get priority
+                # over Global and VN config. Configure default hash config at
+                # Global, VN level and specific ecmp hash at VMI level
+                self.logger.info('Validating following ECMP hash combination:%s between Global, VN and VMI levels' % ecmp_hash)
+                self.del_ecmp_hash_config(vn_fixture=self.vn1_fixture, svm_list=svm_list)
+                self.config_ecmp_hash_global(ecmp_hash_default_config)
+                self.vn1_fixture.set_ecmp_hash(ecmp_hash_default_config)
+                self.config_ecmp_hash_vmi(svm_list, ecmp_hash_config)
+                self.verify_traffic_flow(self.vm1_fixture, dst_vm_list,
+                                        self.si_fixtures[0], self.vn1_fixture,
+                                        ecmp_hash=ecmp_hash)
+
+        # Delete the explicit ECMP hash and verify the traffic flow
+        self.logger.info('Validating default ECMP behavior after explicitly deleting ECMP hash ')
+        self.del_ecmp_hash_config(vn_fixture=self.vn1_fixture, svm_list=svm_list)
+        self.verify_traffic_flow(self.vm1_fixture, dst_vm_list,
+                                 self.si_fixtures[0], self.vn1_fixture,
+                                 ecmp_hash=ecmp_hash)
+
+    def config_ecmp_hash_vmi(self, svm_list, ecmp_hash=None):
+        """Configure ecmp hash at vmi"""
+        for svm in svm_list:
+            for (vn_fq_name, vmi_uuid) in svm.get_vmi_ids().iteritems():
+                if re.match(r".*in_network_vn1.*|.*bridge_vn1.*", vn_fq_name):
+                    self.logger.info('Updating ECMP Hash:%s at vmi:%s' % (ecmp_hash, vmi_uuid))
+                    vmi_config = self.vnc_lib.virtual_machine_interface_read(id = str(vmi_uuid))
+                    vmi_config.set_ecmp_hashing_include_fields(ecmp_hash)
+                    self.vnc_lib.virtual_machine_interface_update(vmi_config)
+
+    def config_ecmp_hash_global(self, ecmp_hash=None):
+        """Configure ecmp hash at global"""
+        self.logger.info('Updating ECMP Hash:%s at Global Config Level' % ecmp_hash)
+        global_vrouter_id = self.vnc_lib.get_default_global_vrouter_config_id()
+        global_config = self.vnc_lib.global_vrouter_config_read(id = global_vrouter_id)
+        global_config.set_ecmp_hashing_include_fields(ecmp_hash)
+        self.vnc_lib.global_vrouter_config_update(global_config)
+
+
+    def del_ecmp_hash_config(self, vn_fixture=None, svm_list=None):
+        """Delete ecmp hash at global, vn and vmi"""
+        self.logger.info('Explicitly deleting ECMP Hash:%s at Global, VN and VMI Level')
+        ecmp_hash = {"hashing_configured": False}
+        self.config_ecmp_hash_global(ecmp_hash)
+        self.config_ecmp_hash_vmi(svm_list, ecmp_hash)
+        vn_fixture.set_ecmp_hash(ecmp_hash)
+
+
