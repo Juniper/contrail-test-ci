@@ -56,6 +56,11 @@ class Orchestrator:
        pass
 
    @abstractmethod
+   def get_vm_image(self, vm_obj, **kwargs):
+       '''Returns name of the image associated with the VM.'''
+       pass
+
+   @abstractmethod
    def get_vm_if_present(self, vm_name, **kwargs):
        pass
 

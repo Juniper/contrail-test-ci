@@ -346,6 +346,9 @@ class VcenterOrchestrator(Orchestrator):
            return VcenterVM.create_from_vmobj(self, vmobj)
         return None
 
+    def get_vm_image(self, vm_obj, **kwargs):
+        return None
+
     def get_vm_by_id(self, vm_id, **kwargs):
         vmobj = self._find_obj(self._dc, 'vm', {'summary.config.instanceUuid':vm_id})
         if vmobj:
