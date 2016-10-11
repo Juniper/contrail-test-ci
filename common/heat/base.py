@@ -178,6 +178,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
             env['parameters']['availability_zone'] = self.inputs.availability_zone
         env['parameters']['flavor'] = self.nova_h.get_default_image_flavor(env['parameters']['image'])
         self.nova_h.get_image(env['parameters']['image'])
+        self.nova_h.get_flavor(env['parameters']['flavor'])
         vms_hs_obj = self.config_heat_obj(stack_name, template, env)
         stack = vms_hs_obj.heat_client_obj
         vm_fix = self.verify_vms(stack, vn_list, env, stack_name)
