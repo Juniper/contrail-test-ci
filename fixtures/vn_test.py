@@ -96,6 +96,7 @@ class VNFixture(fixtures.Fixture):
         self.clean_up = clean_up
         self.lock = threading.Lock()
         self.already_present = False
+        self.created = False
         self.verify_is_run = False
         self.verify_result = True
         self.verify_not_in_result = True
