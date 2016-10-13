@@ -167,6 +167,7 @@ class VMFixture(fixtures.Fixture):
             self.vn_fq_name = self.vn_fq_names[0]
             self.vm_ip_dict = self.get_vm_ip_dict()
             self.vm_ips = self.get_vm_ips()
+            self.image_name = self.orch.get_vm_image(self.vm_obj)
             self.already_present = True
             self.set_image_details(self.vm_obj)
 
