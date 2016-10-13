@@ -299,18 +299,33 @@ class VerifySvcFirewall(VerifySvcMirror):
             right_vn=self.vn2_fixture.vn_fq_name, svc_mode=svc_mode, flavor=flavor, static_route=static_route, ordered_interfaces=ordered_interfaces, svc_img_name=svc_img_name, project=self.inputs.project_name, st_version=st_version)
         self.action_list = self.chain_si(
             si_count, si_prefix, self.inputs.project_name)
-        self.rules = [
-            {
-                'direction': '<>',
-                'protocol': 'any',
-                'source_network': self.vn1_fixture.vn_fq_name,
-                'src_ports': [0, -1],
-                'dest_network': self.vn2_fixture.vn_fq_name,
-                'dst_ports': [0, -1],
-                'simple_action': None,
-                'action_list': {'apply_service': self.action_list}
-            },
-        ]
+        if self.inputs.orchestrator != 'vcenter':
+                self.rules = [
+                    {
+                        'direction': '<>',
+                        'protocol': 'any',
+                        'source_network': self.vn1_name,
+                        'src_ports': [0, -1],
+                        'dest_network': self.vn2_name,
+                        'dst_ports': [0, -1],
+                        'simple_action': None,
+                        'action_list': {'apply_service': self.action_list}
+                    },
+                ]
+        else:
+                self.rules = [
+                    {
+                        'direction': '<>',
+                        'protocol': 'any',
+                        'source_network': self.vn1_name,
+                        'src_ports': 'any',
+                        'dest_network': self.vn2_name,
+                        'dst_ports': 'any',
+                        'simple_action': 'pass',
+                        'action_list': {'apply_service': self.action_list}
+                    },
+                ]
+
         self.policy_fixture = self.config_policy(self.policy_name, self.rules)
 
         self.vn1_policy_fix = self.attach_policy_to_vn(
@@ -390,18 +405,33 @@ class VerifySvcFirewall(VerifySvcMirror):
                 si_count, si_prefix, self.inputs.project_name)
             self.action_list += action_step
             self.si_list += self.si_fixtures
-        self.rules = [
-            {
-                'direction': '<>',
-                'protocol': 'any',
-                'source_network': self.vn1_name,
-                'src_ports': [0, -1],
-                'dest_network': self.vn2_name,
-                'dst_ports': [0, -1],
-                'simple_action': None,
-                'action_list': {'apply_service': self.action_list}
-            },
-        ]
+	if self.inputs.orchestrator != 'vcenter':
+	        self.rules = [
+	            {
+	                'direction': '<>',
+	                'protocol': 'any',
+	                'source_network': self.vn1_name,
+	                'src_ports': [0, -1],
+	                'dest_network': self.vn2_name,
+	                'dst_ports': [0, -1],
+	                'simple_action': None,
+	                'action_list': {'apply_service': self.action_list}
+	            },
+	        ]
+	else:
+	        self.rules = [
+	            {
+	                'direction': '<>',
+	                'protocol': 'any',
+	                'source_network': self.vn1_name,
+	                'src_ports': 'any',
+	                'dest_network': self.vn2_name,
+	                'dst_ports': 'any',
+	                'simple_action': 'pass',
+	                'action_list': {'apply_service': self.action_list}
+	            },
+	        ]
+
         self.policy_fixture = self.config_policy(self.policy_name, self.rules)
 
         self.vn1_policy_fix = self.attach_policy_to_vn(

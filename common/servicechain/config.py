@@ -33,13 +33,20 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
                      svc_scaling=False, max_inst=1, domain='default-domain', project='admin', mgmt_vn=None, left_vn=None,
                      right_vn=None, svc_type='firewall', svc_mode='transparent', flavor='contrail_flavor_2cpu', static_route=[None, None, None], ordered_interfaces=True, svc_img_name=None, st_version=1):
 
-        svc_type_props = {
-            'firewall': {'in-network-nat': 'tiny_nat_fw',
-                         'in-network': 'tiny_in_net',
-                         'transparent': 'tiny_trans_fw',
-                         },
-            'analyzer': {'analyzer': 'analyzer'}
-        }
+        if self.inputs.orchestrator != 'vcenter':
+	        svc_type_props = {
+	            'firewall': {'in-network-nat': 'tiny_nat_fw',
+	                         'in-network': 'tiny_in_net',
+	                         'transparent': 'tiny_trans_fw',
+	                         },
+	            'analyzer': {'analyzer': 'analyzer'}
+	        }
+	else:
+	        svc_type_props = {
+	            'firewall': {'in-network-nat': 'ubuntu_nat_fw',
+	                         'in-network': 'ubuntu_in_net',
+	                         },
+	        }
 
         svc_mode_props = {
             'in-network-nat':   {'left': {'shared': True},
@@ -52,6 +59,7 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
                                  'right': {'shared': True}
                                  }
         }
+
 
         mgmt_props = ['management', False, False]
         left_scaling = False
