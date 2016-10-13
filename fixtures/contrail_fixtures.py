@@ -1,3 +1,92 @@
+import copy
+import os
+import fixtures
+
+def _process_refs_to (val, objs):
+   if ':' in val:
+       return val.split(':')
+   else:
+       return objs['id-map'][val].fq_name
+
+def process_refs (args, refs, objs):
+   ''' Helper routine to handle refs, converts
+       - [fqdn...] to [{"to":fqdn}...]
+       - [fqdn...] + [ref-data...] to [{"to":fqdn, "attr":ref-data}...]
+   '''
+   new_args = copy.deepcopy(args)
+   for ref in refs:
+       try:
+           lst = []
+           del new_args[ref[0]]
+           if len(ref) == 2:
+               del new_args[ref[1]]
+               for to, attr in zip(args[ref[0]], args[ref[1]]):
+                   lst.append({'to': _process_refs_to(to, objs), 'attr': attr})
+           else:
+               for to in args[ref[0]]:
+                   lst.append({'to': _process_refs_to(to, objs)})
+           new_args[ref[0]] = lst
+       except KeyError:
+           pass
+   return new_args
+
+class ContrailFixture (fixtures.Fixture):
+
+   ''' Base class for all fixtures. '''
+
+   def __init__ (self, rid=None, connections=None):
+       self._id = rid
+       self._connections = connections
+       self._inputs = None
+       self._logger = None
+       self._vnc_obj = None
+       self._verify_on_setup = os.getenv('VERIFY_ON_SETUP') or False
+       self._verify_on_cleanup = os.getenv('VERIFY_ON_CLEANUP') or False
+       if connections:
+           self._ctrl = self._connections.get_orch_ctrl()
+           self._vnc = self._ctrl.get_api('vnc')
+           self._inputs = connections.inputs
+           self._logger = connections.logger
+
+   @property
+   def uuid (self):
+       return self._vnc_obj.uuid
+
+   @property
+   def name (self):
+       return self._vnc_obj.name
+
+   @property
+   def fq_name (self):
+       return self._vnc_obj.get_fq_name()
+
+   @property
+   def fq_name_str (self):
+       return self._vnc_obj.get_fq_name_str()
+
+   def setUp (self):
+       super(ContrailFixture, self).setUp()
+       if self._id:
+           self._read(self._id)
+       else:
+           self._create()
+       if self._verify_on_setup:
+           self.verify_on_setup()
+
+   def cleanUp (self):
+       super(ContrailFixture, self).cleanUp()
+       if not self._id:
+           self._delete()
+       if self._verify_on_cleanup:
+           self.verify_on_cleanup()
+
+   def update (self, params=None):
+       if not params:
+           self._read(self.uuid)
+       else:
+           self._update (params)
+       if self._verify_on_setup:
+           self.verify_on_setup()
 
 def contrail_fix_ext(*dargs, **dkwargs):
     '''
