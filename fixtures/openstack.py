@@ -315,8 +315,8 @@ class OpenstackOrchestrator(Orchestrator):
 
 class OpenstackAuth(OrchestratorAuth):
 
-   def __init__(self, user, passwd, project_name,
-                inputs=None, logger=None, auth_url=None, region_name=None):
+   def __init__(self, user, passwd, project_name, inputs=None, logger=None,
+                auth_url=None, region_name=None, domain_name=None):
        self.inputs = inputs
        self.user = user
        self.passwd = passwd
@@ -326,14 +326,20 @@ class OpenstackAuth(OrchestratorAuth):
        if inputs:
            self.auth_url = inputs.auth_url
            self.region_name = inputs.region_name
+           if self.inputs.inputs.domain_isolation:
+               self.domain = domain_name or self.inputs.cloud_admin_domain
+           else:
+               self.domain = 'Default'
        else:
            self.auth_url = auth_url or os.getenv('OS_AUTH_URL')
            self.region_name = region_name or os.getenv('OS_REGION_NAME')
+           self.domain = 'Default'
        self.reauth()
 
    def reauth(self):
        self.keystone = KeystoneCommands(username=self.user,
                                         password=self.passwd,
+                                        domain=self.domain,
                                         tenant=self.project,
                                         auth_url=self.auth_url,
                                         insecure=self.insecure,
@@ -345,25 +351,30 @@ class OpenstackAuth(OrchestratorAuth):
            return self.keystone.get_id()
        return self.keystone.get_project_id(name)
 
-   def create_project(self, name):
-       return self.keystone.create_project(name)
+   def create_project(self, project_name, domain_name=None):
+       return self.keystone.create_project(project_name, domain_name)
 
    def delete_project(self, name):
        self.keystone.delete_project(name)
 
+   def delete_domain(self, domain_name):
+       self.keystone.delete_domain(domain_name)
+
    def delete_user(self, user):
        self.keystone.delete_user(user)
 
-   def create_user(self, user, password):
+   def create_user(self, user, password, project_name=None,
+                   domain_name=None):
        try:
            self.keystone.create_user(user,password,email='',
-                          tenant_name=self.inputs.stack_tenant,enabled=True)
+                          tenant_name=self.inputs.stack_tenant,enabled=True,
+                          project_name=project_name, domain_name=domain_name)
        except:
            self.logger.info("%s user already present"%(self.user))
 
-   def add_user_to_project(self, user, project, role='admin'):
+   def add_user_to_project(self, user, project, role='admin', domain=None):
        try:
-           self.keystone.add_user_to_tenant(project, user, role)
+           self.keystone.add_user_to_tenant(project, user, role, domain)
        except Exception as e:
            self.logger.info("%s user already added to project"%(user))
 
