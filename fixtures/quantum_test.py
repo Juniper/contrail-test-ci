@@ -215,10 +215,22 @@ class QuantumHelper():
     # end delete_security_group_rule
 
     def delete_port(self, port_id,):
-        port_rsp = self.obj.delete_port(port_id)
-        self.logger.debug('Response for delete_port : ' + repr(port_rsp))
-        return port_rsp
+        try:
+            port_rsp = self.obj.delete_port(port_id)
+            return port_rsp
+        except CommonNetworkClientException as e:
+            self.logger.debug("Exception while deleting subnet")
+            return []
     # end delete_port
+
+    def delete_subnet(self, subnet_id,):
+        try:
+            subnet_rsp = self.obj.delete_subnet(subnet_id)
+            return subnet_rsp
+        except CommonNetworkClientException as e:
+            self.logger.debug("Exception while deleting subnet")
+            return []
+    # end delete_subnet
 
     def get_vn_obj_if_present(self, vn_name, project_id=None,
                               router_external=True):
@@ -275,7 +287,7 @@ class QuantumHelper():
         return result
     # end delete_quota
 
-    def list_networks(self, args):
+    def list_networks(self, **args):
         try:
             net_rsp = self.obj.list_networks(args)
             return net_rsp
@@ -283,6 +295,24 @@ class QuantumHelper():
             self.logger.debug("Exception while viewing Network list")
             return []
     # end list_networks
+
+    def list_subnets(self, **args):
+        try:
+            subnet_rsp = self.obj.list_subnets(args)
+            return subnet_rsp
+        except CommonNetworkClientException as e:
+            self.logger.debug("Exception while viewing Subnet list")
+            return []
+    # end list_subnets
+
+    def list_ports(self, **args):
+        try:
+            port_rsp = self.obj.list_ports(args)
+            return port_rsp
+        except CommonNetworkClientException as e:
+            self.logger.debug("Exception while viewing Port list")
+            return []
+    # end list_ports
 
     def create_floatingip(self, fip_pool_vn_id, project_id=None, port_id=None):
         if not project_id:
