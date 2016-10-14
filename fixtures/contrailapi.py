@@ -6,9 +6,13 @@ from vnc_api.vnc_api import *
 
 class ContrailVncApi:
 
-    def __init__(self, vnc, logger=None):
+    def __init__(self, vnc, logger=None, project_name=None, domain_name=None):
         self._vnc = vnc
         self._log = logger or logging.getLogger(__name__)
+        self.project_name = project_name or self._vnc._tenant_name
+        self.domain_name = domain_name or 'default-domain' \
+             if self._vnc._domain_name == 'default' else self._vnc._domain_name
+        self.project_fq_name = [self.domain_name, self.project_name]
 
     def __getattr__(self, name, *args, **kwargs):
         # Call self._vnc method if no matching method exists
@@ -583,3 +587,186 @@ class ContrailVncApi:
         self._log.info('Removed intf route table %s from port %s' % (
             intf_rtb_obj.uuid, vmi_uuid))
     # end unbind_vmi_from_interface_route_table
+
+    def create_network(
+            self,
+            vn_name, **kwargs):
+        kwargs['project_obj']=self.project_obj
+        return self._create_network(vn_name, **kwargs)
+
+    def _create_network(self, vn_name, **kwargs):
+        vn_obj = VirtualNetwork(
+            name=vn_name, fq_name=self.project_fq_name+[vn_name], parent_type='project')
+        if 'vn_subnets' in kwargs and kwargs['vn_subnets']:
+            for subnet in kwargs['vn_subnets']:
+                self.create_subnet(subnet, vn_obj, NetworkIpam().get_fq_name())
+        import pdb;pdb.set_trace()
+        vn_resp=self._vnc.virtual_network_create(vn_obj)
+        return vn_obj
+    # end create_virtual_network
+
+    def delete_vn(self, vn_id):
+        self._vnc.virtual_network_delete(id=vn_id)
+    # end delete_vn
+
+    def list_networks(self, ):
+        return self._vnc.virtual_networks_list()
+    # end list_networks
+
+    def update_network(self, vn_id, network_dict):
+        if isinstance(vn_id, object):
+            vn_obj = vn_id
+        else:
+            vn_obj = self._vnc.virtual_network_read(id=vn_id)
+        self._vnc.virtual_network_update(vn_obj)
+    # end update_networks
+
+    def create_subnet(self, subnet, net_id, ipam_fq_name=None,
+        enable_dhcp=True, disable_gateway=False):
+        kwargs={}
+        kwargs['subnet']=subnet
+        kwargs['net_id']=net_id
+        kwargs['ipam_fq_name'] = ipam_fq_name or NetworkIpam().get_fq_name()
+        kwargs['enable_dhcp']=enable_dhcp
+        kwargs['disable_gateway']=disable_gateway
+        self._create_subnet(**kwargs)
+    # end subnets_list
+
+    def _create_subnet(self, **kwargs):
+        if isinstance(kwargs['net_id'], object):
+            vn_obj = kwargs['net_id']
+        else:
+            vn_obj = self._vnc.virtual_network_read(id=kwargs['net_id'])
+        ipam = self._vnc.network_ipam_read(
+            fq_name=kwargs['ipam_fq_name'])
+        # The dhcp_option_list and enable_dhcp flags will be modified for all subnets in an ipam
+        network, prefix = kwargs['subnet']['cidr'].split('/')
+        print network, prefix
+        ipam_sn = IpamSubnetType(
+            subnet=SubnetType(network, int(prefix)))
+        if 'dhcp_option_list' in kwargs and kwargs['dhcp_option_list']:
+           ipam_sn.set_dhcp_option_list(kwargs['dhcp_option_list'])
+        if not kwargs['enable_dhcp']:
+           ipam_sn.set_enable_dhcp(kwargs['enable_dhcp'])
+        #ipam_sn_lst.append(ipam_sn)
+        vn_obj.add_network_ipam(ipam, VnSubnetsType([ipam_sn]))
+        #self._vnc.virtual_network_update(self.api_vn_obj)
+        #self.vn_fq_name = self.vn_obj.get_fq_name_str()
+        #self.obj = self.quantum_h.get_vn_obj_if_present(self.vn_name,
+                                                                  #self.project_id)
+    # end subnets_list
+
+    def delete_subnet(self, uuid):
+        self._vnc.subnet_delete(id=uuid)
+    # end subnets_list
+
+    def subnet_update(self, subnet_id, subnet_dict):
+        self._vnc.subnet_update(**kwargs)
+
+    def list_subnets(self):
+        return self._vnc.subnets_list()
+
+    def create_port(self, net_id, fixed_ips=[],
+                    mac_address=None, no_security_group=False,
+                    security_groups=[], extra_dhcp_opts=None,
+                    sriov=False, binding_profile=None):
+        kwargs={}
+        kwargs['net_id']=net_id
+        kwargs['fixed_ips']=fixed_ips
+        kwargs['mac_address']=mac_address
+        kwargs['no_security_group']=no_security_group
+        kwargs['security_groups']=security_groups
+        kwargs['extra_dhcp_opts']=extra_dhcp_opts
+        kwargs['sriov']=sriov
+        kwargs['binding_profile']=binding_profile
+        return self._contrail_create_port(**kwargs)
+
+    def _contrail_create_port(self, **kwargs):
+        vmi_id = str(uuid.uuid4())
+        vmi_obj = VirtualMachineInterface(name=vmi_id,
+            fq_name=self.project_fq_name+[vmi_id], parent_type='project')
+        if 'mac_address' in kwargs and kwargs['mac_address']:
+            mac_address_obj = MacAddressesType()
+            mac_address_obj.set_mac_address([str(EUI(kwargs['mac_address']))])
+            vmi_obj.set_virtual_machine_interface_mac_addresses(
+                mac_address_obj)
+        vmi_obj.uuid = vmi_id
+        if isinstance(kwargs['net_id'], object):
+            vn_obj = kwargs['net_id']
+        else:
+            vn_obj = self._vnc.virtual_network_read(id=kwargs['net_id'])
+        vmi_obj.add_virtual_network(vn_obj)
+
+        if kwargs['security_groups']:
+            for sg_id in kwargs['security_groups']:
+                sg_obj = self._vnc.security_group_read(id=sg_id)
+                vmi_obj.add_security_group(sg_obj)
+        else:
+            # Associate default SG
+            default_sg_fq_name = self.project_obj.fq_name[:]
+            default_sg_fq_name.append('default')
+            sg_obj = self._vnc.security_group_read(
+                fq_name=default_sg_fq_name)
+            vmi_obj.add_security_group(sg_obj)
+
+        if 'extra_dhcp_opts' in kwargs:
+            # TODO
+            pass
+
+        if 'binding_profile' in kwargs and kwargs['binding_profile']:
+            bind_kv = KeyValuePair(key='profile', value=str(kwargs['binding_profile']))
+            kv_pairs = vmi_obj.get_virtual_machine_interface_bindings() or\
+                       KeyValuePairs()
+            kv_pairs.add_key_value_pair(bind_kv)
+            vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
+        vmi_obj = self._vnc.virtual_machine_interface_create(vmi_obj)
+        return vmi_obj
+
+    def list_ports(self, ):
+        return self._vnc.virtual_machine_interfaces_list()
+
+    def delete_port(self, uuid):
+        return self._vnc.virtual_machine_interface_delete(id=uuid)
+
+    def update_port(self, port_id, port_dict):
+        self._vnc_.virtual_machine_interface_update(port_id, port_dict)
+
+def setup_test_infra():
+    import logging
+    from common.log_orig import ContrailLogger
+    logging.getLogger('urllib3.connectionpool').setLevel(logging.WARN)
+    logging.getLogger('paramiko.transport').setLevel(logging.WARN)
+    logging.getLogger('keystoneclient.session').setLevel(logging.WARN)
+    logging.getLogger('keystoneclient.httpclient').setLevel(logging.WARN)
+    logging.getLogger('neutronclient.client').setLevel(logging.WARN)
+    logger = ContrailLogger('event')
+    logger.setUp()
+    mylogger = logger.logger
+    from common.connections import ContrailConnections
+    connections = ContrailConnections(logger=mylogger)
+    return connections
+
+def main():
+    import sys
+    from vn_test import VNFixture
+    from vm_test import VMFixture
+    from project_test import ProjectFixture
+#    sys.settrace(tracefunc)
+#    obj = LBaasFixture(api_type='neutron', name='LB', connections=setup_test_infra(), network_id='4b39a2bd-4528-40e8-b848-28084e59c944', members={'vms': ['a72ad607-f1ca-44f2-b31e-e825a3f2d408'], 'address': ['192.168.1.10']}, vip_net_id='4b39a2bd-4528-40e8-b848-28084e59c944', protocol='TCP', port='22', healthmonitors=[{'delay':5, 'timeout':5, 'max_retries':5, 'probe_type':'PING'}])
+    conn = setup_test_infra()
+    project = ProjectFixture(conn.get_vnc_lib_h(), conn, project_name='test')
+    project.setUp()
+    vnc_lib = ContrailVncApi(conn.get_vnc_lib_h(), project_name='test')
+    vnc_lib.project_obj=project.project_obj
+    vn_obj = vnc_lib.create_network(vn_name='test_vn', vn_subnets=[{'cidr':'123.23.3.0/24'}])
+    vnc_lib.create_port(vn_obj)
+    print vnc_lib.list_networks()
+    import pdb;pdb.set_trace()
+    return conn
+
+if __name__ == '__main__':
+    #vnc_lib = VncApi(api_server_host='127.0.0.1', username='admin', password='contrail123', tenant_name='admin')
+    main()
+    #project_obj = vnc_lib.project_create(get_random_name('ctest'))
+    #ContrailVncApi.create_virtual_network(project_obj)
+    'test your code here'
