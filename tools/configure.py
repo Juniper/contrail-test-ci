@@ -242,6 +242,10 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     stack_password = env.test.get('stack_password',
                          os.getenv('STACK_PASSWORD') or '')
     stack_tenant = env.test.get('stack_tenant', os.getenv('STACK_TENANT') or '')
+    domain_isolation = env.test.get('domain_isolation',
+                           os.getenv('DOMAIN_ISOLATION') or '')
+    cloud_admin_domain = env.test.get('cloud_admin_domain',
+                           os.getenv('CLOUD_ADMIN_DOMAIN') or 'Default')
     tenant_isolation = env.test.get('tenant_isolation',
                            os.getenv('TENANT_ISOLATION') or '')
 
@@ -345,6 +349,8 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
          '__admin_user__'          : admin_user,
          '__admin_password__'      : admin_password,
          '__admin_tenant__'        : admin_tenant,
+         '__domain_isolation__'    : domain_isolation,
+         '__cloud_admin_domain__'  : cloud_admin_domain,
          '__tenant_isolation__'    : tenant_isolation,
          '__stack_user__'          : stack_user,
          '__stack_password__'      : stack_password,

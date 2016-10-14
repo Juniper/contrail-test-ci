@@ -16,6 +16,11 @@ stackPassword=$__stack_password__
 stackTenant=$__stack_tenant__
 stackDomain=$__stack_domain__
 
+# Set domain_isolation to true to Let the tests
+# create and destroy domains
+domain_isolation=$__domain_isolation__
+cloud_admin_domain=$__cloud_admin_domain__
+
 # Set tenant_isolation to true to Let the tests
 # create and destroy  projects/tenants
 # Setting this to true requires that admin credentials below are populated

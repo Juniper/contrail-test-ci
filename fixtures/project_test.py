@@ -59,7 +59,7 @@ class ProjectFixture(fixtures.Fixture):
             self.already_present = True
 
     def _create_project(self):
-        self.uuid = self.auth.create_project(self.project_name)
+        self.uuid = self.auth.create_project(self.project_name, self.domain_name)
         self.project_obj = self.vnc_lib_h.project_read(id=self.uuid)
         self.logger.info('Created Project:%s, ID : %s ' % (self.project_name,
                                                            self.uuid))

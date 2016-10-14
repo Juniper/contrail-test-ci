@@ -10,6 +10,9 @@ class BaseTestCase_v1(BaseTestCase):
         cls.admin_connections = None
         super(BaseTestCase_v1, cls).setUpClass()
 
+        if cls.inputs.domain_isolation:
+            cls.inputs.domain_name = cls.__name__
+
         if not cls.inputs.tenant_isolation:
             project_name = cls.inputs.stack_tenant
         else:
@@ -17,6 +20,7 @@ class BaseTestCase_v1(BaseTestCase):
 
         cls.isolated_creds = IsolatedCreds(
             cls.inputs,
+            domain_name=cls.inputs.domain_name,
             project_name=project_name,
             ini_file=cls.ini_file,
             logger=cls.logger)
@@ -24,12 +28,13 @@ class BaseTestCase_v1(BaseTestCase):
         if cls.inputs.tenant_isolation:
             cls.admin_isolated_creds = AdminIsolatedCreds(
                 cls.inputs,
+                domain_name=cls.inputs.domain_name,
                 ini_file=cls.ini_file,
                 logger=cls.logger)
             cls.admin_isolated_creds.setUp()
 
             cls.project = cls.admin_isolated_creds.create_tenant(
-                cls.isolated_creds.project_name)
+                cls.isolated_creds.domain_name, cls.isolated_creds.project_name)
             cls.admin_inputs = cls.admin_isolated_creds.get_inputs(cls.project)
             cls.admin_isolated_creds.create_and_attach_user_to_tenant(
                 cls.project,
@@ -54,6 +59,8 @@ class BaseTestCase_v1(BaseTestCase):
         if cls.inputs.tenant_isolation:
             cls.admin_isolated_creds.delete_tenant(cls.project)
             cls.admin_isolated_creds.delete_user(cls.isolated_creds.username)
+        if cls.inputs.domain_isolation:
+            cls.admin_isolated_creds.delete_domain(cls.isolated_creds.domain_name)
         super(BaseTestCase_v1, cls).tearDownClass()
     # end tearDownClass
 
