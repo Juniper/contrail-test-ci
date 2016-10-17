@@ -154,10 +154,10 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
         if vns:
             vn_objs = [vn.obj for vn in vns]
             vm_fixture = self.config_vm(
-                vm_name, vns=vn_objs, image_name=image_name, count=count)
+                vm_name, vns=vn_objs, image_name=image_name, flavor=flavor, count=count)
         else:
             vm_fixture = self.config_vm(
-                vm_name, vn_fix=vn_fix, image_name=image_name, count=count)
+                vm_name, vn_fix=vn_fix, image_name=image_name, flavor=flavor, count=count)
         assert vm_fixture.verify_on_setup(), 'VM verification failed'
         assert vm_fixture.wait_till_vm_is_up(), 'VM does not seem to be up'
         return vm_fixture

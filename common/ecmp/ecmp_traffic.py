@@ -16,11 +16,12 @@ from tcutils.commands import ssh, execute_cmd, execute_cmd_out
 from fabric.state import connections as fab_connections
 from common.servicechain.config import ConfigSvcChain
 from common.servicechain.verify import VerifySvcChain
+import pdb
 
 
 class ECMPTraffic(ConfigSvcChain, VerifySvcChain):
 
-    def verify_traffic_flow(self, src_vm, dst_vm_list, si_fix, src_vn, src_ip=None, dst_ip=None):
+    def verify_traffic_flow(self, src_vm, dst_vm_list, si_fix, src_vn, src_ip=None, dst_ip=None, ecmp_hash=None):
         fab_connections.clear()
         src_ip = src_vm.vm_ip
         if dst_ip == None:
@@ -33,7 +34,8 @@ class ECMPTraffic(ConfigSvcChain, VerifySvcChain):
             src_vm, dst_vm_list, src_ip=src_ip, dst_ip=dst_ip)
         sender, receiver = self.start_traffic(
             src_vm, dst_vm_list, stream_list, src_ip=src_ip, dst_ip=dst_ip)
-        self.verify_flow_thru_si(si_fix, src_vn)
+        #pdb.set_trace()
+        self.verify_flow_thru_si(si_fix, src_vn, ecmp_hash=ecmp_hash)
         self.verify_flow_records(src_vm, src_ip=src_ip, dst_ip=dst_ip)
         self.stop_traffic(sender, receiver, dst_vm_list, stream_list)
 
@@ -107,7 +109,7 @@ class ECMPTraffic(ConfigSvcChain, VerifySvcChain):
         return sender, receiver
         # end start_traffic
 
-    def verify_flow_thru_si(self, si_fix, src_vn=None):
+    def verify_flow_thru_si(self, si_fix, src_vn=None, ecmp_hash=None):
         self.logger.info(
             'Will start a tcpdump on the left-interfaces of the Service Instances to find out which flow is entering which Service Instance')
         flowcount = 0
@@ -178,7 +180,42 @@ class ECMPTraffic(ConfigSvcChain, VerifySvcChain):
             self.logger.info('%s' % flow_pattern)
         else:
             result = False
-        assert result, 'No Flow distribution seen'
+
+        if ecmp_hash and ecmp_hash != 'default':
+            # count the number of hash fields set
+            hash_var_count = sum(ecmp_hash.values())
+
+            # Incase, only one hash field is set, all flows should go through
+            # single service instance. One exception here is destination_port.
+            # As per traffic streams, destination port varies for 3 streams
+            # (9000,9001,9002). So, in this case, traffic should get load
+            # balanced across service instances.
+            if hash_var_count == 1 and (not 'destination_port' in ecmp_hash):
+                if flow_pattern['9000'] == flow_pattern['9001'] == flow_pattern['9002']:
+                    self.logger.info(
+                        'Flows are flowing through Single Service Instance: %s, as per config hash: %s' % (flow_pattern, ecmp_hash))
+                    self.logger.info('%s' % flow_pattern)
+                else:
+                    result = False
+                    self.logger.error(
+                        'Flows are flowing through multiple Service Instances:%s, where as it should not as per config hash:%s' % (flow_pattern, ecmp_hash))
+                    #assert result, 'Config hash is not working fine.'
+            # Incase, multiple ecmp hash fields are configured or default ecmp
+            # hash is present or only 'destionation_port' is configured in
+            # ecmp_hash
+            else:
+                if flow_pattern['9000'] == flow_pattern['9001'] == flow_pattern['9002']:
+                    result = False
+                    self.logger.error(
+                        'Flows are flowing through Single Service Instance:%s, where as it should not as per config hash:%s' % (flow_pattern, ecmp_hash))
+                    #assert result, 'Config hash is not working fine.'
+                else:
+                    self.logger.info(
+                        'Flows are flowing through multiple Service Instances:%s, as per config hash: %s' % (flow_pattern, ecmp_hash))
+                    self.logger.info('%s' % flow_pattern)
+        else:
+            assert result, 'No Flow distribution seen'
+
         # end verify_flow_thru_si
 
     def verify_flow_records(self, src_vm, src_ip=None, dst_ip=None):
