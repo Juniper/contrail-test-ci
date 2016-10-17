@@ -3976,6 +3976,8 @@ class AnalyticsVerification(fixtures.Fixture):
                 result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-api',\
                             server,node = cfgm)
+                if self.contrail_internal_vip:
+                    break
             assert result   
            # result = False    
            # for ip in self.inputs.cfgm_ips:
@@ -4040,6 +4042,8 @@ class AnalyticsVerification(fixtures.Fixture):
                result = result or self.verify_connection_infos(ops_inspect,\
                         'DeviceManager',\
                         server,node = cfgm)
+               if self.contrail_internal_vip:
+                   break
             assert result   
             result = False    
             for ip in self.inputs.cfgm_control_ips:
@@ -4049,6 +4053,8 @@ class AnalyticsVerification(fixtures.Fixture):
                result = result or self.verify_connection_infos(ops_inspect,\
                             'DeviceManager',\
                             server,node = cfgm)
+               if self.contrail_internal_vip:
+                   break
             assert result   
             result = False    
             for ip in self.inputs.database_control_ips:
@@ -4099,6 +4105,8 @@ class AnalyticsVerification(fixtures.Fixture):
                result = result or self.verify_connection_infos(ops_inspect,\
                         'contrail-schema',\
                         server,node = cfgm)
+               if self.contrail_internal_vip:
+                   break
             assert result   
             result = False    
             for ip in self.inputs.cfgm_control_ips:
@@ -4108,6 +4116,8 @@ class AnalyticsVerification(fixtures.Fixture):
                result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-schema',\
                             server,node = cfgm)
+               if self.contrail_internal_vip:
+                   break
             assert result   
             result = False    
             for ip in self.inputs.database_control_ips:
@@ -4151,6 +4161,8 @@ class AnalyticsVerification(fixtures.Fixture):
                result = result or self.verify_connection_infos(ops_inspect,\
                         'contrail-svc-monitor',\
                         server,node = cfgm)
+               if self.contrail_internal_vip:
+                   break
             assert result   
             result = False    
             for ip in self.inputs.cfgm_control_ips:
@@ -4160,6 +4172,8 @@ class AnalyticsVerification(fixtures.Fixture):
                result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-svc-monitor',\
                             server,node = cfgm)
+               if self.contrail_internal_vip:
+                   break
             assert result   
             result = False    
             for ip in self.inputs.database_control_ips:
@@ -4198,6 +4212,8 @@ class AnalyticsVerification(fixtures.Fixture):
                 result = result or self.verify_connection_infos(ops_inspect,\
                                 'contrail-control',\
                                 [server],node = bgp)
+                if self.contrail_internal_vip:
+                    break
             assert result    
             result = False    
             for ip in self.inputs.collector_control_ips:
@@ -4282,6 +4298,8 @@ class AnalyticsVerification(fixtures.Fixture):
                     result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-collector',\
                             [server],node = collector)
+                    if self.contrail_internal_vip:
+                        break
                 assert result 
             except Exception as e:
                for ip in self.inputs.cfgm_control_ips:
@@ -4355,6 +4373,8 @@ class AnalyticsVerification(fixtures.Fixture):
                     result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-analytics-api',\
                             [server],node = collector)
+                    if self.contrail_internal_vip:
+                        break
                 assert result 
             except Exception as e:    
                 for ip in self.inputs.cfgm_control_ips:
@@ -4411,6 +4431,8 @@ class AnalyticsVerification(fixtures.Fixture):
                     result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-analytics-api',\
                             [server],node = collector)
+                    if self.contrail_internal_vip:
+                        break
                 assert result 
             except Exception as e:    
                 for ip in self.inputs.cfgm_control_ips:
