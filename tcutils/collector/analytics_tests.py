@@ -2258,7 +2258,7 @@ class AnalyticsVerification(fixtures.Fixture):
 
     # Verifiation of contrail Alarms generation
 
-    def verify_alarms(self, role, alarm_type='process-status', service=None):
+    def verify_alarms(self, role, alarm_type='process-status', service=None, verify_alarm_cleared=False):
         result = True
         analytics = self.inputs.collector_ips[0]
         underlay = self.inputs.run_cmd_on_server(analytics, 'contrail-status | grep contrail-snmp-collector')
@@ -2392,7 +2392,12 @@ class AnalyticsVerification(fixtures.Fixture):
                     result = result and False
                 else:
                     self.logger.info("Process connectivity alarm for vrouter verified for  %s " % (role))
-
+            elif alarm_type == 'vrouter-interface':
+                if not self._verify_contrail_alarms(None, 'vrouter', 'vrouter_interface',
+                        multi_instances=multi_instances, verify_alarm_cleared=verify_alarm_cleared):
+                    result = result and False
+                else:
+                    self.logger.info("Vrouter-interface alarm for vrouter verified for  %s " % (role))
         elif role == 'all':
             multi_instances = False
             if len(self.inputs.cfgm_ips) > 1:
@@ -2427,6 +2432,15 @@ class AnalyticsVerification(fixtures.Fixture):
             result = result and False
         return result
     # end _verify_contrail_bgp_connectivity_alarm
+
+    def _verify_alarms_vrouter_interface(self, service_ip, role, alarm_type, multi_instances, verify_alarm_cleared):
+        result = True
+        # To implement
+        if not self._verify_alarms_by_type(None, service_ip, role, alarm_type, multi_instances=False,
+                soak_timer=15, verify_alarm_cleared=verify_alarm_cleared):
+            result = result and False
+        return result
+    # end _verify_vrouter_interface_alarm
 
     def update_contrail_conf(self, node, ip, conf_file_type, section, value, cluster_verify=False):
         file_loc = '/etc/contrail/' + conf_file_type + '.conf'
@@ -2663,6 +2677,11 @@ class AnalyticsVerification(fixtures.Fixture):
             cluster_status, error_nodes = ContrailStatusChecker().wait_till_contrail_cluster_stable()
             assert cluster_status, 'Hash of error nodes and services : %s' % (error_nodes)
 
+    def verify_vrouter_intf_alarm(self, verify_alarm_cleared=False):
+        return self.verify_alarms(role='vrouter', alarm_type='vrouter-interface',
+            verify_alarm_cleared=verify_alarm_cleared)
+    # end verify_vrouter_intfalarms
+
     def verify_cfgm_alarms(self):
         return self.verify_alarms(role='config-node')
     # end cfgm_alarms
@@ -2676,7 +2695,7 @@ class AnalyticsVerification(fixtures.Fixture):
     # end control_alarms
 
     def verify_vrouter_alarms(self):
-        return self.verify_alarms(role='vrouter')
+        return self.verify_alarms(role='vrouter', verify_alarm_cleared=False)
     # end vrouter_alarms
 
     def verify_analytics_alarms(self):
@@ -2843,7 +2862,8 @@ class AnalyticsVerification(fixtures.Fixture):
         return result
     # end _verify_alarms_by_type
 
-    def _verify_contrail_alarms(self, service, role, trigger='service_stop', multi_instances=False):
+    def _verify_contrail_alarms(self, service, role, trigger='service_stop',
+            multi_instances=False, verify_alarm_cleared=False):
         ''' Verify whether contrail alarms is raised
         multi_instances = True for multi node setup based on the role
         '''
@@ -2892,7 +2912,6 @@ class AnalyticsVerification(fixtures.Fixture):
             alarm_type = ['bgp-connectivity']
             if not self._verify_alarms_bgp_peer_mismatch(service_ip, role, alarm_type, multi_instances):
                 result = result and False
-
         elif trigger == 'disk_usage':
             alarm_type = 'disk-usage'
             if not self._verify_alarms_disk_usage(service_ip, role, alarm_type, multi_instances):
@@ -2910,6 +2929,10 @@ class AnalyticsVerification(fixtures.Fixture):
         elif trigger == 'address_mismatch' and role == 'vrouter':
             alarm_type = 'address-mismatch-compute'
             if not self._verify_alarms_address_mismatch_compute(service_ip, role, alarm_type, multi_instances):
+                result = result and False
+        elif trigger == 'vrouter_interface' and role == 'vrouter':
+            alarm_type = 'vrouter-interface'
+            if not self._verify_alarms_vrouter_interface(service_ip, role, alarm_type, multi_instances, verify_alarm_cleared):
                 result = result and False
         elif trigger == 'process_connectivity' and role in ['vrouter', 'analytics-node']:
             alarm_type = 'process-connectivity'
