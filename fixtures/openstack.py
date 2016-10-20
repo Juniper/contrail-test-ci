@@ -91,6 +91,9 @@ class OpenstackOrchestrator(ContrailApi):
        vm_obj.get()
        return vm_obj.networks.keys()
 
+   def get_vm_image(self, vm_obj, **kwargs):
+       return self.nova_h.get_vm_image(vm_obj)
+       
    def wait_till_vm_is_active(self, vm_obj, **kwargs):
        return self.nova_h.wait_till_vm_is_active(vm_obj)
 

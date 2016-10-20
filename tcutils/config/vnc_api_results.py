@@ -482,9 +482,9 @@ class CsVMResult (Result):
 
     def vmi_links(self):
         vmi_list = (self.xpath('virtual-machine', 'virtual_machine_interfaces') or
-                    self.xpath('virtual-machine', 'virtual_machine_interface_back_refs'))
+                    self.xpath('virtual-machine', 'virtual_machine_interface_back_refs')) or []
         links = []
-        for vmi in vmi_list:
+        for vmi in vmi_list or []:
             links.append(vmi['href'])
         return links
 #        return self.xpath ('virtual-machine', 'virtual_machine_interfaces',
@@ -503,7 +503,7 @@ class CsVmiOfVmResult (Result):
         links = []
         instance_ips = self.xpath('virtual-machine-interface',
                                   'instance_ip_back_refs')
-        for iip in instance_ips:
+        for iip in instance_ips or []:
             links.append(iip['href'])
         return links
 
@@ -588,6 +588,32 @@ class CsSecurityGroupResult (Result):
 
     def fq_name(self):
         return ':'.join(self.xpath('security-group', 'fq_name'))
+
+
+class CsVirtualMachineInterfaceResult (Result):
+
+    '''
+        CsVirtualMachineInterfaceResult to provide access to vnc_introspect_utils.get_cs_vmi
+    '''
+
+    def uuid(self):
+        return ':'.join(self.xpath('virtual-machine-interface', 'uuid'))
+
+    def fq_name(self):
+        return ':'.join(self.xpath('virtual-machine-interface', 'fq_name'))
+
+
+class CsPortTupleResult (Result):
+
+    '''
+        CsPortTupleResult to provide access to vnc_introspect_utils.get_cs_pt
+    '''
+
+    def uuid(self):
+        return ':'.join(self.xpath('port-tuple', 'uuid'))
+
+    def fq_name(self):
+        return ':'.join(self.xpath('port-tuple', 'fq_name'))
 
 
 class CsServiceInstanceResult (Result):
