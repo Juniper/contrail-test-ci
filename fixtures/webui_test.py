@@ -5927,3 +5927,73 @@ class WebuiTest:
             raise
         return result
     # verify_vn_after_edit_ui
+
+    def verify_port_ui(self, key, tc, var_list):
+        result = True
+        try:
+            port_ui_value = self.ui.get_port_value_ui(key, port_name=var_list[1])
+            if port_ui_value:
+                if key == 'all':
+                    reg_uuid = re.search(var_list[0], port_ui_value)
+                    reg_port_name = re.search(var_list[1], port_ui_value)
+                    reg_state = re.search(var_list[2], port_ui_value)
+                    if reg_uuid and reg_port_name and reg_state:
+                        result = True
+                    else:
+                        result = False
+                elif key == 'Security Group':
+                    reg_sec_group = re.search(var_list[3], port_ui_value)
+                    if reg_sec_group:
+                        result = True
+                    else:
+                        result = False
+            if result:
+                self.logger.info("WebUI verification is successful for port creation")
+            else:
+                self.logger.error("WebUI verification is failed for port creation")
+                result = result and False
+            return result
+
+        except WebDriverException:
+            self.logger.error("Error while verifying the port")
+            self.ui.screenshot('port')
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+    # verify_port_ui
+
+    def verify_port_api(self, option, uuid, var_list, tc):
+        result = True
+        port_list_api = self.ui.get_api_detail(uuid, 'virtual-machine-interface/')
+        if port_list_api:
+            port_list_vm_api = port_list_api.get('virtual-machine-interface')
+            if port_list_vm_api:
+                if option == 'all':
+                    api_disp_name = port_list_vm_api.get('display_name')
+                    api_net_name = port_list_vm_api.get('virtual_network_refs')
+                    if api_disp_name == var_list[1]:
+                        if tc == 'add':
+                            result = True
+                        else:
+                            result = False
+                elif option == 'Security Group':
+                    api_sec_group = port_list_vm_api.get('security_group_refs')
+                    if re.search(var_list[3], str(api_sec_group)):
+                        result = True
+                    else:
+                        result = False
+            else:
+                logger.error("Virtual-machine-interface is not there in API")
+                result = False
+        else:
+            if tc == 'add':
+                result = False
+            else:
+                result = True
+        if result:
+            self.logger.info("Verification of port is successful through API server")
+        else:
+            self.logger.error("API verification is failed for port")
+        return result
+    # verify_port_api
