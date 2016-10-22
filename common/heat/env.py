@@ -255,7 +255,7 @@ svc_tmpl_nomgmt = {
 svc_tmpl_v2 = {
   u'parameters': {
     u'name': u'',
-    u'image': u'vsrx', u'flavor': u'm1.medium',
+    u'image': u'tiny_nat_fw', u'flavor': u'm1.medium',
     u'mode': u'in-network-nat', u'type': u'firewall',
     u'service_scaling': u'False',
     u'left_shared': u'False', u'left_static': u'False',
@@ -318,7 +318,17 @@ svc_inst_nomgmt_pt_v2 = {
   }
 }
 
+svc_inst_pt_v2 = {
+  u'parameters': {
+    u'image': u'tiny_in_net', u'flavor': u'contrail_flavor_tiny', u'svm_name': 'svm',
+    u'service_template_fq_name': u'', u'service_instance_name': u'',
+    u'mgmt_net_id': u'',u'left_net_id': u'', u'right_net_id': u'',
+    u'availability_zone': u'',
+  }
+}
+
 svc_inst_nomgmt_pt_dual_v2 = svc_inst_nomgmt_pt_v2
+svc_inst_pt_dual_v2 = svc_inst_pt_v2
 
 pt_svm = {
   u'parameters': {

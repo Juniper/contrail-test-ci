@@ -272,9 +272,7 @@ class SvcInstanceFixture(fixtures.Fixture):
                 return (False, errmsg)
         self.logger.debug("Service VM for SI '%s' is launched", self.si_name)
         for vm in self.svm_list:
-            if self.svc_template.service_template_properties.service_mode == 'transparent':
-                assert vm.wait_till_vm_is_active()
-            else:
+            if self.svc_template.service_template_properties.service_mode != 'transparent':
                 assert vm.wait_till_vm_is_up()
         return True, None
 
