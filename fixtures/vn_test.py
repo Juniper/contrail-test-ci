@@ -1345,6 +1345,13 @@ class VNFixture(fixtures.Fixture):
                 self.policy_objs.append(policy_obj)
     # end update_vn_object
 
+    # Will update network hash on the vn_fixture
+    def update_hash_on_nw(self, ecmp_hash, vn_fixture):
+
+        vn_config = self.vnc_lib_h.virtual_network_read(id=vn_fixture.uuid)
+        vn_config.set_ecmp_hashing_include_fields(ecmp_hash)
+        self.vnc_lib_h.virtual_network_update(vn_config)
+
     def unbind_policies(self, vn_id, policy_fq_names=[]):
         if isinstance(self.orchestrator,VcenterOrchestrator) or self.option == 'contrail':
             if policy_fq_names == []:
