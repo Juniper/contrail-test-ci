@@ -476,6 +476,13 @@ class VNFixture(fixtures.Fixture):
         port_rsp = self.quantum_h.update_port(port_id, port_dict)
         return port_rsp
 
+    # Will update network hash on the vn_fixture
+    def update_hash_on_nw(self, ecmp_hash, vn_fixture):
+
+        vn_config = self.vnc_lib_h.virtual_network_read(id=vn_fixture.uuid)
+        vn_config.set_ecmp_hashing_include_fields(ecmp_hash)
+        self.vnc_lib_h.virtual_network_update(vn_config)
+
     def verify_on_setup_without_collector(self):
         # once api server gets restarted policy list for vn in not reflected in
         # vn uve so removing that check here

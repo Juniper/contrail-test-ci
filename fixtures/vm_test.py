@@ -392,6 +392,15 @@ class VMFixture(fixtures.Fixture):
     def remove_security_group(self, secgrp):
         self.orch.remove_security_group(vm_id=self.vm_obj.id, sg_id=secgrp)
 
+    # Will update port hash on vm_fixture
+    def update_hash_on_vmi(self, ecmp_hash, vm_fixture, vn_name):
+        id_entry = self.inputs.project_fq_name[0] + ':' + \
+            self.inputs.project_fq_name[1] + ':' + vn_name
+        vm_uuid = str(vm_fixture.get_vmi_ids()[id_entry])
+        vm_config = self.vnc_lib_h.virtual_machine_interface_read(id=vm_uuid)
+        vm_config.set_ecmp_hashing_include_fields(ecmp_hash)
+        self.vnc_lib_h.virtual_machine_interface_update(vm_config)
+
     def verify_security_group(self, secgrp):
 
         result = False

@@ -471,3 +471,12 @@ class ContrailVncApi:
         self._log.info('Removed intf route table %s from port %s' % (
             intf_rtb_obj.uuid, vmi_uuid))
     # end unbind_vmi_from_interface_route_table
+
+    def config_global_hash(self, ecmp_hashing_include_fields):
+        global_vrouter_id = self._vnc.get_default_global_vrouter_config_id()
+        global_config = self._vnc.global_vrouter_config_read(
+            id=global_vrouter_id)
+        global_config.set_ecmp_hashing_include_fields(
+            ecmp_hashing_include_fields)
+        self._vnc.global_vrouter_config_update(global_config)
+
