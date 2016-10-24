@@ -65,7 +65,6 @@ class VMFixture(fixtures.Fixture):
         self.quantum_h = self.connections.quantum_h
         self.vnc_lib_fixture = self.connections.vnc_lib_fixture
         self.vnc_lib_h = self.connections.get_vnc_lib_h()
-        self.nova_h = self.connections.nova_h
         self.node_name = node_name
         self.zone = zone
         self.sg_ids = sg_ids
@@ -76,7 +75,8 @@ class VMFixture(fixtures.Fixture):
         if os.environ.has_key('ci_image'):
             image_name = os.environ.get('ci_image')
         self.image_name = image_name
-        self.flavor = self.nova_h.get_default_image_flavor(self.image_name) or flavor
+	if self.inputs.orchestrator != 'vcenter':
+            self.flavor = self.orch.get_default_image_flavor(self.image_name) or flavor
         self.project_name = project_name or self.inputs.stack_tenant
         self.vm_name = vm_name or get_random_name(self.project_name)
         self.vm_id = uuid
@@ -158,7 +158,7 @@ class VMFixture(fixtures.Fixture):
             self.vm_ip_dict = self.get_vm_ip_dict()
             self.vm_ips = self.get_vm_ips()
             self.image_id = self.vm_obj.image['id']
-            self.image_name = self.nova_h.get_image_by_id(self.image_id)
+            self.image_name = self.orch.get_image_by_id(self.image_id)
             self.already_present = True
             self.set_image_details(self.vm_obj)
 
@@ -189,20 +189,33 @@ class VMFixture(fixtures.Fixture):
             if self.inputs.is_gui_based_config():
                 self.webui.create_vm(self)
             else:
-                objs = self.orch.create_vm(
-                    project_uuid=self.project_fixture.uuid,
-                    image_name=self.image_name,
-                    flavor=self.flavor,
-                    vm_name=self.vm_name,
-                    vn_objs=self.vn_objs,
-                    node_name=self.node_name,
-                    zone=self.zone,
-                    sg_ids=self.sg_ids,
-                    count=self.count,
-                    userdata=self.userdata,
-                    port_ids=self.port_ids,
-                    fixed_ips=self.fixed_ips)
-#                time.sleep(5)
+		if self.inputs.orchestrator == 'vcenter':
+                    objs = self.orch.create_vm(
+                        project_uuid=self.project_fixture.uuid,
+                        image_name=self.image_name,
+                        vm_name=self.vm_name,
+                        vn_objs=self.vn_objs,
+                        node_name=self.node_name,
+                        zone=self.zone,
+                        sg_ids=self.sg_ids,
+                        count=self.count,
+                        userdata=self.userdata,
+                        port_ids=self.port_ids,
+                        fixed_ips=self.fixed_ips)
+		else:
+                    objs = self.orch.create_vm(
+                        project_uuid=self.project_fixture.uuid,
+                        image_name=self.image_name,
+                        flavor=self.flavor,
+                        vm_name=self.vm_name,
+                        vn_objs=self.vn_objs,
+                        node_name=self.node_name,
+                        zone=self.zone,
+                        sg_ids=self.sg_ids,
+                        count=self.count,
+                        userdata=self.userdata,
+                        port_ids=self.port_ids,
+                        fixed_ips=self.fixed_ips)
                 self.vm_obj = objs[0]
                 self.vm_objs = objs
                 self.vm_id = self.vm_objs[0].id
@@ -2060,8 +2073,8 @@ class VMFixture(fixtures.Fixture):
             return (vm_status, 'final')
 
         result = self.verify_vm_launched()
-        #console_check = self.nova_h.wait_till_vm_is_up(self.vm_obj)
-        #result = result and self.nova_h.wait_till_vm_is_up(self.vm_obj)
+        #console_check = self.orch.wait_till_vm_is_up(self.vm_obj)
+        #result = result and self.orch.wait_till_vm_is_up(self.vm_obj)
         # if not console_check :
         #    import pdb; pdb.set_trace()
         #    self.logger.warn('Console logs didnt give enough info on bootup')
@@ -2433,7 +2446,7 @@ class VMFixture(fixtures.Fixture):
         return self.orch.wait_till_vm_status(self.vm_obj, status)
 
     def wait_till_vm_boots(self):
-        return self.nova_h.wait_till_vm_is_up(self.vm_obj)
+        return self.orch.wait_till_vm_is_up(self.vm_obj)
 
     def get_arp_entry(self, ip_address=None, mac_address=None):
         out_dict = self.run_cmd_on_vm(["arp -an"])
@@ -2738,7 +2751,7 @@ class MultipleVMFixture(fixtures.Fixture):
         """
 
         self.connections = connections
-        self.nova_h = self.connections.nova_h
+        self.orch = self.connections.orch
         if not project_name:
             project_name = connections.inputs.project_name
         self.project_name = project_name
