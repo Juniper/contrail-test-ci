@@ -50,7 +50,7 @@ class PhysicalDeviceFixture(vnc_api_test.VncLibFixture):
         self.phy_device = None
         self.nc_handle = None
 
-        self.already_present = False
+        self.physical_device_already_present = False
         self.physical_port_fixtures = {}
 
      # end __init__
@@ -77,7 +77,7 @@ class PhysicalDeviceFixture(vnc_api_test.VncLibFixture):
             pr.fq_name, pr.uuid))
         return pr
 
-    def delete_device(self):
+    def delete_physical_device(self):
         self.vnc_api_h.physical_router_delete(id=self.phy_device.uuid)
         self.logger.info('Deleted physical device : %s, UUID %s' %
             (self.phy_device.fq_name, self.phy_device.uuid))
@@ -88,7 +88,7 @@ class PhysicalDeviceFixture(vnc_api_test.VncLibFixture):
         try:
             self.phy_device = self.vnc_api_h.physical_router_read(
                 fq_name=pr_fq_name)
-            self.already_present = True
+            self.physical_device_already_present = True
             self.logger.info('Physical device %s already present' % (
                 pr_fq_name))
         except vnc_api_test.NoIdError:
@@ -113,12 +113,12 @@ class PhysicalDeviceFixture(vnc_api_test.VncLibFixture):
     def cleanUp(self):
         super(PhysicalDeviceFixture, self).cleanUp()
         do_cleanup = True
-        if self.already_present:
+        if self.physical_device_already_present:
             do_cleanup = False
             self.logger.info('Skipping deletion of device %s' % (
                 self.phy_device.fq_name))
         if do_cleanup:
-            self.delete_device()
+            self.delete_physical_device()
 
     def add_virtual_network(self, vn_id):
         self.logger.debug('Adding VN %s to physical device %s' % (
