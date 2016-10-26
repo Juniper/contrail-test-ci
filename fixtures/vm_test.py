@@ -902,17 +902,17 @@ class VMFixture(fixtures.Fixture):
             self.agent_vrf_id[vn_fq_name] = agent_vrf_obj['ucindex']
             self.agent_path[vn_fq_name] = list()
             self.agent_label[vn_fq_name] = list()
-            try:
-                for vm_ip in self.vm_ip_dict[vn_fq_name]:
-                    agent_path = inspect_h.get_vna_active_route(
-                        vrf_id=self.agent_vrf_id[vn_fq_name],
-                        ip=vm_ip)
-                    if agent_path is None:
-                        return False
-                    self.agent_path[vn_fq_name].append(agent_path)
-            except Exception as e:
-                return False
             if  self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) !='l2':
+                try:
+                    for vm_ip in self.vm_ip_dict[vn_fq_name]:
+                        agent_path = inspect_h.get_vna_active_route(
+                            vrf_id=self.agent_vrf_id[vn_fq_name],
+                            ip=vm_ip)
+                        if agent_path is None:
+                            return False
+                        self.agent_path[vn_fq_name].append(agent_path)
+                except Exception as e:
+                    return False
                 if not self.agent_path[vn_fq_name]:
                     with self.printlock:
                         self.logger.warn('No path seen for VM IP %s in agent %s'
@@ -1856,7 +1856,7 @@ class VMFixture(fixtures.Fixture):
     def verify_cleared_from_setup(self, check_orch=True, verify=False):
         # Not expected to do verification when self.count is > 1, right now
         if self.verify_is_run or verify:
-             assert self.verify_vm_not_in_api_server(), ('VM %s is not removed ',
+             assert self.verify_vm_not_in_api_server(), ('VM %s is not removed '
                 'from API Server' %(self.vm_name))
              if check_orch:
                  assert self.verify_vm_not_in_orchestrator(), ('VM %s is still'
