@@ -881,12 +881,13 @@ class VMFixture(fixtures.Fixture):
             self.agent_vrf_id[vn_fq_name] = agent_vrf_obj['ucindex']
             self.agent_path[vn_fq_name] = list()
             self.agent_label[vn_fq_name] = list()
+            dhcp_flag=self.vnc_lib_fixture.get_vn_subnet_dhcp_flag(vn_fq_name)
             try:
                 for vm_ip in self.vm_ip_dict[vn_fq_name]:
                     agent_path = inspect_h.get_vna_active_route(
                         vrf_id=self.agent_vrf_id[vn_fq_name],
                         ip=vm_ip)
-                    if agent_path is None:
+                    if (agent_path is None) and (dhcp_flag):
                         return False
                     self.agent_path[vn_fq_name].append(agent_path)
             except Exception as e:
