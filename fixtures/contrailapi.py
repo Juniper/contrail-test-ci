@@ -324,6 +324,87 @@ class ContrailVncApi:
         return qos_config_obj
     # end del_qos_config_entry
 
+    def _get_rbac_prop(self, rule_object=None, rule_field='*', perms=None):
+        rule_perms = []
+        for perm in perms or []:
+            role = perm.get('role', '*')
+            crud = perm.get('crud', 'CRUD')
+            rule_perms.append(RbacPermType(role_name=role, role_crud=crud))
+        return RbacRuleType(rule_object=rule_object, rule_field=rule_field, rule_perms=rule_perms)
+
+    def update_api_access_list(self, uuid, rules):
+        obj = self.get_api_access_list(id=uuid)
+        prop = list()
+        current_prop = obj.get_api_access_list_entries()
+        for rule in rules:
+            current_prop.add_rbac_rule(self._get_rbac_prop(**rule))
+        obj.set_api_access_list_entries(current_prop)
+        return self._vnc.api_access_list_update(obj)
+
+    def create_api_access_list(self, fq_name, parent_type, rules=None):
+        '''
+            :param fq_name : fqname of the object (list)
+            :param parent_type : parents type 'project' or 'domain'
+            Optional:
+        '''
+        name = fq_name[-1]
+        prop = list()
+        for rule in rules or []:
+            prop.append(self._get_rbac_prop(**rule))
+        obj = ApiAccessList(name, parent_type=parent_type, fq_name=fq_name,
+                            api_access_list_entries=RbacRuleEntriesType(rbac_rule=prop))
+        return self._vnc.api_access_list_create(obj)
+
+    def delete_api_access_list(self, **kwargs):
+        '''
+            :param fq_name : fqname of the object (list)
+            :param fq_name_str : fqname of the object in string notation
+            :param id : uuid of the object
+        '''
+        return self._vnc.api_access_list_delete(**kwargs)
+
+    def get_api_access_list(self, **kwargs):
+        '''
+            :param fq_name : fqname of the object (list)
+            :param fq_name_str : fqname of the object in string notation
+            :param id : uuid of the object
+        '''
+        return self._vnc.api_access_list_read(**kwargs)
+
+    def _get_obj(self, object_type, uuid):
+        api = 'self._vnc.'+object_type+'_read'
+        obj = eval(api)(id=uuid)
+
+    def get_perms2(self, obj):
+        '''
+            :param object_type : for eg: virtual_network, virtual_machine, etal
+            :param obj : object itself
+        '''
+        return obj.get_perms2()
+
+    def set_perms2(self, perms2, obj):
+        obj.set_perms2(perms2)
+        object_type = obj.object_type
+        api = 'self._vnc.'+object_type+'_update'
+        eval(api)(obj)
+
+    def set_global_access(self, rwx=7, obj=None, object_type=None, uuid=None):
+        if not obj:
+            obj = self._get_obj(object_type, uuid)
+        perms2 = self.get_perms2(obj)
+        perms2.set_global_access(rwx)
+        self.set_perms2(perms2, obj)
+
+    def set_share_tenants(self, tenant, tenant_access, obj=None, object_type=None, uuid=None):
+        if not obj:
+            obj = self._get_obj(object_type, uuid)
+        perms2 = self.get_perms2(obj)
+        share = ShareType(tenant=tenant, tenant_access=tenant_access)
+        perms2.add_share(share)
+        self.set_perms2(perms2, obj)
+
+    # end of rbac tenant share
+ 
     def update_virtual_router_type(self,name,vrouter_type):
         vr_fq_name = ['default-global-system-config', name]
         vr = self._vnc.virtual_router_read(

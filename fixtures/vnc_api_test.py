@@ -101,6 +101,36 @@ class VncLibFixture(fixtures.Fixture):
         return self.vnc_api_h
     # end get_handle
 
+    @property
+    def admin_h(self):
+        if not getattr(self, '_admin_h', None):
+            self._admin_h = VncLibFixture(username=self.inputs.admin_username,
+                                          password=self.inputs.admin_password,
+                                          project_name=self.inputs.admin_tenant,
+                                          domain=self.inputs.stack_domain,
+                                          cfgm_ip=self.cfgm_ip,
+                                          api_server_port=self.api_server_port,
+                                          auth_server_ip=self.auth_server_ip,
+                                          orchestrator=self.orchestrator,
+                                          logger=self.logger)
+            self._admin_h.setUp()
+        return self._admin_h
+
+    def __getattr__(self, attr):
+        act_attr = getattr(self.vnc_api_h, attr)
+        if callable(act_attr):
+            def hook(*args, **kwargs):
+                try:
+                    act_attr = getattr(self.vnc_api_h, self._attr)
+                    return act_attr(*args, **kwargs)
+                except PermissionDenied:
+                    act_attr = getattr(self.admin_h.vnc_api_h, self._attr)
+                    return act_attr(*args, **kwargs)
+            self._attr = attr
+            return hook
+        else:
+            return act_attr
+
     def get_neutron_handle(self):
         if self.neutron_handle:
             return self.neutron_handle
@@ -216,8 +246,11 @@ class VncLibFixture(fixtures.Fixture):
     def get_global_forwarding_mode(self):
         fq_name = [ 'default-global-system-config',
                     'default-global-vrouter-config']
-        gsc_obj = self.vnc_api_h.global_vrouter_config_read(fq_name=fq_name)
-        return gsc_obj.get_forwarding_mode()
+        try:
+            gsc_obj = self.vnc_api_h.global_vrouter_config_read(fq_name=fq_name)
+            return gsc_obj.get_forwarding_mode()
+        except PermissionDenied:
+            return self.admin_h.get_global_forwarding_mode()
     # end get_global_forwarding_mode
 
     def get_active_forwarding_mode(self,vn_fq_name):
