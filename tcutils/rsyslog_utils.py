@@ -16,8 +16,8 @@ def restart_collector_to_listen_on_port(
             output = run('%s' % (cmd), pty=True)
             if output:
                 output = output.rstrip()
-                cmd = "sed -i '/" + str(output) + "/c\  syslog_port=" \
-                    + str(port_no) + "' " + COLLECTOR_CONF_FILE
+                cmd = "sed -i s/'" + str(output) + "'/'syslog_port="
+                cmd = cmd + str(port_no) + "'/ " + COLLECTOR_CONF_FILE
                 run('%s' % (cmd), pty=True)
                 # Restart vizd if port no has been changed.
                 cmd = "service contrail-collector restart"
@@ -28,7 +28,7 @@ def restart_collector_to_listen_on_port(
                     self.logger.error(
                         "contrail-collector service restart failure!!")
             else:
-                cmd = "sed -i '/DEFAULT/ a \  syslog_port=" + \
+                cmd = "sed -i '/DEFAULT/ a \syslog_port=" + \
                     str(port_no) + "' " + COLLECTOR_CONF_FILE
                 run('%s' % (cmd), pty=True)
                 # Restart vizd if port no has been changed.
@@ -206,3 +206,41 @@ def restart_rsyslog_client_to_send_on_port(
             (e))
 
 # end restart_rsyslog_client_to_send_on_port
+
+def back_up_conf_files(
+        self,
+        hosts,
+        file_path):
+
+    for host in hosts:
+        with settings(host_string='%s@%s' % (self.inputs.username, 
+                      host), password=self.inputs.password,
+                      warn_only=True, abort_on_prompts=False):
+            cmd = "cp -f " + file_path + " " + file_path + "_backup"
+            output = run('%s' % (cmd), pty=True)
+    return True
+# end back_up_rsyslog_conf_files
+
+def restore_conf_for_rsyslog(
+        self):
+    cmd = "mv /etc/rsyslog.conf_backup /etc/rsyslog.conf; "
+    cmd1 = "mv /etc/contrail/contrail-collector.conf_backup"
+    cmd1 = cmd1 + " /etc/contrail/contrail-collector.conf"
+    cmd2 = "service contrail-collector restart"
+    cmd3 = "service rsyslog restart"
+
+    for host in self.inputs.host_ips:
+        with settings(host_string='%s@%s' % (self.inputs.username,
+                      host), password=self.inputs.password,
+                      warn_only=True, abort_on_prompts=False):
+            run('%s' % (cmd), pty=True)
+            run('%s' % (cmd3), pty=True)
+    for host in self.inputs.collector_ips:
+        with settings(host_string='%s@%s' % (self.inputs.username,
+                      host), password=self.inputs.password,
+                      warn_only=True, abort_on_prompts=False):
+            run('%s' % (cmd1), pty=True)
+            run('%s' % (cmd2), pty=True)
+
+#end restore_conf_for_rsyslog
+
