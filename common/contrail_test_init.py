@@ -63,6 +63,7 @@ class TestInputs(object):
         self.jenkins_trigger = self.get_os_env('JENKINS_TRIGGERED')
         self.os_type = custom_dict(self.get_os_version, 'os_type')
         self.config = None
+        self.ini_file = ini_file
         if ini_file:
             self.config = ConfigParser.ConfigParser()
             self.config.read(ini_file)
@@ -737,6 +738,7 @@ class ContrailTestInit(object):
         # address_family = read_config_option(self.config,
         #                      'Basic', 'AddressFamily', 'dual')
         self.address_family = 'v4'
+        self.use_admin_auth = False
     # end __init__
 
     def set_af(self, af):

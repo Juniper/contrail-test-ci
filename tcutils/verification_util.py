@@ -22,6 +22,8 @@ class JsonDrv (object):
         self.log = logger
         self._vub = vub
         self._headers = None
+        if args and hasattr(args, 'use_admin_auth'):
+            use_admin_auth = use_admin_auth or args.use_admin_auth
         self._args = args
         self._use_admin_auth = use_admin_auth
         self.more_logger = contrail_logging.getLogger('introspect',

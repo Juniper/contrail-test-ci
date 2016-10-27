@@ -39,6 +39,7 @@ class VNCApiInspect (VerificationUtilBase):
             'lr': {},
             'table': {},
             'loadbalancer': {},
+            'api-access-list': {}
         }
 
     def update_cache(self, otype, fq_path, d):
@@ -756,6 +757,17 @@ class VNCApiInspect (VerificationUtilBase):
             return CsVMIResult(obj)
         return None
 
+    def get_api_introspect_acl(self, acl_id):
+        '''
+            method: get_api_acl find an acl from api introspect
+            returns None if not found, a dict w/ attrib. eg:
+
+        '''
+        pp = self.dict_get('api-access-list/%s'%acl_id)
+        if pp:
+            p = CsAcl(pp)
+            self.update_cache('api-access-list' , p.perms2(), p)
+        return p
 
 if __name__ == '__main__':
     va = VNCApiInspect('10.84.7.2')
