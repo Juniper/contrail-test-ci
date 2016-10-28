@@ -905,10 +905,13 @@ class VMFixture(fixtures.Fixture):
                 host_string='%s@%s' % (host['username'], self.vm_node_ip),
                 password=host['password'],
                     warn_only=True, abort_on_prompts=False):
-                output = run('ping %s -c 1' % (self.local_ips[vn_fq_name]))
-                expected_result = ' 0% packet loss'
+                #output = run('ping %s -c 1' % (self.local_ips[vn_fq_name]))
+                #expected_result = ' 0% packet loss'
+                output = run('ping %s -c 2' % (self.local_ips[vn_fq_name]))
+                failure = ' 100% packet loss'
                 self.logger.debug(output)
-                if expected_result not in output:
+                #if expected_result not in output:
+                if failure in output:
                     self.logger.debug(
                         "Ping to Metadata IP %s of VM %s failed!" %
                         (self.local_ips[vn_fq_name], self.vm_name))
