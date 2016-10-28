@@ -881,7 +881,7 @@ class VMFixture(fixtures.Fixture):
             self.agent_vrf_id[vn_fq_name] = agent_vrf_obj['ucindex']
             self.agent_path[vn_fq_name] = list()
             self.agent_label[vn_fq_name] = list()
-            if  self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) !='l2':
+            if self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) != 'l2':
                 try:
                     for vm_ip in self.vm_ip_dict[vn_fq_name]:
                         agent_path = inspect_h.get_vna_active_route(
@@ -891,6 +891,7 @@ class VMFixture(fixtures.Fixture):
                             return False
                         self.agent_path[vn_fq_name].append(agent_path)
                 except Exception as e:
+                    self.logger.exception('Error which getting agent route')
                     return False
                 if not self.agent_path[vn_fq_name]:
                     with self.printlock:
