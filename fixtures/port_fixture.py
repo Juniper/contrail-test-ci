@@ -2,6 +2,9 @@ import vnc_api_test
 from tcutils.util import retry
 import json
 import uuid
+from netaddr import EUI
+import netaddr
+from contrailapi import ContrailVncApi
 
 class PortFixture(vnc_api_test.VncLibFixture):
 

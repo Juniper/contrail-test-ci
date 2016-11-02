@@ -76,8 +76,8 @@ class VMFixture(fixtures.Fixture):
         if os.environ.has_key('ci_image'):
             image_name = os.environ.get('ci_image')
         self.image_name = image_name
-        self.flavor = self.nova_h.get_default_image_flavor(self.image_name) or flavor
-        self.project_name = project_name or self.inputs.stack_tenant
+        self.flavor = self.orch.get_default_image_flavor(self.image_name) or flavor
+        self.project_name = project_name or self.connections.project_name
         self.vm_name = vm_name or get_random_name(self.project_name)
         self.vm_id = uuid
         self.vm_obj = None
@@ -148,7 +148,7 @@ class VMFixture(fixtures.Fixture):
             self.vm_objs = [self.vm_obj]
             self.vm_name = self.vm_obj.name
             self.vn_names = self.orch.get_networks_of_vm(self.vm_obj)
-            self.vn_objs = [self.orch.get_vn_obj_if_present(x)
+            self.vn_objs = [self.orch.get_vn_obj_if_present(x, project_id=self.connections.project_id)
                             for x in self.vn_names]
             self.vn_ids = [self.orch.get_vn_id(x) for x in self.vn_objs]
             self.vn_fq_names = [':'.join(self.vnc_lib_h.id_to_fq_name(x))
@@ -471,6 +471,75 @@ class VMFixture(fixtures.Fixture):
                 return result, errmsg
 
         return True, None
+
+    @retry(delay=2, tries=4)
+    def verify_vm_in_vrouter(self):
+        '''
+        Verify that VM's /32 route is in vrouter of all computes
+        '''
+        for vn_fq_name in self.vn_fq_names:
+            if self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) =='l2':
+                # TODO 
+                # After bug 1614824 is fixed
+                # L2 route verification
+                continue
+            tap_intf = self.tap_intf[vn_fq_name]
+            for compute_ip in self.inputs.compute_ips:
+                inspect_h = self.agent_inspect[compute_ip]
+                prefixes = self.vm_ip_dict[vn_fq_name]
+
+                vrf_id = self.vrf_ids.get(compute_ip, {}).get(vn_fq_name)
+                # No need to check route if vrf is not in that compute
+                if not vrf_id:
+                    continue
+                for prefix in prefixes:
+                    # Skip validattion of v6 route on kernel till 1632511 is fixed
+                    if get_af_type(prefix) == 'v6':
+                        continue
+                    route_table = inspect_h.get_vrouter_route_table(
+                        vrf_id,
+                        prefix=prefix,
+                        prefix_len='32',
+                        get_nh_details=True)
+                    # Do WA for bug 1614847
+                    if len(route_table) == 2 and \
+                        route_table[0] == route_table[1]:
+                        pass
+                    elif len(route_table) != 1:
+                        self.logger.warn('Did not find vrouter route for IP %s'
+                            ' in %s' %(prefix, compute_ip))
+                        return False
+                    self.logger.debug('Validated VM route %s in vrouter of %s' %(
+                        prefix, compute_ip))
+
+                    # Check the label and nh details 
+                    route = route_table[0]
+                    if compute_ip == self.vm_node_ip:
+                        result = validate_local_route_in_vrouter(route,
+                            inspect_h, tap_intf['name'], self.logger)
+                    else:
+                        tunnel_dest_ip = self.inputs.host_data[self.vm_node_ip]['control-ip']
+                        label = tap_intf['label']
+                        result = validate_remote_route_in_vrouter(route,
+                                                                  tunnel_dest_ip,
+                                                                  label,
+                                                                  self.logger)
+                        if not result:
+                            self.logger.warn('Failed to validate VM route %s in'
+                                ' vrouter of %s' %(prefix, compute_ip))
+                            return False
+                        else:
+                            self.logger.debug('Validated VM route %s in '
+                                'vrouter of %s' %(prefix, compute_ip))
+                        # endif
+                    # endif
+                # for prefix
+            #end for compute_ip
+        # end for vn_fq_name
+        self.logger.info('Validated routes of VM %s in all vrouters' % (
+            self.vm_name))
+        return True
+    # end verify_vm_in_vrouter
 
     def verify_on_setup(self, force=False):
         if not (self.inputs.verify_on_setup or force):
@@ -1998,7 +2067,9 @@ class VMFixture(fixtures.Fixture):
         self.vm_obj.get()
         result = result and self._gather_details()
         for vn_fq_name in self.vn_fq_names:
-            if  self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) !='l2':
+            if self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) != 'l2':
+                if not result:
+                    break
                 ssh_wait_result = self.wait_for_ssh_on_vm()
                 if not ssh_wait_result:
                     self.logger.error('VM %s is NOT ready for SSH connections'%(
