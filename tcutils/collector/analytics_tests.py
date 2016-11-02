@@ -2702,7 +2702,7 @@ class AnalyticsVerification(fixtures.Fixture):
         collector_ip = self.inputs.collector_ips[0]
         if multi_instances and role == 'analytics-node':
             collector_ip = self.inputs.collector_ips[1]
-        hostname = socket.gethostbyaddr(service_ip)[0].split('.')[0]
+        hostname = self.inputs.host_data[service_ip]['name']
         if not isinstance(alarm_type, list):
             alarm_type = [alarm_type]
         try:
