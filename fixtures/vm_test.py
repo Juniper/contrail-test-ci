@@ -84,8 +84,8 @@ class VMFixture(fixtures.Fixture):
         if os.environ.has_key('ci_image'):
             image_name = os.environ.get('ci_image')
         self.image_name = image_name
-        self.flavor = self.nova_h.get_default_image_flavor(self.image_name) or flavor
-        self.project_name = project_name or self.inputs.stack_tenant
+        self.flavor = self.orch.get_default_image_flavor(self.image_name) or flavor
+        self.project_name = project_name or self.connections.project_name
         self.vm_name = vm_name or get_random_name(self.project_name)
         self.vm_id = uuid
         self.vm_obj = None
@@ -158,7 +158,7 @@ class VMFixture(fixtures.Fixture):
             self.vm_objs = [self.vm_obj]
             self.vm_name = self.vm_obj.name
             self.vn_names = self.orch.get_networks_of_vm(self.vm_obj)
-            self.vn_objs = [self.orch.get_vn_obj_if_present(x)
+            self.vn_objs = [self.orch.get_vn_obj_if_present(x, project_id=self.connections.project_id)
                             for x in self.vn_names]
             self.vn_ids = [self.orch.get_vn_id(x) for x in self.vn_objs]
             self.vn_fq_names = [':'.join(self.vnc_lib_h.id_to_fq_name(x))
@@ -505,6 +505,9 @@ class VMFixture(fixtures.Fixture):
                 if not vrf_id:
                     continue
                 for prefix in prefixes:
+                    # Skip validattion of v6 route on kernel till 1632511 is fixed
+                    if get_af_type(prefix) == 'v6':
+                        continue
                     route_table = inspect_h.get_vrouter_route_table(
                         vrf_id,
                         prefix=prefix,
@@ -2201,7 +2204,9 @@ class VMFixture(fixtures.Fixture):
         self.vm_obj.get()
         result = result and self._gather_details()
         for vn_fq_name in self.vn_fq_names:
-            if  self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) !='l2':
+            if self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) != 'l2':
+                if not result:
+                    break
                 ssh_wait_result = self.wait_for_ssh_on_vm()
                 if not ssh_wait_result:
                     self.logger.error('VM %s is NOT ready for SSH connections'%(
