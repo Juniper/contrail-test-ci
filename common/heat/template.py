@@ -1,3 +1,612 @@
+from tcutils.util import get_random_cidr
+
+src_cidr_svc = {
+    "heat_template_version": "2015-04-30",
+    #Outputs, these values will be used in the test case
+    "outputs": {
+        "left_vn_FQDN": {"description": "FQDN of the left VN",
+                        "value":
+                        {"get_attr": ["template_VirtualNetwork_2", "fq_name"]}},
+
+        "right_vn_FQDN": {"description": "FQDN of the right VN",
+                        "value":
+                        {"get_attr": ["template_VirtualNetwork_3", "fq_name"]}},
+
+        "left_VM1_ID": {"description": "ID of the left VM1",
+                        "value": {"get_attr": ["template_leftVM1", "show", "id"]}},
+
+        "left_VM1_IP_ADDRESS": {"description": "IP Address of the left VM",
+                        "value": {"get_attr": ["template_InstanceIp_4", "instance_ip_address"]}},
+
+        "left_VM2_ID": {"description": "ID of the left VM",
+                        "value": {"get_attr": ["template_leftVM2", "show", "id"]}},
+
+        "right_VM_ID": {"description": "ID of the right VM",
+                        "value":
+                        {"get_attr": ["template_rightVM", "show", "id"]}},
+
+        "si_fqdn": {"description": "FQDN of the SI",
+                    "value":
+                    {"get_attr": ["template_ServiceInstance", "fq_name"]}}
+    },
+    # Parameters, whose values will be retrived from env
+    "parameters": {
+        "management_network":{
+            "type": "string",
+            "description": "Name of management network to be created"
+        },
+        "left_vn" : {
+            "type": "string",
+            "description": "Name of left network to be created"
+        },
+        "right_vn" : {
+            "type": "string",
+            "description": "Name of right network to be created"
+        },
+        "left_vn_fqdn" : {
+            "type": "string",
+            "description": "FQ Name of the left network"
+        },
+        "right_vn_fqdn" : {
+            "type": "string",
+            "description": "FQ Name of the right network"
+        },
+        "network_policy_entries_policy_rule_src_addresses_subnet_ip_prefix" : {
+            "type": "string",
+            "description": "ip_prefix for the NetworkPolicy"
+        },
+        "network_policy_entries_policy_rule_src_addresses_subnet_ip_prefix_len" : {
+            "type": "number",
+            "description": "ip_prefix_len for the NetworkPolicy"
+        },
+        "image" : {
+            "type": "string",
+            "description": "Name of the image"
+        },
+        "flavor" : {
+            "type": "string",
+            "description": "Flavor"
+        },
+        "domain" : {
+            "type": "string",
+            "description": "Name of the Domain"
+        },
+        "service_template_name" : {
+            "type": "string",
+            "label": "Service template fq name",
+            "description": "Service template for port tuple"
+        },
+        "service_template_properties_version" : {
+            "type": "string",
+            "description": "Indicates service version"
+        },
+        "service_template_properties_service_mode" : {
+            "type": "string",
+            "description": "service mode"
+        },
+        "service_template_properties_service_type" : {
+            "type": "string",
+            "description": "service type"
+        },
+        "service_template_properties_interface_type_service_interface_type_1" : {
+            "type": "string",
+            "description": "service_interface_type for the ServiceTemplate"
+        },
+        "service_template_properties_interface_type_service_interface_type_2" : {
+            "type": "string",
+            "description": "service_interface_type for the ServiceTemplate"
+        },
+        "service_template_properties_interface_type_service_interface_type_3" : {
+            "type": "string",
+            "description": "service_interface_type for the ServiceTemplate"
+        },
+        "service_template_properties_ordered_interfaces" : {
+            "type": "string",
+            "description": "Indicates service interfaces are ordered"
+        },
+        "service_template_properties_service_virtualization_type" : {
+            "type": "string",
+            "description": "Indicates virtualization type"
+        },
+        "service_instance_name" : {
+            "type": "string",
+            "label": "Service instance name",
+            "description": "Service instance for port tuple"
+        },
+        "service_instance_fq_name" : {
+            "type": "string",
+            "label": "Service instance fq name",
+            "description": "Service instance FQDN for port tuple"
+        },
+        "pt_name" : {
+            "type": "string",
+            "description": "Name of the Port-Tuple"
+        },
+        "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_1" : {
+            "type": "string",
+            "description": "subnet prefix for mgmt network"
+        },
+        "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_len_1" : {
+            "type": "string",
+            "description": "subnet prefix len for mgmt network"
+        },
+        "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_2" : {
+            "type": "string",
+            "description": "subnet prefix for left network"
+        },
+        "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_len_2" : {
+            "type": "string",
+            "description": "subnet prefix len for left network"
+        },
+        "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_3" : {
+            "type": "string",
+            "description": "subnet prefix for right network"
+        },
+        "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_len_3" : {
+            "type": "string",
+            "description": "subnet prefix len for right network"
+        },
+        "network_ipam_refs_data_ipam_subnets_addr_from_start_true" : {
+            "type": "boolean",
+            "description": "Address allocation from start of the pool"
+        },
+        "svm1_name" : {
+            "type": "string",
+            "description": "Name of the SVM1"
+        },
+        "svm1_flavor" : {
+            "type": "string",
+            "description": "Flavor of the SVM1"
+        },
+        "svm1_image" : {
+            "type": "string",
+            "description": "Name of the SVM1 image"
+        },
+        "image" : {
+            "type": "string",
+            "description": "Name of the end VM image"
+        },
+        "flavor" : {
+            "type": "string",
+            "description": "Flavor of the end VMs"
+        },
+        "left_vm1_name" : {
+            "type": "string",
+            "description": "Name of the left VM1"
+        },
+        "left_vm2_name" : {
+            "type": "string",
+            "description": "Name of the left VM2"
+        },
+        "right_vm_name" : {
+            "type": "string",
+            "description": "Name of the right VM"
+        },
+        "policy_name" : {
+            "type": "string",
+            "description": "Name of the Policy"
+        },
+        "policy_fq_name" : {
+            "type": "string",
+            "description": "FQDN of the Policy"
+        },
+        "simple_action" : {
+            "type": "string",
+            "description": "Pass or Deny"
+        },
+        "protocol" : {
+            "type": "string",
+            "description": "Protocol"
+        },
+        "src_port_end" : {
+            "type": "number",
+            "description": "End of the Source Port Range"
+        },
+        "src_port_start" : {
+            "type": "number",
+            "description": "Start of the Source Port Range"
+        },
+        "direction" : {
+            "type": "string",
+            "description": "Direction of the Policy"
+        },
+        "dst_port_end" : {
+            "type": "number",
+            "description": "End of the Destination Port Range"
+        },
+        "dst_port_start" : {
+            "type": "number",
+            "description": "Start of the Destination Port Range"
+        },
+        "apply_services" : {
+            "type": "comma_delimited_list",
+            "description": "The Services List"
+        },
+    },
+    # Heat Resources for CIDR based service chainining
+    "resources": {
+        # management vn Ipam
+        "template_NetworkIpam_1": {
+            "type": "OS::ContrailV2::NetworkIpam",
+            "properties" : {
+                "name" : { "get_param" : "management_network" }
+             }
+        },
+        # left vn Ipam
+        "template_NetworkIpam_2" : {
+            "type" : "OS::ContrailV2::NetworkIpam",
+            "properties" :{
+                "name" : { "get_param" : "left_vn" }
+            }
+        },
+        "template_NetworkIpam_3" : {
+            "type" : "OS::ContrailV2::NetworkIpam",
+            "properties" : {
+                "name" : { "get_param" : "right_vn" }
+            }
+        },
+        "template_VirtualNetwork_1" : {
+            "type" : "OS::ContrailV2::VirtualNetwork",
+            "depends_on" : [ "template_NetworkIpam_1"],
+            "properties" : {
+                "name" : { "get_param" : "management_network" },
+                "network_ipam_refs" : [{ "get_resource" : "template_NetworkIpam_1" }],
+                "network_ipam_refs_data" :
+                    [{
+                    "network_ipam_refs_data_ipam_subnets" :
+                        [{
+                        "network_ipam_refs_data_ipam_subnets_subnet" :
+                            {
+                            "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix" : { "get_param" : "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_1" },
+                            "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_len" : { "get_param" : "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_len_1" },
+                            },
+                    "network_ipam_refs_data_ipam_subnets_addr_from_start" : { "get_param" : "network_ipam_refs_data_ipam_subnets_addr_from_start_true" },
+                        }]
+                    }]
+            }
+        },
+        "template_VirtualNetwork_2" : {
+            "type" : "OS::ContrailV2::VirtualNetwork",
+            "depends_on" : [ "template_NetworkIpam_2" , "template_NetworkPolicy" ],
+            "properties" : {
+                "name" : { "get_param" : "left_vn" },
+                "network_ipam_refs" : [{ "get_resource" : "template_NetworkIpam_2" }],
+                "network_ipam_refs_data" :
+                    [{
+                    "network_ipam_refs_data_ipam_subnets" :
+                        [{
+                        "network_ipam_refs_data_ipam_subnets_subnet" :
+                            {
+                            "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix" : { "get_param" : "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_2" },
+                            "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_len" : { "get_param" : "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_len_2" },
+                            },
+                        "network_ipam_refs_data_ipam_subnets_addr_from_start" : { "get_param" : "network_ipam_refs_data_ipam_subnets_addr_from_start_true" },
+                    }]
+                }],
+                "network_policy_refs":
+                [{"list_join": [":", {"get_attr": ["template_NetworkPolicy",
+                                                    "fq_name"]}]}],
+                "network_policy_refs_data" :
+                    [{
+                    "network_policy_refs_data_sequence" :
+                        {
+                        "network_policy_refs_data_sequence_major" : 0,
+                        "network_policy_refs_data_sequence_minor" : 0,
+                        },
+                    }]
+            }
+        },
+        "template_VirtualNetwork_3" : {
+            "type" : "OS::ContrailV2::VirtualNetwork",
+            "depends_on" : [ "template_NetworkIpam_3" , "template_NetworkPolicy"],
+            "properties" : {
+                "name" : { "get_param" : "right_vn" },
+                "network_ipam_refs" : [{ "get_resource" : "template_NetworkIpam_3" }],
+                "network_ipam_refs_data" :
+                    [{
+                    "network_ipam_refs_data_ipam_subnets" :
+                        [{
+                        "network_ipam_refs_data_ipam_subnets_subnet" :
+                            {
+                            "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix" : { "get_param" : "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_3" },
+                            "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_len" : { "get_param" : "network_ipam_refs_data_ipam_subnets_subnet_ip_prefix_len_3" },
+                            },
+                    "network_ipam_refs_data_ipam_subnets_addr_from_start" : { "get_param" : "network_ipam_refs_data_ipam_subnets_addr_from_start_true" },
+                        }]
+                    }],
+                "network_policy_refs":
+                [{"list_join": [":", {"get_attr": ["template_NetworkPolicy",
+                                                    "fq_name"]}]}],
+                "network_policy_refs_data" :
+                    [{
+                    "network_policy_refs_data_sequence" :
+                        {
+                        "network_policy_refs_data_sequence_major" : 0,
+                        "network_policy_refs_data_sequence_minor" : 0,
+                        },
+                    }]
+            }
+        },
+
+        "template_ServiceTemplate" : {
+            "type" : "OS::ContrailV2::ServiceTemplate",
+            "properties" : {
+                "name" : { "get_param" : "service_template_name"},
+                "service_template_properties" :
+                    {
+                    "service_template_properties_version" : { "get_param" : "service_template_properties_version" },
+                    "service_template_properties_service_mode" : { "get_param" : "service_template_properties_service_mode" },
+                    "service_template_properties_service_type" : { "get_param" : "service_template_properties_service_type" },
+                    "service_template_properties_interface_type" :
+                        [
+                        {
+                        "service_template_properties_interface_type_service_interface_type" : { "get_param" : "service_template_properties_interface_type_service_interface_type_1" },
+                        },
+                        {
+                        "service_template_properties_interface_type_service_interface_type" : { "get_param" : "service_template_properties_interface_type_service_interface_type_2" },
+                        },
+                        {
+                        "service_template_properties_interface_type_service_interface_type" : { "get_param" : "service_template_properties_interface_type_service_interface_type_3" },
+                        }
+                        ],
+                    "service_template_properties_ordered_interfaces" : { "get_param" : "service_template_properties_ordered_interfaces" },
+                    "service_template_properties_service_virtualization_type" : { "get_param" : "service_template_properties_service_virtualization_type" },
+                    },
+                "domain" : { "get_param" : "domain" }
+            }
+        },
+
+        "template_ServiceInstance": {
+            "type" : "OS::ContrailV2::ServiceInstance",
+            "depends_on" : [ "template_ServiceTemplate"],
+            "properties" : {
+                "name" : { "get_param" : "service_instance_name"},
+                "service_instance_properties" :
+                    {
+                    "service_instance_properties_interface_list" :
+                        [
+                        {
+                            "service_instance_properties_interface_list_virtual_network" :
+                            {
+                            "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_1" , "fq_name" ] } ]
+                            },
+                        },
+                        {
+                        "service_instance_properties_interface_list_virtual_network" :
+                            {
+                            "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_2" , "fq_name" ] } ]
+                            },
+                        },
+                        {
+                        "service_instance_properties_interface_list_virtual_network" :
+                            {
+                            "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_3" , "fq_name" ] } ]
+                            },
+                        },
+                        ],
+                    },
+                "service_template_refs" : [{ "get_resource" : "template_ServiceTemplate" }]
+            }
+        },
+
+        "template_PortTuple1" : {
+            "type" : "OS::ContrailV2::PortTuple",
+            "depends_on" : [ "template_ServiceInstance"],
+            "properties" : {
+                "name" : { "get_param" : "pt_name" },
+                "service_instance" : { "list_join" : [':', { "get_attr" : [ "template_ServiceInstance" , "fq_name" ] } ] }
+            }
+        },
+
+        "template_VirtualMachineInterface_1" : {
+            "type" : "OS::ContrailV2::VirtualMachineInterface",
+            "depends_on" : [ "template_PortTuple1"],
+            "properties" : {
+                "virtual_machine_interface_properties" :
+                    {
+                    "virtual_machine_interface_properties_service_interface_type" : { "get_param" : "service_template_properties_interface_type_service_interface_type_1" },
+                    },
+                "port_tuple_refs" : [{ "get_resource" : "template_PortTuple1" }],
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_1" , "fq_name" ] } ] }]
+            }
+        },
+
+        "template_VirtualMachineInterface_2" : {
+            "type" : "OS::ContrailV2::VirtualMachineInterface",
+            "depends_on" : [ "template_PortTuple1"],
+            "properties" : {
+                "virtual_machine_interface_properties" :
+                    {
+                    "virtual_machine_interface_properties_service_interface_type" : { "get_param" : "service_template_properties_interface_type_service_interface_type_2" },
+                    },
+                "port_tuple_refs" : [{ "get_resource" : "template_PortTuple1" }],
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_2" , "fq_name" ] } ] }]
+            }
+        },
+
+        "template_VirtualMachineInterface_3" : {
+            "type" : "OS::ContrailV2::VirtualMachineInterface",
+            "depends_on" : [ "template_PortTuple1" ],
+            "properties" : {
+                "virtual_machine_interface_properties" :
+                    {
+                    "virtual_machine_interface_properties_service_interface_type" : { "get_param" : "service_template_properties_interface_type_service_interface_type_3" },
+                    },
+                "port_tuple_refs" : [{ "get_resource" : "template_PortTuple1" }],
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_3" , "fq_name" ] } ] }]
+            }
+        },
+
+        "template_InstanceIp_1" : {
+            "type" : "OS::ContrailV2::InstanceIp",
+            "depends_on" : [ "template_VirtualMachineInterface_1" , "template_VirtualNetwork_1" ],
+            "properties" : {
+                "virtual_machine_interface_refs" : [{ "get_resource" : "template_VirtualMachineInterface_1" }],
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_1" , "fq_name" ] } ] }]
+            }
+        },
+
+        "template_InstanceIp_2" : {
+            "type" : "OS::ContrailV2::InstanceIp",
+            "depends_on" : [ "template_VirtualMachineInterface_2" , "template_VirtualNetwork_2"],
+            "properties" : {
+                "virtual_machine_interface_refs" : [{ "get_resource" : "template_VirtualMachineInterface_2" }],
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_2" , "fq_name" ] } ] }]
+            }
+        },
+
+        "template_InstanceIp_3" : {
+            "type" : "OS::ContrailV2::InstanceIp",
+            "depends_on" : [ "template_VirtualMachineInterface_3" , "template_VirtualNetwork_3"],
+            "properties" : {
+                "virtual_machine_interface_refs" : [{ "get_resource" : "template_VirtualMachineInterface_3" }],
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_3" , "fq_name" ] } ] }]
+            }
+        },
+
+        "template_InstanceIp_4" : {
+            "type" : "OS::ContrailV2::InstanceIp",
+            "depends_on" : [ "template_VirtualMachineInterface_4" , "template_VirtualNetwork_2"],
+            "properties" : {
+                "virtual_machine_interface_refs" : [{ "get_resource" : "template_VirtualMachineInterface_4" }],
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_2" , "fq_name" ] } ] }]
+            }
+        },
+
+        "template_InstanceIp_5" : {
+            "type" : "OS::ContrailV2::InstanceIp",
+            "depends_on" : [ "template_VirtualMachineInterface_5" , "template_VirtualNetwork_3" ],
+            "properties" : {
+                "virtual_machine_interface_refs" : [{ "get_resource" : "template_VirtualMachineInterface_5" }],
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_3" , "fq_name" ] } ] }]
+            }
+        },
+
+        "template_InstanceIp_6" : {
+            "type" : "OS::ContrailV2::InstanceIp",
+            "depends_on" : [ "template_VirtualMachineInterface_6" , "template_VirtualNetwork_2"],
+            "properties" : {
+                "virtual_machine_interface_refs" : [{ "get_resource" : "template_VirtualMachineInterface_6" }],
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_2" , "fq_name" ] } ] }]
+            }
+        },
+
+        "instance1" : {
+            "type" : "OS::Nova::Server",
+            "depends_on" : [ "template_InstanceIp_1" , "template_InstanceIp_2" , "template_InstanceIp_3" ],
+            "properties" : {
+                "name" : { "get_param" : "svm1_name"},
+                "image" : { "get_param" :  "svm1_image"},
+                "flavor" : { "get_param" : "svm1_flavor"},
+                "networks" : [
+                    {"port": { "get_resource" : "template_VirtualMachineInterface_1"}},
+                    {"port": { "get_resource" : "template_VirtualMachineInterface_2"}},
+                    {"port": { "get_resource" : "template_VirtualMachineInterface_3"}},
+                ],
+            }
+        },
+
+        "template_VirtualMachineInterface_4" : {
+            "type" : "OS::ContrailV2::VirtualMachineInterface",
+            "properties" : {
+                "name" : { "get_param" : "left_vm1_name" },
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_2" , "fq_name" ] } ] }]
+            }
+        },
+
+        "template_VirtualMachineInterface_5" : {
+            "type" : "OS::ContrailV2::VirtualMachineInterface",
+            "properties" : {
+                "name" : { "get_param" : "right_vm_name" },
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_3" , "fq_name" ] } ] }]
+            }
+        },
+
+        "template_VirtualMachineInterface_6" : {
+            "type" : "OS::ContrailV2::VirtualMachineInterface",
+            "properties" : {
+                "name" : { "get_param" : "left_vm2_name"},
+                "virtual_network_refs" : [{ "list_join" : [':', { "get_attr" : [ "template_VirtualNetwork_2" , "fq_name" ] } ] }]
+            }
+        },
+
+        "template_leftVM1" : {
+            "type" : "OS::Nova::Server",
+            "depends_on" : [ "template_InstanceIp_4"],
+            "properties" : {
+                "name" : {"get_param" : "left_vm1_name"},
+                "image" : { "get_param" :  "image" },
+                "flavor" : { "get_param" : "flavor" },
+                "networks" : [
+                    {"port": { "get_resource" : "template_VirtualMachineInterface_4"}}
+                ]
+            }
+        },
+
+        "template_leftVM2" : {
+            "type" : "OS::Nova::Server",
+            "depends_on" : [ "template_InstanceIp_6"],
+            "properties" : {
+                "name" : {"get_param" : "left_vm2_name"},
+                "image" : { "get_param" :  "image"},
+                "flavor" : { "get_param" : "flavor"},
+                "networks" : [
+                    {"port": { "get_resource" : "template_VirtualMachineInterface_6"}}
+                ],
+            }
+        },
+
+
+        "template_rightVM" : {
+            "type" : "OS::Nova::Server",
+            "depends_on" : [ "template_InstanceIp_5"],
+            "properties" : {
+                "name" : {"get_param" : "right_vm_name" },
+                "image" : { "get_param" :  "image" },
+                "flavor" : { "get_param" : "flavor"},
+                "networks" : [
+                    {"port": { "get_resource" : "template_VirtualMachineInterface_5"}}
+                ]
+            }
+        },
+
+        "template_NetworkPolicy" : {
+            "type" : "OS::ContrailV2::NetworkPolicy",
+            "properties" : {
+                "name" : { "get_param" : "policy_name"},
+                "network_policy_entries" : { "network_policy_entries_policy_rule" : [{
+                    "network_policy_entries_policy_rule_direction" : { "get_param" : "direction" },
+                    "network_policy_entries_policy_rule_protocol" : { "get_param" : "protocol" },
+                    "network_policy_entries_policy_rule_src_ports" : [{
+                        "network_policy_entries_policy_rule_src_ports_start_port" : { "get_param" : "src_port_start" },
+                        "network_policy_entries_policy_rule_src_ports_end_port" : { "get_param" : "src_port_end" }
+                                            }],
+                    "network_policy_entries_policy_rule_dst_ports" : [{
+                        "network_policy_entries_policy_rule_dst_ports_start_port" : { "get_param" : "dst_port_start" },
+                        "network_policy_entries_policy_rule_dst_ports_end_port" : { "get_param" : "dst_port_end" }
+                                            }],
+                    "network_policy_entries_policy_rule_dst_addresses" : [{
+                        "network_policy_entries_policy_rule_dst_addresses_virtual_network" : { "get_param" : "right_vn_fqdn" }
+                                            }],
+                    "network_policy_entries_policy_rule_src_addresses" : [{
+                        "network_policy_entries_policy_rule_src_addresses_subnet" :
+                                {
+                                "network_policy_entries_policy_rule_src_addresses_subnet_ip_prefix" : { "get_param" : "network_policy_entries_policy_rule_src_addresses_subnet_ip_prefix" },
+                                "network_policy_entries_policy_rule_src_addresses_subnet_ip_prefix_len" : { "get_param" : "network_policy_entries_policy_rule_src_addresses_subnet_ip_prefix_len" },
+                                },
+                        "network_policy_entries_policy_rule_src_addresses_virtual_network" : { "get_param" : "left_vn_fqdn" }
+                                            }],
+                    "network_policy_entries_policy_rule_action_list" : {
+                        "network_policy_entries_policy_rule_action_list_simple_action" : { "get_param" : "simple_action" },
+                        "network_policy_entries_policy_rule_action_list_apply_service" :
+                                [{"get_param": "service_instance_fq_name"}],
+                                                }}]
+                }
+            }
+        }
+    }
+}
+
 ecmp_pt = {
     "outputs":
     {"left_vn_FQDN": {"description": "FQDN of the left VN",
@@ -1555,8 +2164,6 @@ svc_tmpl = {
   }
 }
 
-svc_tmpl_nomgmt = svc_tmpl
-
 svc_tmpl_v2 = {
   u'description': u'HOT template to create a service template \n',
   u'heat_template_version': u'2013-05-23',
@@ -1657,112 +2264,6 @@ svc_tmpl_pt_v2 = {
           u'service_template_properties_service_type': {u'get_param': u'type'},
           u'service_template_properties_interface_type':[
             {u'service_template_properties_interface_type_service_interface_type': u'management'},
-            {u'service_template_properties_interface_type_service_interface_type': u'left'},
-            {u'service_template_properties_interface_type_service_interface_type': u'right'},
-          ]
-        }
-     },
-     u'type': u'OS::ContrailV2::ServiceTemplate'
-   }
- }
-}
-
-svc_tmpl_nomgmt_v2 = {
-  u'description': u'HOT template to create a service template \n',
-  u'heat_template_version': u'2013-05-23',
-  u'outputs': {
-    u'service_template_fq_name': {
-      u'description': u'FQ name of the service template',
-      u'value': {u'get_attr': [u'service_template', u'fq_name']}}
-  },
-  u'parameters': {
-    u'flavor': {
-      u'description': u'Flavor',
-      u'type': u'string'},
-    u'service_scaling': {
-      u'description': u'Flag to enable scaling',
-      u'type': u'string'},
-    u'image': {
-      u'description': u'Name of the image',
-      u'type': u'string'},
-    u'mode': {
-      u'description': u'service mode',
-      u'type': u'string'},
-    u'name': {
-      u'description': u'Name of service template',
-      u'type': u'string'},
-    u'type': {
-      u'description': u'service type',
-      u'type': u'string'},
-    u'left_shared': {
-      u'description': u'Shared IP enabled for left vn',
-      u'type': u'string'},
-    u'right_shared': {
-      u'description': u'Shared IP enabled for right vn',
-      u'type': u'string'},
-    u'left_static': {
-      u'description': u'Static IP enabled for left vn',
-      u'type': u'string'},
-    u'right_static': {
-      u'description': u'Static IP enabled for right vn',
-      u'type': u'string'}
-  },
-  u'resources': {
-    u'service_template': {
-      u'properties': {
-        u'name': {u'get_param': u'name'},
-        u'domain': u'default-domain',
-        u'service_template_properties': {
-          u'service_template_properties_version': u'1',
-          u'service_template_properties_image_name': {u'get_param': u'image'},
-          u'service_template_properties_service_scaling': {u'get_param': u'service_scaling'},
-          u'service_template_properties_service_mode': {u'get_param': u'mode'},
-          u'service_template_properties_service_type': {u'get_param': u'type'},
-          u'service_template_properties_flavor': {u'get_param': u'flavor'},
-          u'service_template_properties_interface_type':[
-            {u'service_template_properties_interface_type_service_interface_type': u'left',
-             u'service_template_properties_interface_type_shared_ip': {u'get_param': u'left_shared'},
-             u'service_template_properties_interface_type_static_route_enable': {u'get_param': u'left_static'}},
-            {u'service_template_properties_interface_type_service_interface_type': u'right',
-             u'service_template_properties_interface_type_shared_ip': {u'get_param': u'right_shared'},
-             u'service_template_properties_interface_type_static_route_enable': {u'get_param': u'right_static'}}
-          ]
-        }
-     },
-     u'type': u'OS::ContrailV2::ServiceTemplate'
-   }
- }
-}
-
-svc_tmpl_nomgmt_pt_v2 = {
-  u'description': u'HOT template to create a service template \n',
-  u'heat_template_version': u'2013-05-23',
-  u'outputs': {
-    u'service_template_fq_name': {
-      u'description': u'FQ name of the service template',
-      u'value': {u'get_attr': [u'service_template', u'fq_name']}}
-  },
-  u'parameters': {
-    u'mode': {
-      u'description': u'service mode',
-      u'type': u'string'},
-    u'name': {
-      u'description': u'Name of service template',
-      u'type': u'string'},
-    u'type': {
-      u'description': u'service type',
-      u'type': u'string'},
-  },
-  u'resources': {
-    u'service_template': {
-      u'properties': {
-        u'name': {u'get_param': u'name'},
-        u'domain': u'default-domain',
-        u'service_template_properties': {
-          u'service_template_properties_version': u'2',
-          u'service_template_properties_service_mode': {u'get_param': u'mode'},
-          u'service_template_properties_service_type': {u'get_param': u'type'},
-          u'service_template_properties_interface_type':[
             {u'service_template_properties_interface_type_service_interface_type': u'left'},
             {u'service_template_properties_interface_type_service_interface_type': u'right'},
           ]
@@ -1882,114 +2383,7 @@ svc_inst = {
   }
 }
 
-svc_inst_nomgmt = {
-  u'description': u'HOT template to create service instance.\n',
-  u'heat_template_version': u'2013-05-23',
-  u'outputs': {
-    u'num_active_service_instance_vms': {
-      u'description': u'Number of active service VMs',
-      u'value': {u'get_attr': [u'service_instance', u'active_service_vms']}
-    },
-    u'service_instance_fq_name': {
-      u'description': u'FQ name of the service template',
-      u'value': {u'get_attr': [u'service_instance', u'fq_name']}
-    },
-    u'service_instance_uuid': {
-      u'description': u'UUID of the service template',
-      u'value': {u'get_attr': [u'service_instance', u'show']}
-    },
-    u'service_instance_vms': {
-      u'description': u'List of service VMs', u'value': {u'get_attr': [u'service_instance', u'virtual_machines']}
-    }
-  },
-  u'parameters': {
-    u'left_net_id': {
-      u'description': u'ID of the left network\n',
-      u'type': u'string'
-    },
-    u'right_net_id': {
-      u'description': u'ID of the right network\n',
-      u'type': u'string'
-    },
-    u'service_instance_name': {
-      u'description': u'service instance name',
-      u'type': u'string'
-    },
-    u'max_instances': {
-      u'description': u'Number of service VMs',
-      u'type': u'string'
-    },
-    u'service_template_fq_name': {
-      u'description': u'service template name or ID',
-      u'type': u'string'
-    }
-  },
-  u'resources': {
-    u'service_instance': {
-      u'properties': {
-        u'interface_list': [
-          {u'virtual_network': {u'get_param': u'left_net_id' }},
-          {u'virtual_network': {u'get_param': u'right_net_id'}}
-        ],
-        u'name': {u'get_param': u'service_instance_name'},
-        u'scale_out': {u'max_instances': {u'get_param': u'max_instances'}},
-        u'service_template': {u'get_param': u'service_template_fq_name'}
-      },
-      u'type': u'OS::Contrail::ServiceInstance'
-    }
-  }
-}
-
-svc_inst_nomgmt_v2 = {
-  u'description': u'HOT template to create service instance.\n',
-  u'heat_template_version': u'2013-05-23',
-  u'outputs': {
-    u'service_instance_fq_name': {
-      u'description': u'FQ name of the service template',
-      u'value': {u'get_attr': [u'service_instance', u'fq_name']}
-    },
-  },
-  u'parameters': {
-    u'left_net_id': {
-      u'description': u'ID of the left network',
-      u'type': u'string'},
-    u'right_net_id': {
-      u'description': u'ID of the right network',
-      u'type': u'string'},
-    u'service_instance_name': {
-      u'description': u'service instance name',
-      u'type': u'string'},
-    u'max_instances': {
-      u'description': u'Number of service VMs',
-      u'type': u'string'},
-    u'ha': {
-      u'description': u'High-availability mode',
-      u'type': u'string'},
-    u'service_template_fq_name': {
-      u'description': u'service template name or ID',
-      u'type': u'string'}
-  },
-  u'resources': {
-    u'service_instance': {
-      u'properties': {
-        u'name': {u'get_param': u'service_instance_name'},
-        u'service_instance_properties': {
-          u'service_instance_properties_scale_out': {
-            u'service_instance_properties_scale_out_max_instances': {u'get_param': u'max_instances'}},
-          u'service_instance_properties_ha_mode': {u'get_param': u'ha'},
-          u'service_instance_properties_left_virtual_network': {u'get_param': u'left_net_id'},
-          u'service_instance_properties_right_virtual_network': {u'get_param': u'right_net_id'}
-        },
-        u'service_template_refs': [{u'get_param': u'service_template_fq_name'}]
-      },
-      u'type': u'OS::ContrailV2::ServiceInstance'
-    }
-  }
-}
-
-svc_inst_nomgmt_dual_v2 = svc_inst_nomgmt_v2
-
-svc_inst_nomgmt_pt_v2 = {
+svc_inst_pt_v2 = {
   u'description': u'HOT template to create service instance.\n',
   u'heat_template_version': u'2013-05-23',
   u'outputs': {
@@ -2013,10 +2407,16 @@ svc_inst_nomgmt_pt_v2 = {
       u'description': u'Name of availability_zone to use for servers',
       u'default': u'',
       u'type': u'string'},
+    u'mgmt_net_id': {
+      u'description': u'ID of the Managemet network',
+      u'type': u'string'},
     u'left_net_id': {
       u'description': u'ID of the left network',
       u'type': u'string'},
     u'right_net_id': {
+      u'description': u'ID of the right network',
+      u'type': u'string'},
+    u'security_group_ref': {
       u'description': u'ID of the right network',
       u'type': u'string'},
     u'svm_name': {
@@ -2038,12 +2438,25 @@ svc_inst_nomgmt_pt_v2 = {
         u'service_instance': { u'list_join': [':', { u'get_attr': [ u'service_instance', u'fq_name' ] } ] }
       },
     },
+    u'svm_mgmt_vmi': {
+      u'type': u'OS::ContrailV2::VirtualMachineInterface',
+      u'depends_on': [ 'pt' ],
+      u'properties': {
+        u'name': { u'get_attr': [ u'random_key_mgmt', u'value' ] },
+        u'virtual_network_refs': [{ u'get_param': u'mgmt_net_id' }],
+        u'port_tuple_refs': [{ u'get_resource': u'pt' }],
+        u'virtual_machine_interface_properties': {
+          u'virtual_machine_interface_properties_service_interface_type': u'management',
+        }
+      }
+    },
     u'svm_left_vmi': {
       u'type': u'OS::ContrailV2::VirtualMachineInterface',
       u'depends_on': [ 'pt' ],
       u'properties': {
         u'name': { u'get_attr': [ u'random_key_2', u'value' ] },
         u'virtual_network_refs': [{ u'get_param': u'left_net_id' }],
+        u'security_group_refs': [{ u'get_param': u'security_group_ref' }],
         u'port_tuple_refs': [{ u'get_resource': u'pt' }],
         u'virtual_machine_interface_properties': {
           u'virtual_machine_interface_properties_service_interface_type': u'left',
@@ -2056,10 +2469,21 @@ svc_inst_nomgmt_pt_v2 = {
       u'properties': {
         u'name': { u'get_attr': [ u'random_key_3', u'value' ] },
         u'virtual_network_refs': [{ u'get_param': u'right_net_id' }],
+        u'security_group_refs': [{ u'get_param': u'security_group_ref' }],
         u'port_tuple_refs': [{ u'get_resource': u'pt' }],
         u'virtual_machine_interface_properties': {
           u'virtual_machine_interface_properties_service_interface_type': u'right',
         },
+      }
+    },
+    u'svm_mgmt_ip1': {
+      u'type': u'OS::ContrailV2::InstanceIp',
+      u'depends_on': [ 'svm_mgmt_vmi' ],
+      u'properties': {
+        u'name': { u'get_attr': [ u'random_key_mgmt', u'value' ] },
+        u'virtual_machine_interface_refs': [{ u'get_resource': u'svm_mgmt_vmi' }],
+        u'virtual_network_refs': [{ u'get_param': u'mgmt_net_id' }],
+        u'instance_ip_family': 'v4',
       }
     },
     u'svm_left_ip1': {
@@ -2070,7 +2494,6 @@ svc_inst_nomgmt_pt_v2 = {
         u'virtual_machine_interface_refs': [{ u'get_resource': u'svm_left_vmi' }],
         u'virtual_network_refs': [{ u'get_param': u'left_net_id' }],
         u'instance_ip_family': 'v4',
-        u'service_instance_ip' : True,
       }
     },
     u'svm_right_ip1': {
@@ -2081,19 +2504,19 @@ svc_inst_nomgmt_pt_v2 = {
         u'virtual_machine_interface_refs': [{ u'get_resource': u'svm_right_vmi' }],
         u'virtual_network_refs': [{ u'get_param': u'right_net_id' }],
         u'instance_ip_family' : 'v4',
-        u'service_instance_ip' : True,
       }
     },
     u'svm': {
       u'type': u'OS::Nova::Server',
-      u'depends_on': [ u'svm_left_ip1', u'svm_right_ip1'],
+      u'depends_on': [ u'svm_mgmt_ip1', u'svm_left_ip1', u'svm_right_ip1'],
       u'properties': {
         u'name': { u'get_param': u'svm_name' },
         u'image': { u'get_param':  u'image' },
         u'availability_zone': { u'get_param':  u'availability_zone' },
         u'flavor': { u'get_param': u'flavor' },
         u'networks':
-          [{ u'port': { u'get_resource': u'svm_left_vmi' }},
+          [{ u'port': { u'get_resource': u'svm_mgmt_vmi' }},
+           { u'port': { u'get_resource': u'svm_left_vmi' }},
            { u'port': { u'get_resource': u'svm_right_vmi' }},]
       }
     },
@@ -2101,12 +2524,24 @@ svc_inst_nomgmt_pt_v2 = {
       u'properties': {
         u'name': {u'get_param': u'service_instance_name'},
         u'service_instance_properties': {
+          u'service_instance_properties_management_virtual_network': {u'get_param': u'mgmt_net_id'},
           u'service_instance_properties_left_virtual_network': {u'get_param': u'left_net_id'},
-          u'service_instance_properties_right_virtual_network': {u'get_param': u'right_net_id'}
+          u'service_instance_properties_right_virtual_network': {u'get_param': u'right_net_id'},
+          "service_instance_properties_interface_list":
+           [{"service_instance_properties_interface_list_virtual_network": {u'get_param': u'mgmt_net_id'}},
+            {"service_instance_properties_interface_list_virtual_network": {u'get_param': u'left_net_id'}},
+            {"service_instance_properties_interface_list_virtual_network": {u'get_param': u'right_net_id'}},
+           ]
         },
         u'service_template_refs': [{u'get_param': u'service_template_fq_name'}]
       },
       u'type': u'OS::ContrailV2::ServiceInstance'
+    },
+    u'random_key_mgmt': {
+      u'type': u'OS::Heat::RandomString',
+      u'properties': {
+        u'length': 16,
+      }
     },
     u'random_key_1': {
       u'type': u'OS::Heat::RandomString',
@@ -2153,7 +2588,7 @@ svc_inst_nomgmt_pt_v2 = {
   }
 }
 
-svc_inst_nomgmt_pt_dual_v2 = {
+svc_inst_pt_dual_v2 = {
   u'description': u'HOT template to create service instance.\n',
   u'heat_template_version': u'2013-05-23',
   u'outputs': {
@@ -2173,10 +2608,16 @@ svc_inst_nomgmt_pt_dual_v2 = {
     u'image': {
       u'description': u'Name of image to use for servers',
       u'type': u'string'},
+    u'mgmt_net_id': {
+      u'description': u'ID of the Managemet network',
+      u'type': u'string'},
     u'left_net_id': {
       u'description': u'ID of the left network',
       u'type': u'string'},
     u'right_net_id': {
+      u'description': u'ID of the right network',
+      u'type': u'string'},
+    u'security_group_ref': {
       u'description': u'ID of the right network',
       u'type': u'string'},
     u'svm_name': {
@@ -2187,7 +2628,11 @@ svc_inst_nomgmt_pt_dual_v2 = {
       u'type': u'string'},
     u'service_template_fq_name': {
       u'description': u'service template name or ID',
-      u'type': u'string'}
+      u'type': u'string'},
+    u'availability_zone': {
+      u'description': u'Name of availability_zone to use for servers',
+      u'default': u'',
+      u'type': u'string'},
   },
   u'resources': {
     u'pt': {
@@ -2198,12 +2643,25 @@ svc_inst_nomgmt_pt_dual_v2 = {
         u'service_instance': { u'list_join': [':', { u'get_attr': [ u'service_instance', u'fq_name' ] } ] }
       },
     },
+    u'svm_mgmt_vmi': {
+      u'type': u'OS::ContrailV2::VirtualMachineInterface',
+      u'depends_on': [ 'pt' ],
+      u'properties': {
+        u'name': { u'get_attr': [ u'random_key_mgmt', u'value' ] },
+        u'virtual_network_refs': [{ u'get_param': u'mgmt_net_id' }],
+        u'port_tuple_refs': [{ u'get_resource': u'pt' }],
+        u'virtual_machine_interface_properties': {
+          u'virtual_machine_interface_properties_service_interface_type': u'management',
+        }
+      }
+    },
     u'svm_left_vmi': {
       u'type': u'OS::ContrailV2::VirtualMachineInterface',
       u'depends_on': [ 'pt' ],
       u'properties': {
         u'name': { u'get_attr': [ u'random_key_2', u'value' ] },
         u'virtual_network_refs': [{ u'get_param': u'left_net_id' }],
+        u'security_group_refs': [{ u'get_param': u'security_group_ref' }],
         u'port_tuple_refs': [{ u'get_resource': u'pt' }],
         u'virtual_machine_interface_properties': {
           u'virtual_machine_interface_properties_service_interface_type': u'left',
@@ -2216,10 +2674,21 @@ svc_inst_nomgmt_pt_dual_v2 = {
       u'properties': {
         u'name': { u'get_attr': [ u'random_key_3', u'value' ] },
         u'virtual_network_refs': [{ u'get_param': u'right_net_id' }],
+        u'security_group_refs': [{ u'get_param': u'security_group_ref' }],
         u'port_tuple_refs': [{ u'get_resource': u'pt' }],
         u'virtual_machine_interface_properties': {
           u'virtual_machine_interface_properties_service_interface_type': u'right',
         },
+      }
+    },
+    u'svm_mgmt_ip1': {
+      u'type': u'OS::ContrailV2::InstanceIp',
+      u'depends_on': [ 'svm_mgmt_vmi' ],
+      u'properties': {
+        u'name': { u'get_attr': [ u'random_key_mgmt', u'value' ] },
+        u'virtual_machine_interface_refs': [{ u'get_resource': u'svm_mgmt_vmi' }],
+        u'virtual_network_refs': [{ u'get_param': u'mgmt_net_id' }],
+        u'instance_ip_family': 'v4',
       }
     },
     u'svm_left_ip1': {
@@ -2230,7 +2699,6 @@ svc_inst_nomgmt_pt_dual_v2 = {
         u'virtual_machine_interface_refs': [{ u'get_resource': u'svm_left_vmi' }],
         u'virtual_network_refs': [{ u'get_param': u'left_net_id' }],
         u'instance_ip_family': 'v6',
-        u'service_instance_ip' : True,
       }
     },
     u'svm_right_ip1': {
@@ -2241,7 +2709,6 @@ svc_inst_nomgmt_pt_dual_v2 = {
         u'virtual_machine_interface_refs': [{ u'get_resource': u'svm_right_vmi' }],
         u'virtual_network_refs': [{ u'get_param': u'right_net_id' }],
         u'instance_ip_family' : 'v6',
-        u'service_instance_ip' : True,
       }
     },
     u'svm_left_ip2': {
@@ -2252,7 +2719,6 @@ svc_inst_nomgmt_pt_dual_v2 = {
         u'virtual_machine_interface_refs': [{ u'get_resource': u'svm_left_vmi' }],
         u'virtual_network_refs': [{ u'get_param': u'left_net_id' }],
         u'instance_ip_family': 'v4',
-        u'service_instance_ip' : True,
       }
     },
     u'svm_right_ip2': {
@@ -2263,7 +2729,6 @@ svc_inst_nomgmt_pt_dual_v2 = {
         u'virtual_machine_interface_refs': [{ u'get_resource': u'svm_right_vmi' }],
         u'virtual_network_refs': [{ u'get_param': u'right_net_id' }],
         u'instance_ip_family' : 'v4',
-        u'service_instance_ip' : True,
       }
     },
     u'svm': {
@@ -2273,8 +2738,10 @@ svc_inst_nomgmt_pt_dual_v2 = {
         u'name': { u'get_param': u'svm_name' },
         u'image': { u'get_param':  u'image' },
         u'flavor': { u'get_param': u'flavor' },
+        u'availability_zone': { u'get_param':  u'availability_zone' },
         u'networks':
-          [{ u'port': { u'get_resource': u'svm_left_vmi' }},
+          [{ u'port': { u'get_resource': u'svm_mgmt_vmi' }},
+           { u'port': { u'get_resource': u'svm_left_vmi' }},
            { u'port': { u'get_resource': u'svm_right_vmi' }},]
       }
     },
@@ -2282,12 +2749,24 @@ svc_inst_nomgmt_pt_dual_v2 = {
       u'properties': {
         u'name': {u'get_param': u'service_instance_name'},
         u'service_instance_properties': {
+          u'service_instance_properties_management_virtual_network': {u'get_param': u'mgmt_net_id'},
           u'service_instance_properties_left_virtual_network': {u'get_param': u'left_net_id'},
-          u'service_instance_properties_right_virtual_network': {u'get_param': u'right_net_id'}
+          u'service_instance_properties_right_virtual_network': {u'get_param': u'right_net_id'},
+          "service_instance_properties_interface_list":
+           [{"service_instance_properties_interface_list_virtual_network": {u'get_param': u'mgmt_net_id'}},
+            {"service_instance_properties_interface_list_virtual_network": {u'get_param': u'left_net_id'}},
+            {"service_instance_properties_interface_list_virtual_network": {u'get_param': u'right_net_id'}}
+           ]
         },
         u'service_template_refs': [{u'get_param': u'service_template_fq_name'}]
       },
       u'type': u'OS::ContrailV2::ServiceInstance'
+    },
+    u'random_key_mgmt': {
+      u'type': u'OS::Heat::RandomString',
+      u'properties': {
+        u'length': 16,
+      }
     },
     u'random_key_1': {
       u'type': u'OS::Heat::RandomString',
@@ -2476,7 +2955,6 @@ pt_svm = {
         u'virtual_machine_interface_refs': [{ u'get_resource': u'svm_left_vmi' }],
         u'virtual_network_refs': [{ u'get_param': u'left_net_id' }],
         u'instance_ip_family': 'v4',
-        u'service_instance_ip' : True,
       }
     },
     u'svm_right_ip2': {
@@ -2486,7 +2964,6 @@ pt_svm = {
         u'virtual_machine_interface_refs': [{ u'get_resource': u'svm_right_vmi' }],
         u'virtual_network_refs': [{ u'get_param': u'right_net_id' }],
         u'instance_ip_family' : 'v4',
-        u'service_instance_ip' : True,
       }
     },
     u'svm_mgmt_ip2': {
@@ -2496,7 +2973,6 @@ pt_svm = {
         u'virtual_machine_interface_refs': [{ u'get_resource': u'svm_mgmt_vmi' }],
         u'virtual_network_refs': [{ u'get_param': u'mgmt_net_id' }],
         u'instance_ip_family' : 'v4',
-        u'service_instance_ip' : True,
       }
     },
 
