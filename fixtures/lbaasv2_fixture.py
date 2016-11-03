@@ -433,12 +433,12 @@ class LBBaseFixture(vnc_api_test.VncLibFixture):
         return True
 
     def verify_lb_in_agent(self):
-        self.verify_netns_instance_launched()
-        self.verify_vip_in_agent()
-        if self.is_fip_active:
-            self.verify_fip_in_agent(), "LB %s: verify_lb_in_agent failed" %self.lb_uuid
-        self.logger.info('LB %s: verify_lb_in_agent passed'%self.lb_uuid)
-        return True
+        if self.verify_netns_instance_launched() and self.verify_vip_in_agent():
+            if self.is_fip_active and not self.verify_fip_in_agent():
+                return False
+            self.logger.info('LB %s: verify_lb_in_agent passed'%self.lb_uuid)
+            return True
+        return False
 
     @retry(6, 10)
     def verify_netns_instance_launched(self):
@@ -492,8 +492,11 @@ class LBBaseFixture(vnc_api_test.VncLibFixture):
             return False
         cmd_str = 'ps ax | grep haproxy | grep %s | grep -v grep' %self.lb_uuid
         if not self.inputs.run_cmd_on_server(vrouter, cmd_str):
-            self.logger.debug('haproxy not found for LB %s'%self.lb_uuid)
-            return False
+            #if haproxy itself not installed, try apt-get install and verify
+            if not self.inputs.run_cmd_on_server(vrouter, 'apt-get install -y haproxy') and \
+                not self.inputs.run_cmd_on_server(vrouter, cmd_str):
+                self.logger.debug('haproxy not found for LB %s'%self.lb_uuid)
+                return False
         self.logger.info("netns got launched, so do haproxy")
         return True
 
