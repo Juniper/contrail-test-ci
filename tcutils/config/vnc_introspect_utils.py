@@ -39,6 +39,7 @@ class VNCApiInspect (VerificationUtilBase):
             'lr': {},
             'table': {},
             'loadbalancer': {},
+            'alarm':{},
         }
 
     def update_cache(self, otype, fq_path, d):
@@ -756,6 +757,31 @@ class VNCApiInspect (VerificationUtilBase):
             return CsVMIResult(obj)
         return None
 
+    def get_cs_alarm(self, domain = 'default-domain', project ='admin',
+                      alarm=None, refresh=False):
+        pp = None
+        p = self.try_cache('alarm', [domain, project, alarm], refresh)
+        if not p:
+            proj = self.get_cs_project(domain, project, refresh)
+            if proj:
+                my_alarm = proj.alarm(alarm)
+                if 1 == len(my_alarm):
+                    pp = self.dict_get(my_alarm[0]['href'])
+                if pp:
+                    p = CsAlarmResult(pp)
+                    self.update_cache('alarm', [domain, project, alarm], p)
+        return p
+
+    def get_global_alarm(self,alarm_name):
+        '''Gets global alarm config'''
+        doms = self.dict_get('alarms')
+        alarms = doms['alarms']
+        for alarm in alarms:
+            if alarm_name in alarm['fq_name']:
+                gl_alarm = self.dict_get(alarm['href'])
+                break
+        if gl_alarm['alarm']['parent_type'] == 'global-system-config':
+            return gl_alarm
 
 if __name__ == '__main__':
     va = VNCApiInspect('10.84.7.2')
