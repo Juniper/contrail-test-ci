@@ -13,7 +13,7 @@ except ImportError:
 class SvcInstanceFixture(fixtures.Fixture):
 
     def __init__(self, connections, inputs, domain_name, project_name, si_name,
-                 svc_template, if_list, left_vn_name=None, right_vn_name=None, do_verify=True, max_inst=1, static_route=['None', 'None', 'None']):
+                 svc_template, if_list, mgmt_vn_name=None, left_vn_name=None, right_vn_name=None, do_verify=True, max_inst=1, static_route=['None', 'None', 'None']):
         self.connections = connections
         self.vnc_lib = connections.vnc_lib
         self.api_s_inspect = connections.api_server_inspect
@@ -31,6 +31,7 @@ class SvcInstanceFixture(fixtures.Fixture):
         self.logger = inputs.logger
         self.left_vn_name = left_vn_name
         self.right_vn_name = right_vn_name
+        self.management_vn_name = mgmt_vn_name
         self.already_present = False
         self.do_verify = do_verify
         self.if_list = if_list
@@ -40,6 +41,7 @@ class SvcInstanceFixture(fixtures.Fixture):
         self.svm_ids = []
         self.cs_svc_vns = []
         self.cs_svc_ris = []
+        self.availability_zone = self.inputs.availability_zone
         self.svn_list = ['svc-vn-mgmt', 'svc-vn-left', 'svc-vn-right']
         if self.inputs.verify_thru_gui():
             self.browser = connections.browser
@@ -70,7 +72,7 @@ class SvcInstanceFixture(fixtures.Fixture):
             assert self.verify_on_cleanup()
         else:
             self.logger.debug('Skipping deletion of SI %s' %
-                             (self.si_fq_name))
+                              (self.si_fq_name))
     # end cleanUp
 
     def _create_si(self):
@@ -87,7 +89,8 @@ class SvcInstanceFixture(fixtures.Fixture):
             if self.left_vn_name and self.right_vn_name:
                 si_prop = ServiceInstanceType(
                     left_virtual_network=self.left_vn_name,
-                    right_virtual_network=self.right_vn_name)
+                    right_virtual_network=self.right_vn_name,
+                    management_virtual_network=self.management_vn_name)
                 bridge = False
                 if 'bridge_svc_instance_1' in self.si_fq_name:
                     bridge = True
@@ -96,6 +99,8 @@ class SvcInstanceFixture(fixtures.Fixture):
                         virtual_network = self.left_vn_name
                     elif (itf[0] == 'right' and not bridge):
                         virtual_network = self.right_vn_name
+                    elif (itf[0] == 'management' and not bridge):
+                        virtual_network = self.management_vn_name
                     else:
                         virtual_network = ""
                     if_type = ServiceInstanceInterfaceType(
@@ -146,10 +151,10 @@ class SvcInstanceFixture(fixtures.Fixture):
         if not getattr(self, '_svm_list', None):
             self._svm_list = []
             for vmid in self.svm_ids:
-               vm = VMFixture(self.connections, uuid=vmid)
-               vm.setUp()
-               vm.verify_on_setup()
-               self._svm_list.append(vm)
+                vm = VMFixture(self.connections, uuid=vmid)
+                vm.setUp()
+                vm.wait_till_vm_is_active()
+                self._svm_list.append(vm)
         return self._svm_list
 
     def verify_si(self):
@@ -192,27 +197,70 @@ class SvcInstanceFixture(fixtures.Fixture):
         return True, None
 
     @retry(delay=5, tries=5)
-    def verify_svm(self):
-        """check Service VM"""
-        # read again from api in case of retry
+    def verify_pt(self):
+        """check Service PT"""
         self.cs_si = self.api_s_inspect.get_cs_si(
             project=self.project.name, si=self.si_name, refresh=True)
-        pt = self.cs_si['service-instance'].get('port_tuples', None)
-        if pt:
-            self.logger.debug("SI is port-tuple based")
-            return True, None
+        try:
+            self.pt_refs = self.cs_si[
+                'service-instance']['port_tuples']
+        except KeyError:
+            self.pt_refs = None
+        if not self.pt_refs:
+            errmsg = "SI %s does not have any Port Tuple" % self.si_name
+            self.logger.warn(errmsg)
+            return (False, errmsg)
+        self.pts = [pts['to'][-1] for pts in self.pt_refs]
+        self.logger.debug("SI %s has Port Tuple:  %s", self.si_name, self.pts)
+        return True, None
+
+    @retry(delay=5, tries=10)
+    def verify_svm(self):
+        """check Service VM"""
+        # Get the pt_refs in case of v2 and vm_refs in case of v1
+        # From the pt_refs, get the vmi_refs and then get the VMs from vmi_refs
+        # From svm_ids, get the svm_list
+        # Verify the SVMs in the svm_list
+        self.cs_si = self.api_s_inspect.get_cs_si(
+            project=self.project.name, si=self.si_name, refresh=True)
+        try:
+            self.pt_refs = self.cs_si[
+                'service-instance']['port_tuples']
+        except KeyError:
+            self.pt_refs = None
+
         try:
             self.vm_refs = self.cs_si[
                 'service-instance']['virtual_machine_back_refs']
+            self.svm_ids = [vm_ref['to'][0] for vm_ref in self.vm_refs]
         except KeyError:
             self.vm_refs = None
+
+        if self.pt_refs:
+            self.vm_refs = []
+            for pt in self.pt_refs:
+                self.cs_pt = self.api_s_inspect.get_cs_pt_by_id(pt['uuid'])
+                self.pt_vmi_refs = self.cs_pt[
+                    'port-tuple']['virtual_machine_interface_back_refs']
+                for vmi in self.pt_vmi_refs:
+                    self.vmi = self.api_s_inspect.get_cs_vmi_by_id(vmi['uuid'])
+                    self.vm_refs_vmi = self.vmi[
+                        'virtual-machine-interface']['virtual_machine_refs']
+                    for vm_ref in self.vm_refs_vmi:
+                        self.vm_refs.append(vm_ref['to'][0])
+            self.svm_ids = set(self.vm_refs)
+
         if not self.vm_refs:
-            errmsg = "SI %s does not have back refs to Service VM" % self.si_name
+            errmsg = "SI %s does not have any Service VM" % self.si_name
             self.logger.warn(errmsg)
             return (False, errmsg)
 
-        self.logger.debug("SI %s has back refs to Service VM", self.si_name)
-        self.svm_ids = [vm_ref['to'][0] for vm_ref in self.vm_refs]
+        if self.svc_template.service_template_properties.version == 1:
+            if len(self.vm_refs) != self.max_inst:
+                errmsg = "SI %s does not have all Service VMs" % self.si_name
+                self.logger.warn(errmsg)
+                return (False, errmsg)
+
         for svm_id in self.svm_ids:
             cs_svm = self.api_s_inspect.get_cs_vm(vm_id=svm_id, refresh=True)
             if not cs_svm:
@@ -220,7 +268,12 @@ class SvcInstanceFixture(fixtures.Fixture):
                 self.logger.warn(errmsg)
                 #self.logger.debug("Service monitor status: %s", get_status('contrail-svc-monitor'))
                 return (False, errmsg)
-        self.logger.debug("Serivce VM for SI '%s' is launched", self.si_name)
+        self.logger.debug("Service VM for SI '%s' is launched", self.si_name)
+        for vm in self.svm_list:
+            if self.svc_template.service_template_properties.service_mode == 'transparent':
+                assert vm.wait_till_vm_is_active()
+            else:
+                assert vm.wait_till_vm_is_up()
         return True, None
 
     @retry(delay=1, tries=5)
@@ -263,7 +316,7 @@ class SvcInstanceFixture(fixtures.Fixture):
         self.logger.debug("IF %s has back refs to  vn", self.if_type)
         for vn in vn_refs:
             self.svc_vn = self.api_s_inspect.get_cs_vn(
-        #        project=self.project.name, vn=vn['to'][-1], refresh=True)
+                # project=self.project.name, vn=vn['to'][-1], refresh=True)
                 project=vn['to'][1], vn=vn['to'][-1], refresh=True)
             if not self.svc_vn:
                 errmsg = "IF %s has no vn" % self.if_type
@@ -331,7 +384,8 @@ class SvcInstanceFixture(fixtures.Fixture):
         pt = self.cs_si['service-instance'].get('port_tuples', None)
         if not pt:
             for svm_id in self.svm_ids:
-                cs_svm = self.api_s_inspect.get_cs_vm(vm_id=svm_id, refresh=True)
+                cs_svm = self.api_s_inspect.get_cs_vm(
+                    vm_id=svm_id, refresh=True)
                 svm_ifs = (cs_svm['virtual-machine'].get('virtual_machine_interfaces') or
                            cs_svm['virtual-machine'].get('virtual_machine_interface_back_refs'))
 
@@ -345,7 +399,8 @@ class SvcInstanceFixture(fixtures.Fixture):
                 self.logger.warn(errmsg)
                 return False, errmsg
 
-            svc_vm_if = self.api_s_inspect.get_cs_vmi_of_vm(svm_id, refresh=True)
+            svc_vm_if = self.api_s_inspect.get_cs_vmi_of_vm(
+                svm_id, refresh=True)
             for self.svc_vm_if in svc_vm_if:
                 result, msg = self.verify_interface_props()
                 if not result:
@@ -365,18 +420,9 @@ class SvcInstanceFixture(fixtures.Fixture):
             self.report(self.verify_si())
             self.report(self.verify_st())
             self.report(self.verify_svm())
+            if self.svc_template.service_template_properties.version == 2:
+                self.report(self.verify_pt())
             self.report(self.verify_svm_interface())
-            # Hack for ipv6, In ubuntu when two intfs have both dhcp6 and
-            # forwarding enabled, only one gets ip. So work-around is to
-            # only enable forwarding in the image and start dhcp via script
-            st_refs = self.cs_si['service-instance']['service_template_refs']
-            st = self.vnc_lib.service_template_read(fq_name=st_refs[0]['to'])
-            for vm in self.svm_list:
-                 (vm.vm_username, vm.vm_password) = vm.orch.get_image_account(st.service_template_properties.image_name)
-                 assert vm.wait_till_vm_is_up()
-                 if self.inputs.get_af() == 'v6':
-                     vm.run_cmd_on_vm(['dhclient -6 -pf /var/run/dhclient6.eth0.pid -lf /var/lib/dhcp/dhclient6.eth0.leases',
-                                       'dhclient -6 -pf /var/run/dhclient6.eth1.pid -lf /var/lib/dhcp/dhclient6.eth1.leases'], as_sudo=True)
         else:
             # Need verifications to be run without asserting so that they can
             # retried to wait for instances to come up
@@ -455,7 +501,7 @@ class SvcInstanceFixture(fixtures.Fixture):
         else:
             return True
 
-    @retry(delay=2, tries=30)
+    @retry(delay=2, tries=35)
     def verify_svn_not_in_api_server(self):
         if self.si_exists():
             self.logger.info(
@@ -503,5 +549,21 @@ class SvcInstanceFixture(fixtures.Fixture):
 
         return result
     # end verify_on_cleanup
+
+    def add_port_tuple(self, svm, pt_name):
+        pt_obj = PortTuple(name=pt_name, parent_obj=self.si_obj)
+        pt_uuid = self.vnc_lib.port_tuple_create(pt_obj)
+        ports_list = []
+        for vn in svm.vn_fq_names:
+            ports_list.append(svm.vmi_ids[vn])
+        for index in range(0, len(self.if_list)):
+            port_id = ports_list[index]
+            vmi_obj = self.vnc_lib.virtual_machine_interface_read(id=port_id)
+            vmi_props = VirtualMachineInterfacePropertiesType()
+            vmi_props.set_service_interface_type(self.if_list[index][0])
+            vmi_obj.set_virtual_machine_interface_properties(vmi_props)
+            vmi_obj.add_port_tuple(pt_obj)
+            self.vnc_lib.virtual_machine_interface_update(vmi_obj)
+    # end add_port_tuple
 
 # end SvcInstanceFixture

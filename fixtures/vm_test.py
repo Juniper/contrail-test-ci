@@ -76,7 +76,7 @@ class VMFixture(fixtures.Fixture):
         if os.environ.has_key('ci_image'):
             image_name = os.environ.get('ci_image')
         self.image_name = image_name
-        self.flavor = flavor
+        self.flavor = self.nova_h.get_default_image_flavor(self.image_name) or flavor
         self.project_name = project_name or self.inputs.stack_tenant
         self.vm_name = vm_name or get_random_name(self.project_name)
         self.vm_id = uuid
@@ -90,7 +90,7 @@ class VMFixture(fixtures.Fixture):
                 if vn_obj['network'].has_key('contrail:subnet_ipam'):
                     cidrs.extend(list(map(lambda obj: obj['subnet_cidr'],
                                           vn_obj['network']['contrail:subnet_ipam'])))
-            if get_af_from_cidrs(cidrs) != 'v4':
+            if cidrs and get_af_from_cidrs(cidrs) != 'v4':
                 raise v4OnlyTestException('Disabling v6 tests for CI')
         self.vn_names = [self.orch.get_vn_name(x) for x in self.vn_objs]
         self.vn_fq_names = [':'.join(self.vnc_lib_h.id_to_fq_name(self.orch.get_vn_id(x)))
@@ -141,7 +141,10 @@ class VMFixture(fixtures.Fixture):
         if self.vm_id:
             self.vm_obj = self.orch.get_vm_by_id(vm_id=self.vm_id)
             if not self.vm_obj:
-                raise Exception('VM with id %s not found'%self.vm_id)
+                raise Exception('VM with id %s not found' % self.vm_id)
+            self.orch.wait_till_vm_is_active(self.vm_obj)
+            if not self.orch.get_vm_detail(self.vm_obj):
+                raise Exception('VM %s is not yet launched'%self.vm_id)
             self.vm_objs = [self.vm_obj]
             self.vm_name = self.vm_obj.name
             self.vn_names = self.orch.get_networks_of_vm(self.vm_obj)
@@ -154,6 +157,8 @@ class VMFixture(fixtures.Fixture):
             self.vn_fq_name = self.vn_fq_names[0]
             self.vm_ip_dict = self.get_vm_ip_dict()
             self.vm_ips = self.get_vm_ips()
+            self.image_name = self.orch.get_vm_image(self.vm_obj)
+            self.already_present = True
             self.set_image_details(self.vm_obj)
 
     def setUp(self):
@@ -327,7 +332,7 @@ class VMFixture(fixtures.Fixture):
             self.cs_vmi_objs = dict()
         if not self.cs_vmi_objs.get(cfgm_ip) or refresh:
             vmi_obj = self.api_s_inspects[cfgm_ip].get_cs_vmi_of_vm(
-                      self.vm_id, refresh)
+                      self.vm_id, refresh=True)
             self.cs_vmi_objs[cfgm_ip] = vmi_obj
         ret = True if self.cs_vmi_objs[cfgm_ip] else False
         return (ret, self.cs_vmi_objs[cfgm_ip])
@@ -345,9 +350,9 @@ class VMFixture(fixtures.Fixture):
         if not getattr(self, 'cs_instance_ip_objs', None):
             self.cs_instance_ip_objs = dict()
         if not self.cs_instance_ip_objs.get(cfgm_ip) or refresh:
-            iip_obj = self.api_s_inspects[cfgm_ip].get_cs_instance_ips_of_vm(
-                      self.vm_id, refresh)
-            self.cs_instance_ip_objs[cfgm_ip] = iip_obj
+            iip_objs = self.api_s_inspects[cfgm_ip].get_cs_instance_ips_of_vm(
+                self.vm_id, refresh)
+            self.cs_instance_ip_objs[cfgm_ip] = iip_objs
         ret = True if self.cs_instance_ip_objs[cfgm_ip] else False
         return (ret, self.cs_instance_ip_objs[cfgm_ip])
 
@@ -361,7 +366,7 @@ class VMFixture(fixtures.Fixture):
     def get_vm_ip_dict(self):
         if not getattr(self, 'vm_ip_dict', None):
             self.vm_ip_dict = defaultdict(list)
-            iip_objs = self.get_iip_obj_from_api_server()[1]
+            iip_objs = self.get_iip_obj_from_api_server(refresh=True)[1]
             for iip_obj in iip_objs:
                 ip = iip_obj.ip
                 if self.hack_for_v6(ip):
@@ -591,8 +596,8 @@ class VMFixture(fixtures.Fixture):
         self.vm_in_api_flag = True
 
         self.get_vm_objs()
-        self.get_vmi_objs()
-        self.get_iip_objs()
+        self.get_vmi_objs(refresh=True)
+        self.get_iip_objs(refresh=True)
 
         for cfgm_ip in self.inputs.cfgm_ips:
             self.logger.debug("Verifying in api server %s" % (cfgm_ip))
@@ -604,7 +609,7 @@ class VMFixture(fixtures.Fixture):
                 return False
 
         for ips in self.get_vm_ip_dict().values():
-            if set(ips) | set(self.vm_ips) != set(self.vm_ips):
+            if len((set(ips).intersection(set(self.vm_ips)))) < 1:
                 with self.printlock:
                     self.logger.warn('Instance IP %s from API Server is '
                                      ' not found in VM IP list %s' % (ips, str(self.vm_ips)))
@@ -647,7 +652,7 @@ class VMFixture(fixtures.Fixture):
                 self.verify_vm_not_in_api_server_flag = self.verify_vm_not_in_api_server_flag and False
                 return False
             if api_inspect.get_cs_vmi_of_vm(self.vm_id,
-                    refresh=True) is not None:
+                                            refresh=True):
                 with self.printlock:
                     self.logger.debug("API-Server still has VMI info of VM %s"
                                      % (self.vm_name))
@@ -671,10 +676,10 @@ class VMFixture(fixtures.Fixture):
         tap_intfs = inspect_h.get_vna_tap_interface_by_vm(vm_id=self.vm_id)
         return tap_intfs
 
-    def get_vmi_ids(self):
-        if not getattr(self, 'vmi_ids', None):
+    def get_vmi_ids(self, refresh=False):
+        if not getattr(self, 'vmi_ids', None) or refresh:
             self.vmi_ids = dict()
-            vmi_objs = self.get_vmi_obj_from_api_server()[1]
+            vmi_objs = self.get_vmi_obj_from_api_server(refresh=refresh)[1]
             for vmi_obj in vmi_objs:
                 self.vmi_ids[vmi_obj.vn_fq_name] = vmi_obj.uuid
         return self.vmi_ids
@@ -692,15 +697,15 @@ class VMFixture(fixtures.Fixture):
                 self.agent_label[vn_fq_name] = self.get_tap_intf_of_vmi(vmi)['label']
         return self.agent_label
 
-    def get_local_ips(self):
-        if not getattr(self, 'local_ips', None):
-            for (vn_fq_name, vmi) in self.get_vmi_ids().iteritems():
+    def get_local_ips(self, refresh=False):
+        if refresh or not getattr(self, 'local_ips', None):
+            for (vn_fq_name, vmi) in self.get_vmi_ids(refresh).iteritems():
                 self.local_ips[vn_fq_name] = self.get_tap_intf_of_vmi(vmi)['mdata_ip_addr']
         return self.local_ips
 
     def get_local_ip(self, refresh=False):
         if refresh or not getattr(self, '_local_ip', None):
-            local_ips = self.get_local_ips()
+            local_ips = self.get_local_ips(refresh=refresh)
             for vn_fq_name in self.vn_fq_names:
                 if  self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) =='l2':
                     self.logger.debug("skipping ping to one of the 169.254.x.x IPs")

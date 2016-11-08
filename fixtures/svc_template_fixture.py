@@ -9,7 +9,7 @@ except ImportError:
 class SvcTemplateFixture(fixtures.Fixture):
 
     def __init__(self, connections, inputs, domain_name, st_name, svc_img_name,
-                 svc_type, if_list, svc_scaling, ordered_interfaces, version=1 ,svc_mode='transparent', flavor='contrail_flavor_2cpu'):
+                 svc_type, if_list, svc_scaling, ordered_interfaces, version=1, svc_mode='transparent', flavor='contrail_flavor_2cpu'):
         self.nova_h = connections.nova_h
         self.vnc_lib_h = connections.vnc_lib
         self.domain_name = domain_name
@@ -26,11 +26,12 @@ class SvcTemplateFixture(fixtures.Fixture):
         self.svc_mode = svc_mode
         self.svc_scaling = svc_scaling
         self.ordered_interfaces = ordered_interfaces
-        self.flavor = flavor
         self.logger = inputs.logger
         self.inputs = inputs
         self.connections = connections
         self.nova_h = connections.nova_h
+        self.flavor = self.nova_h.get_default_image_flavor(self.image_name)
+        self.availability_zone_enable = True if self.inputs.availability_zone else False
         if self.inputs.verify_thru_gui():
             self.browser = connections.browser
             self.browser_openstack = connections.browser_openstack
@@ -66,6 +67,7 @@ class SvcTemplateFixture(fixtures.Fixture):
             svc_properties.set_image_name(self.image_name)
             svc_properties.set_service_type(self.svc_type)
             svc_properties.set_service_mode(self.svc_mode)
+            svc_properties.set_version(self.version)
             svc_properties.set_service_scaling(self.svc_scaling)
             # Add flavor if not already added
             self.nova_h.get_flavor(self.flavor)

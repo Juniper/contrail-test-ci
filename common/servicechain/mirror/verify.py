@@ -54,8 +54,10 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         else:
             svc_img_name = "vsrx"
             image_name = 'ubuntu-traffic'
+        if svc_mode == 'in-network':
+           svc_img_name = 'ubuntu-in-net'
         self.st_fixture, self.si_fixtures = self.config_st_si(self.st_name,
-                                                              self.si_prefix, si_count, left_vn=self.vn1_fq_name, svc_type='analyzer', svc_mode=svc_mode, project=self.inputs.project_name, svc_img_name=svc_img_name)
+                                                              self.si_prefix, si_count, left_vn=None, svc_type='analyzer', svc_mode=svc_mode, project=self.inputs.project_name, svc_img_name=svc_img_name)
         self.action_list = self.chain_si(
             si_count, self.si_prefix, self.inputs.project_name)
 
@@ -108,9 +110,9 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             compute_1 = host_list[0]
             compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
-            self.vn1_fixture, self.vm1_name, node_name=compute_1, image_name=image_name)
+            vn_fix=self.vn1_fixture, vm_name=self.vm1_name, node_name=compute_1, image_name=image_name)
         self.vm2_fixture = self.config_vm(
-            self.vn2_fixture, self.vm2_name, node_name=compute_2, image_name=image_name)
+            vn_fix=self.vn2_fixture, vm_name=self.vm2_name, node_name=compute_2, image_name=image_name)
         assert self.vm1_fixture.verify_on_setup()
         assert self.vm2_fixture.verify_on_setup()
         self.nova_h.wait_till_vm_is_up(self.vm1_fixture.vm_obj)
@@ -262,9 +264,9 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             compute_1 = host_list[0]
             compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
-            self.vn1_fixture, self.vm1_name, node_name=compute_1)
+            vn_fix=self.vn1_fixture, vm_name=self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
-            self.vn2_fixture, self.vm2_name, node_name=compute_2)
+            vn_fix=self.vn2_fixture, vm_name=self.vm2_name, node_name=compute_2)
         assert self.vm1_fixture.verify_on_setup()
         assert self.vm2_fixture.verify_on_setup()
         self.nova_h.wait_till_vm_is_up(self.vm1_fixture.vm_obj)
@@ -402,9 +404,9 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             compute_1 = host_list[0]
             compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
-            self.vn1_fixture, self.vm1_name, node_name=compute_1)
+            vn_fix=self.vn1_fixture, vm_name=self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
-            self.vn2_fixture, self.vm2_name, node_name=compute_2)
+            vn_fix=self.vn2_fixture, vm_name=self.vm2_name, node_name=compute_2)
         assert self.vm1_fixture.verify_on_setup()
         assert self.vm2_fixture.verify_on_setup()
         self.nova_h.wait_till_vm_is_up(self.vm1_fixture.vm_obj)
@@ -623,8 +625,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         # Launch VMs in new left and right VN's
         new_left_vm = 'new_left_bridge_vm'
         new_right_vm = 'new_right_bridge_vm'
-        new_left_vm_fix = self.config_vm(new_left_vn_fix, new_left_vm)
-        new_right_vm_fix = self.config_vm(new_right_vn_fix, new_right_vm)
+        new_left_vm_fix = self.config_vm(vn_fix=new_left_vn_fix, vm_name=new_left_vm)
+        new_right_vm_fix = self.config_vm(vn_fix=new_right_vn_fix, vm_name=new_right_vm)
         assert new_left_vm_fix.verify_on_setup()
         assert new_right_vm_fix.verify_on_setup()
         # Wait for VM's to come up
@@ -801,7 +803,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         self.vn2_fixture = self.config_vn(self.vn2_name, self.vn2_subnets)
 
         self.st_fixture, self.si_fixtures = self.config_st_si(self.st_name,
-                                                              self.si_prefix, si_count, left_vn=self.vn1_name, svc_type='analyzer', svc_mode=svc_mode, project=self.inputs.project_name)
+                                                              self.si_prefix, si_count, left_vn=None, svc_type='analyzer', svc_mode=svc_mode, project=self.inputs.project_name)
         self.action_list = self.chain_si(
             si_count, self.si_prefix, self.inputs.project_name)
 
@@ -855,9 +857,9 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             compute_1 = host_list[0]
             compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
-            self.vn1_fixture, self.vm1_name, node_name=compute_1)
+            vn_fix=self.vn1_fixture, vm_name=self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
-            self.vn2_fixture, self.vm2_name, node_name=compute_2)
+            vn_fix=self.vn2_fixture, vm_name=self.vm2_name, node_name=compute_2)
         assert self.vm1_fixture.verify_on_setup()
         assert self.vm2_fixture.verify_on_setup()
         self.nova_h.wait_till_vm_is_up(self.vm1_fixture.vm_obj)
@@ -988,9 +990,9 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             compute_1 = host_list[0]
             compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
-            self.vn1_fixture, self.vm1_name, node_name=compute_1)
+            vn_fix=self.vn1_fixture, vm_name=self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
-            self.vn2_fixture, self.vm2_name, node_name=compute_2)
+            vn_fix=self.vn2_fixture, vm_name=self.vm2_name, node_name=compute_2)
         assert self.vm1_fixture.verify_on_setup()
         assert self.vm2_fixture.verify_on_setup()
         self.nova_h.wait_till_vm_is_up(self.vm1_fixture.vm_obj)
@@ -1111,9 +1113,9 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             self.pol1_fixture, self.vn2_fixture)
 
         self.vm1_fixture = self.config_vm(
-            self.vn1_fixture, self.vm1_name, image_name='ubuntu-traffic')
+            vn_fix=self.vn1_fixture, vm_name=self.vm1_name, image_name='ubuntu-traffic')
         self.vm2_fixture = self.config_vm(
-            self.vn2_fixture, self.vm2_name, image_name='ubuntu')
+            vn_fix=self.vn2_fixture, vm_name=self.vm2_name, image_name='ubuntu')
         assert self.vm1_fixture.verify_on_setup()
         assert self.vm2_fixture.verify_on_setup()
 
@@ -1246,9 +1248,9 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             self.pol_analyzer_fixture, self.vn2_fixture)
 
         self.vm1_fixture = self.config_vm(
-            self.vn1_fixture, self.vm1_name, image_name='ubuntu-traffic')
+            vn_fix=self.vn1_fixture, vm_name=self.vm1_name, image_name='ubuntu-traffic')
         self.vm2_fixture = self.config_vm(
-            self.vn2_fixture, self.vm2_name, image_name='ubuntu')
+            vn_fix=self.vn2_fixture, vm_name=self.vm2_name, image_name='ubuntu')
         assert self.vm1_fixture.verify_on_setup()
         assert self.vm2_fixture.verify_on_setup()
 
@@ -1368,9 +1370,9 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             self.pol_analyzer_fixture, self.vn2_fixture)
 
         self.vm1_fixture = self.config_vm(
-            self.vn1_fixture, self.vm1_name, image_name='ubuntu-traffic')
+            vn_fix=self.vn1_fixture, vm_name=self.vm1_name, image_name='ubuntu-traffic')
         self.vm2_fixture = self.config_vm(
-            self.vn2_fixture, self.vm2_name, image_name='ubuntu')
+            vn_fix=self.vn2_fixture, vm_name=self.vm2_name, image_name='ubuntu')
         assert self.vm1_fixture.verify_on_setup()
         assert self.vm2_fixture.verify_on_setup()
 
