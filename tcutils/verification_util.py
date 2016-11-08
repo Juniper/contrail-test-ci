@@ -6,6 +6,8 @@ import requests
 import threading
 import logging as LOG
 from lxml import etree
+import ConfigParser
+from cfgm_common import utils
 
 from common import log_orig as contrail_logging
 
@@ -28,6 +30,24 @@ class JsonDrv (object):
                                                       log_to_console=False)
         # Since introspect log is a single file, need locks
         self.lock = threading.Lock()
+        if self._args and self._args.auth_protocol == 'https':
+            cfg_parser = ConfigParser.ConfigParser()
+            self.api_bundle = "/tmp/apiservercertbundle.pem"
+            self.api_server_use_ssl = True
+            try:
+                cfg_parser.read("/etc/contrail/vnc_api_lib.ini")
+            except Exception as e:
+                logger = logging.getLogger(__name__)
+                logger.warn("Exception: %s", str(e))
+
+            self.apicertfile = cfg_parser.get('global','certfile')
+            self.apikeyfile = cfg_parser.get('global','keyfile')
+            self.apicafile = cfg_parser.get('global','cafile')
+            self.api_port = cfg_parser.get('global','WEB_PORT')
+            if self.apicertfile and self.apikeyfile \
+               and self.apicafile and self.api_server_use_ssl:
+                    self.certs=[self.apicertfile, self.apikeyfile, self.apicafile]
+                    self.apicertbundle=utils.getCertKeyCaBundle(self.api_bundle,self.certs)
 
     def _auth(self):
         if self._args:
@@ -58,7 +78,10 @@ class JsonDrv (object):
 
     def load(self, url, retry=True):
         self.common_log("Requesting: %s" %(url))
-        resp = requests.get(url, headers=self._headers)
+        if url.startswith('https:'):
+            resp = requests.get(url, headers=self._headers, params=None,verify=self.apicertbundle)
+        else:
+            resp = requests.get(url, headers=self._headers)
         if resp.status_code == 401:
             if retry:
                 self._auth()
@@ -132,7 +155,13 @@ class VerificationUtilBase (object):
     def _mk_url_str(self, path=''):
         if path.startswith('http:'):
             return path
-        return "http://%s:%s/%s" % (self._ip, str(self._port), path)
+        if self._port == '8082':
+            if path.startswith('https:'):
+                return path
+            else:
+                return "https://%s:%s/%s" % (self._ip, str(self._port), path)
+        else:
+            return "http://%s:%s/%s" % (self._ip, str(self._port), path)
 
     def dict_get(self, path='',url=''):
         try:
