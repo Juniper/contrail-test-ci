@@ -30,7 +30,7 @@ class VN_Policy_Fixture(fixtures.Fixture):
         self.skip_verify = 'no'
         self.vn = vn_name
         self.already_present = False
-        self.option = options if self.inputs.orchestrator == 'openstack' else 'contrail'
+        self.option = options if self.inputs.orchestrator == 'openstack' else 'contrail' 
         if self.inputs.verify_thru_gui():                                                                                    
             self.browser = self.connections.browser                                                                          
             self.browser_openstack = self.connections.browser_openstack                                                      
