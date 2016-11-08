@@ -35,7 +35,12 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         get_vcenter_ip, get_vcenter_port, get_vcenter_username, \
         get_vcenter_password, get_vcenter_datacenter, get_vcenter_compute, \
         get_authserver_protocol, get_region_name, get_contrail_internal_vip, \
-        get_openstack_external_vip, get_contrail_external_vip
+        get_openstack_external_vip, get_contrail_external_vip, \
+        get_apiserver_protocol, get_apiserver_certfile, get_apiserver_keyfile, \
+        get_apiserver_cafile, get_keystone_insecure_flag, \
+        get_apiserver_insecure_flag, get_keystone_certfile, get_keystone_keyfile, \
+        get_keystone_cafile
+
     from fabfile.utils.multitenancy import get_mt_enable
     from fabfile.utils.interface import get_data_ip
     from fabfile.tasks.install import update_config_option, update_js_config
@@ -46,6 +51,30 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     auth_protocol = get_authserver_protocol()
     auth_server_ip = get_authserver_ip()
     auth_server_port = get_authserver_port()
+    api_auth_protocol = get_apiserver_protocol()
+
+    if auth_protocol == 'https':
+        keystone_certfile = get_keystone_certfile()
+        keystone_keyfile = get_keystone_keyfile()
+        keystone_cafile = get_keystone_cafile()
+        key_insecure_flag = get_keystone_insecure_flag()
+    else:
+        keystone_certfile = ""
+        keystone_keyfile = ""
+        keystone_cafile = ""
+        key_insecure_falg = True
+
+    if api_auth_protocol == 'https':
+        api_certfile = get_apiserver_certfile()
+        api_keyfile = get_apiserver_keyfile()
+        api_cafile = get_apiserver_cafile()
+        api_insecure_flag = get_apiserver_insecure_flag()
+    else:
+       api_certfile = ""
+       api_keyfile = ""
+       api_cafile = ""
+       api_insecure_flag = True
+
     with settings(warn_only=True), hide('everything'):
         with lcd(contrail_fab_path):
             if local('git branch').succeeded:
@@ -470,6 +499,21 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     config.set('auth','AUTHN_URL', '/v2.0/tokens')
     if bool(os.getenv('OS_INSECURE', True)):
         config.set('auth', 'insecure', 'True')
+
+    if api_auth_protocol == 'https':
+        if 'global' not in config.sections():
+            config.add_section('global')
+        config.set('global','certfile', api_certfile)
+        config.set('global','cafile', api_cafile)
+        config.set('global','keyfile', api_keyfile)
+        config.set('global','insecure',api_insecure_flag)
+    if auth_protocol == 'https':
+        if 'auth' not in config.sections():
+            config.add_section('auth')
+        config.set('auth','certfile', keystone_certfile)
+        config.set('auth','cafile', keystone_cafile)
+        config.set('auth','keyfile', keystone_keyfile)
+        config.set('auth','insecure', key_insecure_flag)
 
     with open(vnc_api_ini,'w') as f:
         config.write(f)
