@@ -2841,7 +2841,7 @@ class AnalyticsVerification(fixtures.Fixture):
         if service in supervisors:
             alarm_type = ['node-status']
         collector_ip = self.inputs.collector_ips[0]
-        if multi_instances:
+        if multi_instances and role == 'analytics-node':
             collector_ip = self.inputs.collector_ips[1]
         if role == 'prouter':
             prouters_data = self.inputs.physical_routers_data
