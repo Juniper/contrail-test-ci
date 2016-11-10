@@ -5,6 +5,7 @@ def _setup_1 (conn):
    from os_ctrl import OpenstackControl
    cfgm_ip = conn.inputs.api_server_ip or \
              conn.inputs.contrail_external_vip or conn.inputs.cfgm_ip
+
    hyper = os.getenv('HYPERVISOR_TYPE')
    if hyper:
        zone = 'nova'
@@ -13,6 +14,7 @@ def _setup_1 (conn):
        lb_class = RoundRobinZoneRestricted(zone)
    else:
        lb_class = RoundRobin()
+
    args = {'username':conn.username,
            'password':conn.password,
            'auth_ip':conn.inputs.auth_ip,
