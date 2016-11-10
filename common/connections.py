@@ -15,6 +15,7 @@ from openstack import OpenstackAuth, OpenstackOrchestrator
 from vcenter import VcenterAuth, VcenterOrchestrator
 from common.contrail_test_init import ContrailTestInit
 from vcenter_gateway import VcenterGatewayOrch
+from orch_ctrl.factory import create_orchestration_control
 
 try:
     from webui.ui_login import UILogin
@@ -33,6 +34,7 @@ class ContrailConnections():
         self.logger = logger or self.inputs.logger
         self.nova_h = None
         self.quantum_h = None
+        self.orch_ctrl = None
         self.api_server_inspects = custom_dict(self.get_api_inspect_handle,
                         'api_inspect:'+self.project_name+':'+self.username)
         self.dnsagent_inspect = custom_dict(self.get_dns_agent_inspect_handle,
@@ -85,6 +87,18 @@ class ContrailConnections():
                                             inputs=self.inputs,
                                             logger=self.logger)
     # end __init__
+
+    def get_orch_ctrl(self):
+        if self.orch_ctrl:
+            return self.orch_ctrl
+        deployment = self.inputs.orchestrator
+        if deployment == 'openstack':
+            if self.inputs.vcenter_dc:
+                deployment = 'openstack-vcenter'
+            if self.inputs.vcenter_gw_setup:
+                deployment = 'openstack-vcenter-gateway'
+        self.orch_ctrl = create_orchestration_control(deployment, self)
+        return self.orch_ctrl
 
     def get_project_id(self, project_name=None):
         project_name = project_name or self.project_name
