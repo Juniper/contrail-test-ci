@@ -1,0 +1,161 @@
+##############################################################################
+# Descibe image details and where its available
+# The image details are orgainzed into multi-level namespace
+# The Top level namespace refers to test-mode like ci or sanity (default) and
+# the second level namespace refers hypervisor for which the image would be
+# valid
+# Refer to ImageMgr class in orch_ctrl/common.py
+##############################################################################
+
+# Section for Qemu hypervisor (Specifically for use in Openstack)
+qemu:
+  vmdk: &VMDK
+    location: /images/converts/
+    flavor: contrail_flavor_small
+    glance: --container-format bare --disk-format vmdk --property vmware_disktype="sparse" --property vmware_adaptertype="ide"
+
+  qcow: &QCOW
+    location: /images/
+    flavor: contrail_flavor_small
+    glance: --container-format ovf --disk-format qcow2 --property hypervisor_type=qemu
+
+  cirros:
+    name: cirros
+    file: cirros-0.3.0-x86_64-disk.vmdk.gz
+    username: cirros
+    password: cubswin:)
+    flavor: contrail_flavor_tiny
+    <<: *VMDK
+
+  cirros-0.3.0-x86_64-uec:
+    ref: qemu/cirros
+
+  vsrx-bridge:
+    name: vsrx-bridge
+    file: junos-vsrx-12.1-transparent.img.gz
+    location: /images/vsrx/
+    flavor: contrail_flavor_2cpu
+    <<: *QCOW
+
+  vsrx:
+    name: vsrx
+    file: junos-vsrx-12.1-in-network.img.gz
+    location: /images/vsrx/
+    username: root
+    password: c0ntrail123
+    flavor: contrail_flavor_2cpu
+    <<: *QCOW
+
+  nat-service:
+    ref: qemu/vsrx
+
+  ubuntu:
+    name: ubuntu
+    file: ubuntu.vmdk.gz
+    username: ubuntu
+    password: ubuntu
+    flavor: contrail_flavor_tiny
+    <<: *VMDK
+
+  ubuntu-traffic:
+    name: ubuntu-traffic
+    file: ubuntu-traffic.vmdk.gz
+    username: ubuntu
+    password: ubuntu
+    <<: *VMDK
+
+  analyzer:
+    name: analyzer
+    file: analyzer-vm-console.qcow2.gz
+    location: /images/analyzer/
+    glance: --container-format ovf --disk-format qcow2 --property hypervisor_type=qemu
+    <<: *VMDK
+
+  tiny_nat_fw:
+    name: tiny_nat_fw
+    file: tinycore-in-network-nat.qcow2.gz
+    location: /images/tinycore/
+    username: tc 
+    password: secret
+    flavor: contrail_flavor_tiny
+    <<: *QCOW
+
+  tiny_in_net:
+    name: tiny_in_net
+    file: tinycore-in-network.qcow2.gz
+    location: /images/tinycore/
+    username: tc 
+    password: secret
+    flavor: contrail_flavor_tiny
+    <<: *QCOW
+
+  tiny_trans_fw:
+    name: tiny_trans_fw
+    file: tinycore-net-transparent-fw.qcow2.gz
+    location: /images/tinycore/
+    username: tc 
+    password: secret
+    flavor: contrail_flavor_tiny
+    <<: *QCOW
+
+  endpoint-vm:
+    ref: qemu/ubuntu-traffic
+
+  in-network-firewall:
+    ref: qemu/tiny_in_net
+
+  in-network-nat-firewall:
+    ref: qemu/tiny_nat_fw
+
+  transparent-firewall:
+    ref: qemu/tiny_trans_fw
+
+# Section for VMware hypervisor
+vmware:
+  ubuntu:
+    file: ubuntu-disk1.vmdk
+    username: ubuntu
+    password: ubuntu
+    template: ubuntu.vmtx
+    location: /images/vcenter/
+
+  ubuntu-traffic:
+    file: ubuntu-traffic-disk1.vmdk
+    username: ubuntu
+    password: ubuntu
+    template: ubuntu-traffic.vmtx
+    location: /images/vcenter/
+
+  endpoint-vm:
+    ref: vmware/ubuntu-traffic
+
+# Section for docker hypervisor
+docker:
+  phusion-baseimage-enablesshd:
+    name: phusion-baseimage-enablesshd
+    file: phusion-baseimage-enablesshd.tar.gz
+    username: root
+    password: c0ntrail123
+    location: /images/docker/
+    glance: --container-format docker --disk-format raw
+
+  ubuntu-traffic:
+    name: ubuntu-traffic-docker
+    file: ubuntu-traffic-docker.tar.gz
+    username: ubuntu
+    password: ubuntu
+    location: /images/docker/
+    glance: --container-format docker --disk-format raw
+
+  endpoint-vm:
+    ref: docker/ubuntu-traffic
+
+# Section for CI images
+ci:
+  qemu:
+    endpoint-vm:
+      ref: qemu/cirros
+
+  docker:
+    endpoint-vm:
+      ref: docker/ubuntu-traffic
