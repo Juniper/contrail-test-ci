@@ -120,7 +120,11 @@ class TestInputs(object):
             'Basic',
             'stackRegion',
             os.getenv('OS_REGION_NAME', 'RegionOne'))
-
+        self.availability_zone = read_config_option(
+            self.config,
+            'Basic',
+            'availability_zone',
+            None)
         self.endpoint_type = read_config_option(
             self.config,
             'Basic',
