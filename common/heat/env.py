@@ -317,3 +317,33 @@ svc_chain_v2 = {
     u'policy_name': u'',
   }
 }
+
+lbaas_v2_templ = {
+  u'parameters': {
+    u'loadbalancer_properties_admin_state': u'True',
+    u'vip_net_id': u'',
+    u'vip_subnet_id': u'',
+    u'lbaas_name': u'lbaas_v2',
+    u'listener_name': u'lbaas_v2_listener',
+    u'lbaas_listener_protocol': u'HTTP',
+    u'lbaas_listener_port': u'80',
+    u'lbaas_listener_connection_limit': u'10',
+    u'pool_name': u'lbaas_v2_pool',
+    u'lbaas_listener_admin_state': u'True',
+    u'lbaas_pool_admin_state': u'True',
+    u'lbaas_lb_method': u'ROUND_ROBIN',
+    u'lbaas_pool_protocol': u'HTTP',
+  }
+}
+
+lbaasv2_mem_templ = {
+  u'parameters': {
+    u'mem_name': u'',
+    u'mem_address': u'',
+    u'mem_admin_state': u'True',
+    u'mem_weight': u'1',
+    u'mem_protocol_port': u'80',
+    u'pool': u'',
+  }
+}
+

@@ -5,6 +5,7 @@ from common import isolated_creds
 from common import create_public_vn
 from vn_test import VNFixture
 from heat_test import *
+from lbaasv2_fixture import *
 from vm_test import VMFixture
 from svc_template_fixture import *
 from svc_instance_fixture import *
@@ -90,6 +91,46 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
                     'No change seen in the Stack %s to update' % hs_obj.stack_name)
         hs_obj.update(parameters)
     # end update_stack
+
+    def verify_lbaas(self, stack, env, stack_name):
+        op = stack.stacks.get(stack_name).outputs
+        for output in op:
+            if output['output_key'] == 'lb_id':
+                lb_id = output['output_value']
+            if output['output_key'] == 'listener':
+                listener = output['output_value']
+            if output['output_key'] == 'pool':
+                pool = output['output_value']
+            if output['output_key'] == 'vip_net_id':
+                vip_net_id=output['output_value']
+        lb_fix = self.useFixture(LBaasV2Fixture(project_name=self.inputs.project_name, lb_name=lb_id[2],
+                                           network_id=vip_net_id, listener_name=listener[2], pool_name=pool[2],
+                                           connections=self.connections))
+        return lb_fix 
+    # end verify_lbaas
+
+    def config_lbaas(self, vip_net, stack_name=None):
+        template = self.get_template('lbaas_v2_templ')
+        env = self.get_env('lbaas_v2_templ')
+        env['parameters']['vip_net_id'] = vip_net.uuid
+        env['parameters']['vip_subnet_id'] = vip_net.get_subnets()[0]['id']
+        lbaas_hs_obj = self.config_heat_obj(stack_name, template, env)
+        stack = lbaas_hs_obj.heat_client_obj
+        lb_fix = self.verify_lbaas(stack, env, stack_name)
+        return lb_fix, lbaas_hs_obj
+    # end config_lbaas
+
+    def config_lbaas_member(self, lbaas_fix, members, stack_name='lbaasv2_mem'):
+        for mem in members:
+            template = self.get_template('lbaasv2_mem_templ')
+            env = self.get_env('lbaasv2_mem_templ')
+            env['parameters']['pool']=lbaas_fix.pool_uuid
+            env['parameters']['mem_address']=mem.vm_ip
+            env['parameters']['mem_name']=get_random_name(stack_name)
+            lbaas_mem_obj = self.config_heat_obj(get_random_name(stack_name), template, env)
+            ##stack = lbaas_mem_obj.heat_client_obj
+        lbaas_fix.read()
+    # end config_lbaas_member
 
     def config_vn(self, stack_name=None, vn_name='net', transit=False):
         template = self.get_template('vn')
@@ -348,6 +389,9 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         if self.pt_based_svc or st_fix.svc_mode != 'transparent':
             env['parameters']['right_net_id'] = vn_list[2].vn_fq_name
             env['parameters']['left_net_id'] = vn_list[1].vn_fq_name
+        elif not self.pt_based_svc and st_fix.svc_mode == 'transparent':
+            env['parameters']['right_net_id'] = vn_list[2].vn_fq_name
+            env['parameters']['left_net_id'] = vn_list[1].vn_fq_name
         else:
             env['parameters']['right_net_id'] = 'auto'
             env['parameters']['left_net_id'] = 'auto'
@@ -404,6 +448,11 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
                 vm.run_cmd_on_vm([cmd])
 
     def config_svc_chain(self, rules, vn_list, heat_objs, stack_name='svc_chain'):
+        svc_hs_obj = self.config_chain(rules, [vn_list[1], vn_list[2]], heat_objs, stack_name)
+        return svc_hs_obj
+    # end config_svc_chain
+
+    def config_chain(self, rules, vn_list, heat_objs, stack_name='svc_chain'):
         res_name = 'svc_chain'
         if self.heat_api_version == 2:
             res_name += '_v2'
@@ -432,10 +481,10 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         heat_objs[1].policys = getattr(heat_objs[1], 'policys', [])
         heat_objs[0].policys.append(policy_fqname.split(':'))
         heat_objs[1].policys.append(policy_fqname.split(':'))
-        vn_list[1].bind_policies(heat_objs[0].policys, vn_list[1].uuid)
-        vn_list[2].bind_policies(heat_objs[1].policys, vn_list[2].uuid)
+        vn_list[0].bind_policies(heat_objs[0].policys, vn_list[0].uuid)
+        vn_list[1].bind_policies(heat_objs[1].policys, vn_list[1].uuid)
+        svc_hs_obj.addCleanup(vn_list[0].unbind_policies, vn_list[0].uuid, [policy_fqname.split(':')])
         svc_hs_obj.addCleanup(vn_list[1].unbind_policies, vn_list[1].uuid, [policy_fqname.split(':')])
-        svc_hs_obj.addCleanup(vn_list[2].unbind_policies, vn_list[2].uuid, [policy_fqname.split(':')])
         return svc_hs_obj
     # end config_svc_chain
 
@@ -552,6 +601,11 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         return template
 
     def config_svc_rule_v2(self, direction='<>', proto='icmp', src_ports=None, dst_ports=None, src_vns=None, dst_vns=None, si_fq_names=[]):
+        template = self.config_rule_v2(direction, proto, src_ports, dst_ports, src_vns, dst_vns)
+        template['network_policy_entries_policy_rule_action_list']['network_policy_entries_policy_rule_action_list_apply_service'] = si_fq_names
+        return template
+
+    def config_rule_v2(self, direction='<>', proto='icmp', src_ports=None, dst_ports=None, src_vns=None, dst_vns=None):
         template = self.get_template('svc_rule_v2')
         src_ports = src_ports or [(-1,-1)]
         dst_ports = dst_ports or [(-1,-1)]
@@ -581,8 +635,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
             vn_dict = {}
             vn_dict['network_policy_entries_policy_rule_dst_addresses_virtual_network'] = vn.vn_fq_name
             template['network_policy_entries_policy_rule_dst_addresses'].append(vn_dict)
-
-        template['network_policy_entries_policy_rule_action_list']['network_policy_entries_policy_rule_action_list_apply_service'] = si_fq_names
+        template['network_policy_entries_policy_rule_action_list'].pop('network_policy_entries_policy_rule_action_list_apply_service')
         return template
 
     def config_svc_rule(self, direction='<>', proto='icmp', src_ports=None, dst_ports=None, src_vns=None, dst_vns=None, si_fq_names=[]):

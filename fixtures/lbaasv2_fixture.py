@@ -784,7 +784,7 @@ class LBaasV2Fixture(LBBaseFixture):
         self.listener_name = obj.get('name', None)
         self.vip_protocol = obj.get('protocol', None)
         self.vip_port = obj.get('protocol_port', None)
-        pools = self.network_h.list_lbaas_pools(listeners=self.listener_uuid)
+        pools = self.network_h.list_lbaas_pools(listener_id=self.listener_uuid)
         pool_obj = pools[0] if pools else None
         if pool_obj:
             self.pool_uuid = pool_obj['id']

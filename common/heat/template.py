@@ -3120,3 +3120,181 @@ intf_rt_table = {
  }
 }
 
+lbaas_v2_templ = {
+  u'description': u'HOT template to create lbaas v2.\n',
+  u'heat_template_version': u'2013-05-23',
+  u'outputs': {
+    u'lb_id': {
+      u'description' : u'ID of the network',
+      u'value': {u'get_attr': [u'template_Loadbalancer', u'fq_name'] }
+    },
+    u'vip_net_id': {
+      u'description' : u'ID of the network',
+      u'value': {u'get_param': u'vip_net_id'}
+    },
+    u'listener': {
+      u'description' : u'ID of the loadbalancer listener',
+      u'value': {u'get_attr': [u'template_LoadbalancerListener', u'fq_name'] }
+    },
+    u'pool': {
+      u'description' : u'ID of the loadbalancer pool',
+      u'value': {u'get_attr': [u'template_LoadbalancerPool', u'fq_name'] }
+    }
+  },
+  u'parameters': {
+    u'loadbalancer_properties_admin_state': {
+      u'description': u'admin_state for the Loadbalancer',
+      u'type': u'boolean'},
+    u'vip_net_id': {
+      u'description': u'ID of the VIP net',
+      u'type': u'string'},
+    u'vip_subnet_id': {
+      u'description': u'ID of the VIP subnet',
+      u'type': u'string'},
+    u'lbaas_name': {
+      u'description': u'Name of the loadbalancer ',
+      u'type': u'string'},
+    u'listener_name': {
+      u'description': u'Name of the loadbalancer listener',
+      u'type': u'string'},
+    u'lbaas_listener_protocol': {
+      u'description': u'loadbalancer listener protocol',
+      u'type': u'string'},
+    u'lbaas_listener_port': {
+      u'description': u'loadbalancer listener port',
+      u'type': u'number'},
+    u'lbaas_listener_connection_limit': {
+      u'description': u'Name of the loadbalancer',
+      u'type': u'number'},
+    u'lbaas_pool_admin_state': {
+      u'description': u'loadbalancer pool admin state',
+      u'type': u'boolean'},
+    u'lbaas_listener_admin_state': {
+      u'description': u'loadbalancer listener admin state',
+      u'type': u'boolean'},
+    u'lbaas_lb_method': {
+      u'description': u'loadbalancer pool LB method',
+      u'type': u'string'},
+    u'lbaas_pool_protocol': {
+      u'description': u'loadbalancer pool protocol',
+      u'type': u'string'},
+    u'pool_name': {
+      u'description': u'loadbalancer pool name',
+      u'type': u'string'},
+  },
+  u'resources': {
+    u'template_vip_port': {
+      u'type': u'OS::ContrailV2::VirtualMachineInterface',
+      u'properties': {
+        u'name': { u'get_attr': [ u'random_key_mgmt', u'value' ] },
+        u'virtual_network_refs': [{ u'get_param': u'vip_net_id' }],
+      }
+    },
+    u'vip_port_ip': {
+      u'type': u'OS::ContrailV2::InstanceIp',
+      u'depends_on': [ 'template_vip_port' ],
+      u'properties': {
+        u'virtual_machine_interface_refs': [{ u'get_resource': u'template_vip_port' }],
+        u'virtual_network_refs': [{ u'get_param': u'vip_net_id' }],
+        u'instance_ip_family' : 'v4',
+      }
+    },
+    u'template_Loadbalancer': {
+      u'depends_on': [ 'template_vip_port' ],
+      u'properties': {
+        u'loadbalancer_properties': {
+          u'loadbalancer_properties_admin_state': {u'get_param': u'loadbalancer_properties_admin_state'},
+          ###u'loadbalancer_properties_vip_address':
+            ###{u'get_attr': [u'template_vip_port', u'first_address']},
+          u'loadbalancer_properties_vip_subnet_id': {u'get_param': u'vip_subnet_id'}
+        },
+        u'name': {u'get_param': u'lbaas_name'},
+        u'virtual_machine_interface_refs': [{ u'get_resource' : u'template_vip_port' }]
+      },
+      u'type': u'OS::ContrailV2::Loadbalancer'
+    },
+    u'template_LoadbalancerListener': {
+      u'depends_on': [ u'template_Loadbalancer' ],
+      u'properties': {
+        u'name': {u'get_param': u'listener_name'},
+        u'loadbalancer_listener_properties': {
+          u'loadbalancer_listener_properties_admin_state': {u'get_param': u'lbaas_listener_admin_state'},
+          u'loadbalancer_listener_properties_connection_limit': {u'get_param': u'lbaas_listener_connection_limit'},
+          u'loadbalancer_listener_properties_protocol': {u'get_param': u'lbaas_listener_protocol'},
+          u'loadbalancer_listener_properties_protocol_port': {u'get_param': u'lbaas_listener_port'}
+        },
+        u'loadbalancer_refs':
+         [{u'get_resource': u'template_Loadbalancer'}]
+      },
+      u'type': u'OS::ContrailV2::LoadbalancerListener'
+    },
+    u'template_LoadbalancerPool': {
+      u'properties': {
+        u'loadbalancer_listener_refs':
+          [{u'get_resource': u'template_LoadbalancerListener'}],
+        u'loadbalancer_pool_properties': {
+          u'loadbalancer_pool_properties_admin_state': {u'get_param': u'lbaas_pool_admin_state'},
+          u'loadbalancer_pool_properties_loadbalancer_method': {u'get_param': u'lbaas_lb_method'},
+          u'loadbalancer_pool_properties_protocol': {u'get_param': u'lbaas_pool_protocol'},
+        },
+        u'loadbalancer_pool_provider': u'opencontrail',
+        u'name': {u'get_param': u'pool_name'}
+      },
+      u'type': u'OS::ContrailV2::LoadbalancerPool'
+    },
+    u'random_key_mgmt': {
+      u'type': u'OS::Heat::RandomString',
+      u'properties': {
+        u'length': 16,
+      }
+    },
+  }
+}
+
+lbaasv2_mem_templ = {
+  u'description': u'HOT template to create lbaas v2.\n',
+  u'heat_template_version': u'2013-05-23',
+  u'outputs': {
+    u'lb_member': {
+      u'description' : u'ID of the network',
+      u'value': {u'get_attr': [u'template_LoadbalancerMember2', u'fq_name'] }
+    },
+  },
+  u'parameters': {
+    u'mem_name': {
+      u'description': u'Name of the loadbalancer member',
+      u'type': u'string'},
+    u'mem_address': {
+      u'description': u'loadbalancer member address',
+      u'type': u'string'},
+    u'mem_admin_state': {
+      u'description': u'loadbalancer member admin state',
+      u'type': u'boolean'},
+    u'mem_weight': {
+      u'description': u'loadbalancer member weight',
+      u'type': u'number'},
+    u'mem_protocol_port': {
+      u'description': u'loadbalancer member protocol port',
+      u'type': u'number'},
+    u'pool': {
+      u'description': u'ID of the loadbalancer pool',
+      u'type': u'string'},
+  },
+  u'resources': {
+    u'template_LoadbalancerMember2': {
+      u'properties': {
+        u'loadbalancer_member_properties': {
+          u'loadbalancer_member_properties_address': {
+            u'get_param': u'mem_address'
+          },
+          u'loadbalancer_member_properties_admin_state': {u'get_param': u'mem_admin_state'},
+          u'loadbalancer_member_properties_protocol_port': {u'get_param': u'mem_protocol_port'},
+          u'loadbalancer_member_properties_weight': {u'get_param': u'mem_weight'},
+        },
+        u'loadbalancer_pool': {u'get_param': u'pool'},
+        u'name': {u'get_param': u'mem_name'},
+      },
+      u'type': u'OS::ContrailV2::LoadbalancerMember'
+    }
+  }
+}
