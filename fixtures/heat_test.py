@@ -112,7 +112,7 @@ class HeatStackFixture(fixtures.Fixture):
         if self.already_present != True:
             stack_obj = self.heat_client_obj.stacks.create(**fields)
             self.logger.info('Creating Stack %s' % self.stack_name)
-            self.wait_till_stack_created()
+            assert self.wait_till_stack_created(), 'Creating Stack %s failed' % self.stack_name
             return stack_obj
     # end create_stack
 
@@ -128,7 +128,7 @@ class HeatStackFixture(fixtures.Fixture):
                         project_fq_name=self.inputs.project_fq_name, inputs=self.inputs, cfgm_ip=self.inputs.cfgm_ip, openstack_ip=self.inputs.openstack_ip))
             self.heat_client_obj = self.heat_obj.obj
             self.heat_client_obj.stacks.delete(self.stack_name)
-            self.wait_till_stack_is_deleted()
+            assert self.wait_till_stack_is_deleted(), 'Deleting Stack %s, failed' % self.stack_name
         else:
             self.logger.info('Skipping the deletion of Stack %s' %self.stack_name)
     # end delete_stack
@@ -144,7 +144,7 @@ class HeatStackFixture(fixtures.Fixture):
                 result= True
                 stack_obj = self.heat_client_obj.stacks.update(i.id, **fields)
                 self.logger.info('Updating Stack %s' % self.stack_name)
-                self.wait_till_stack_updated()
+                assert self.wait_till_stack_updated(), 'Updating Stack %s failed' % self.stack_name
                 return stack_obj
             else:
                 result= False
