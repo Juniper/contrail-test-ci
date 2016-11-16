@@ -63,7 +63,7 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
         cmd = 'nohup ' + cmd + ' &'
 
     if cwd:
-        cmd = 'cd %s; %s' % (cd, cmd)
+        cmd = 'cd %s; %s' % (cwd, cmd)
 
     (username, host_ip) = host_string.split('@')
 
