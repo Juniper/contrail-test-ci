@@ -125,7 +125,7 @@ class BaseTestLbaas(BaseNeutronTest):
         response = ''
         out = ''
         result = False
-        cmd1 = 'wget http://%s' % vip
+        cmd1 = 'rm -f index.html && wget http://%s' % vip
         cmd2 = 'cat index.html'
         result = remote_cmd(
             host_string='%s@%s'%(vm.vm_username, vm.local_ip),
