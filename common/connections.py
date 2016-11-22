@@ -132,6 +132,7 @@ class ContrailConnections():
         if host not in self.api_server_inspects:
             self.api_server_inspects[host] = VNCApiInspect(host,
                                                            inputs=self.inputs,
+                                                           protocol=self.inputs.api_protocol,
                                                            logger=self.logger)
         return self.api_server_inspects[host]
 

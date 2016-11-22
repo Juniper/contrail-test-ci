@@ -337,13 +337,24 @@ class OpenstackAuth(OrchestratorAuth):
        self.passwd = passwd
        self.project = project_name
        self.logger = logger or contrail_logging.getLogger(__name__)
-       self.insecure = bool(os.getenv('OS_INSECURE',True))
+       self.insecure = os.getenv('OS_INSECURE')
        if inputs:
            self.auth_url = inputs.auth_url
            self.region_name = inputs.region_name
+           self.keystone_certfile = self.inputs.keystonecertfile
+           self.keystone_keyfile = self.inputs.keystonekeyfile
+           self.keycertbundle = self.inputs.keycertbundle
+           if self.insecure:
+               self.insecure = bool(self.insecure)
+           else:
+               self.insecure = self.inputs.insecure
        else:
            self.auth_url = auth_url or os.getenv('OS_AUTH_URL')
            self.region_name = region_name or os.getenv('OS_REGION_NAME')
+           self.keystone_certfile = None
+           self.keystone_keyfile = None
+           self.insecure = True
+           self.keycertbundle = None
        self.reauth()
 
    def reauth(self):
@@ -353,6 +364,9 @@ class OpenstackAuth(OrchestratorAuth):
                                         auth_url=self.auth_url,
                                         insecure=self.insecure,
                                         region_name=self.region_name,
+                                        cert=self.keystone_certfile,
+                                        key=self.keystone_keyfile,
+                                        cacert=self.keycertbundle,
                                         logger=self.logger)
 
    def get_project_id(self, name=None):
