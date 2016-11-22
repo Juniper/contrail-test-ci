@@ -16,6 +16,8 @@ from svc_template_fixture import SvcTemplateFixture
 from policy_test import PolicyFixture
 from vn_policy_test import VN_Policy_Fixture
 
+from tcutils.util import Singleton
+
 class QosTestBase(BaseNeutronTest):
 
     @classmethod
@@ -521,3 +523,44 @@ class TestQosSVCBase(QosTestExtendedBase):
         cls.st_fixture.cleanUp()
         super(TestQosSVCBase, cls).tearDownClass()
     # end tearDownClass
+
+class FcIdGenerator(BaseNeutronTest):
+    '''
+        This class parse through the FCs present and 
+        return a unique FC ID which is not in use.
+    '''
+    __metaclass__ = Singleton
+    
+    @classmethod
+    def setUpClass(cls):
+        super(FcIdGenerator, cls).setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super(FcIdGenerator, cls).tearDownClass()
+    # end tearDownClass
+    
+    def runTest(self):
+        pass
+    
+    def get_free_fc_ids(self, number):
+        ''' "number" is number of free fc_ids to be returned'''
+        fc_uuids = []
+        for elem in self.vnc_lib.forwarding_classs_list()['forwarding-classs']:
+            fc_uuids.append(elem['uuid'])
+        fc_ids = []
+        for elem in fc_uuids:
+            fc_ids.append(self.vnc_lib.forwarding_class_read(id =elem).\
+                            forwarding_class_id)
+        retruned_fc_ids = []
+        count = 0
+        for fc_id in range(0, 256):
+            if number > 0:
+                if fc_id not in fc_ids:
+                    retruned_fc_ids.append(fc_id)
+                    count = count +1
+                    if count == number:
+                        break
+            else:
+                break
+        return retruned_fc_ids  
