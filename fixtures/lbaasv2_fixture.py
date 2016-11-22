@@ -784,7 +784,7 @@ class LBaasV2Fixture(LBBaseFixture):
         self.listener_name = obj.get('name', None)
         self.vip_protocol = obj.get('protocol', None)
         self.vip_port = obj.get('protocol_port', None)
-        pools = self.network_h.list_lbaas_pools(listeners=self.listener_uuid)
+        pools = self.network_h.list_lbaas_pools(listener_id=self.listener_uuid)
         pool_obj = pools[0] if pools else None
         if pool_obj:
             self.pool_uuid = pool_obj['id']
@@ -811,7 +811,7 @@ class LBaasV2Fixture(LBBaseFixture):
             self.already_present = True
         else:
             if self.default_tls_container and not self.container_ref:
-                cert_key_payload = CreateCertsKeys.create_certificate()
+                cert_key_payload = CreateCertsKeys.create_certificate(self.fip_ip if self.fip_ip else self.vip_ip)
                 self.create_container()
                 self.create_container_cert(self.default_tls_container, cert_payload=cert_key_payload[0], pkey_payload=cert_key_payload[1])
                 self.add_neutron_user_to_acl()

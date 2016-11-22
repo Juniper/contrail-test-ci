@@ -83,7 +83,7 @@ organizationalUnitName_default          = Juniper Contrail
 stateOrProvinceName_default             = California
 localityName_default                    = Sunnyvale
 countryName_default                     = US
-commonName_default                      = 10.87.141.33
+commonName_default                      = %s
 commonName_max                          = 64
 emailAddress                            = Email Address
 emailAddress_default                    = admin@juniper.com
@@ -111,7 +111,7 @@ basicConstraints = CA:true
 authorityKeyIdentifier=keyid:always,issuer:always
 '''
 
-def create_certificate():
+def create_certificate(server_ip='127.0.0.1'):
     
     output = subprocess.Popen([MKDIR, '-p', './working/cfg'], stdout=subprocess.PIPE)
     ##time.sleep(2)
@@ -124,6 +124,8 @@ def create_certificate():
     os.chdir('working')
     
     subprocess.Popen([TOUCH, './cfg/openssl.cfg'], stdout=subprocess.PIPE)
+    global OPENSSL_CFG
+    OPENSSL_CFG = OPENSSL_CFG %server_ip
     with open("./cfg/openssl.cfg", "w") as cfg_file:
         cfg_file.write(OPENSSL_CFG)
 
@@ -179,14 +181,19 @@ def create_certificate():
         -in req/server.csr -keyfile key/privatep8.key -days 3650 -out certs/server.crt -batch'
     output = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE)
 
+    time.sleep(2)
     retVal = []
-    cmd = 'cat cacert/ca.cer'
+    #cmd = 'cat cacert/ca.cer'
+    cmd = 'cat certs/server.crt'
     output = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE)
     retVal.append(output.communicate()[0])
     cmd = 'cat key/privatep8.key'
     output = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE)
     retVal.append(output.communicate()[0])
     
+    #make a copy of the cacert, which needs to be copied to the client 
+    cmd = 'cp certs/02.pem /tmp/cacert.pem'
+    output = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE)
     os.chdir('..')
     cmd = RM + ' -fr working'
     output = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE)

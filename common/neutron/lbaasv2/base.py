@@ -90,7 +90,8 @@ class BaseLBaaSTest(BaseNeutronTest, test_v1.BaseTestCase_v1):
         response = ''
         result = False
         if https:
-            cmds = "curl -i -k https://"+vip+":"+str(port)
+            vm.copy_file_to_vm('/tmp/cacert.pem', force=True)
+            cmds = "curl -i --cacert cacert.pem https://"+vip+":"+str(port)
         else:
             cmds = "curl -i "+vip+":"+str(port)
         result = vm.run_cmd_on_vm(cmds=[cmds])
