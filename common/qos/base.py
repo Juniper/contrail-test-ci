@@ -521,3 +521,37 @@ class TestQosSVCBase(QosTestExtendedBase):
         cls.st_fixture.cleanUp()
         super(TestQosSVCBase, cls).tearDownClass()
     # end tearDownClass
+    
+class FcIdGenerator():
+    '''
+        This class parse through the FCs present and 
+        return a unique FC ID which is not in use.
+    '''
+    __metaclass__ = Singleton
+    
+    def __init__(self, inputs, vnc_lib):
+        self.inputs = inputs
+        self.vnc_lib = vnc_lib
+        self.logger = self.inputs.logger
+    
+    def get_free_fc_ids(self, number):
+        ''' "number" is number of free fc_ids to be returned'''
+        fc_uuids = []
+        for elem in self.vnc_lib.forwarding_classs_list()['forwarding-classs']:
+            fc_uuids.append(elem['uuid'])
+        fc_ids = []
+        for elem in fc_uuids:
+            fc_ids.append(self.vnc_lib.forwarding_class_read(id =elem).\
+                            forwarding_class_id)
+        retruned_fc_ids = []
+        count = 0
+        for fc_id in range(0, 256):
+            if number > 0:
+                if fc_id not in fc_ids:
+                    retruned_fc_ids.append(fc_id)
+                    count = count +1
+                    if count == number:
+                        break
+            else:
+                break
+        return retruned_fc_ids
