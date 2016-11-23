@@ -244,7 +244,7 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
 
         api_file_list = []
         api_file_list.append(contrail_api_conf)
-        for cfgm_ip in self.inputs.cfgm_ips[1:]:
+        for cfgm_ip in self.inputs.cfgm_ips:
             with settings(
                     host_string='%s@%s' % (
                         self.inputs.host_data[cfgm_ip]['username'], cfgm_ip)):
@@ -275,7 +275,7 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
         # temp files
 
         count = 1
-        for cfgm_ip in self.inputs.cfgm_ips[1:]:
+        for cfgm_ip in self.inputs.cfgm_ips:
             with settings(
                     host_string='%s@%s' % (
                         self.inputs.host_data[cfgm_ip]['username'], cfgm_ip)):
