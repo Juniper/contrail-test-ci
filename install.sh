@@ -12,6 +12,7 @@ PACKAGES_REQUIRED_UBUNTU="python-pip ant python-novaclient python-neutronclient 
     python-contrail python-glanceclient python-heatclient python-ceilometerclient python-setuptools contrail-utils \
     patch git"
 PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD="$PACKAGES_REQUIRED_UBUNTU python-dev libxslt1-dev libz-dev libyaml-dev sshpass"
+EXTRAS="http://launchpadlibrarian.net/264517293/libexpat1_2.1.0-4ubuntu1.3_amd64.deb http://launchpadlibrarian.net/264517288/libexpat1-dev_2.1.0-4ubuntu1.3_amd64.deb https://launchpad.net/~ubuntu-security/+archive/ubuntu/ppa/+build/7566120/+files/libpython2.7-dev_2.7.6-8ubuntu0.2_amd64.deb https://launchpad.net/~ubuntu-security/+archive/ubuntu/ppa/+build/7566120/+files/python2.7-dev_2.7.6-8ubuntu0.2_amd64.deb"
 
 usage () {
     cat <<EOF
@@ -265,6 +266,8 @@ RUN wget $CONTRAIL_INSTALL_PACKAGE_URL -O /contrail-install-packages.deb && \
     dpkg -i /contrail-install-packages.deb && \
     rm -f /contrail-install-packages.deb && \
     cd /opt/contrail/contrail_packages/ && ./setup.sh && \
+    cd /opt/contrail/contrail_install_repo/ && wget $EXTRAS && \
+    cd /opt/contrail/contrail_install_repo/ && dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz && apt-get update && \
     apt-get install -y $PACKAGES_REQUIRED_DOCKER_BUILD && \
     sed -i '/file:\/opt\/contrail\/contrail_install_repo/d' /etc/apt/sources.list ; \
     rm -fr /opt/contrail/* ; apt-get -y autoremove && apt-get -y clean;
@@ -280,6 +283,8 @@ RUN apt-get install -y sshpass && \
     dpkg -i /contrail-install-packages.deb && \
     rm -f /contrail-install-packages.deb && \
     cd /opt/contrail/contrail_packages/ && ./setup.sh && \
+    cd /opt/contrail/contrail_install_repo/ && wget $EXTRAS && \
+    cd /opt/contrail/contrail_install_repo/ && dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz && apt-get update && \
     apt-get install -y $PACKAGES_REQUIRED_DOCKER_BUILD && \
     sed -i '/file:\/opt\/contrail\/contrail_install_repo/d' /etc/apt/sources.list ; \
     rm -fr /opt/contrail/* ; apt-get -y autoremove; apt-get -y clean
