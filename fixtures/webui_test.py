@@ -5997,15 +5997,7 @@ class WebuiTest:
                     if key == 'Security Groups':
                        sg_value = str(key_value[0]).split(',')
                        if sg_value:
-                           value = []
-                           for sg in sg_value:
-                               search_value = re.search("(.*)\(.*:(.*)", sg)
-                               if search_value:
-                                   sec_group = search_value.group(2).strip('\)') + '-' + \
-                                               search_value.group(1).strip()
-                               else:
-                                   sec_group = project_name + '-' + sg.strip()
-                               value.append((sec_group))
+                           value = self.ui.format_sec_group_name(sg_value, project_name)
                     if key == 'DHCP Options':
                         if isinstance(value, list):
                             value.pop(0)
