@@ -20,6 +20,7 @@ class GenericTestBase(test_v1.BaseTestCase_v1):
         cls.cn_inspect = cls.connections.cn_inspect
         cls.analytics_obj = cls.connections.analytics_obj
         cls.api_s_inspect = cls.connections.api_server_inspect
+        cls.orch = cls.connections.orch
         try:
             address_family = cls.address_family or 'v4'
         except AttributeError:
@@ -256,7 +257,7 @@ class GenericTestBase(test_v1.BaseTestCase_v1):
         self.vmi2_obj.set_virtual_machine_interface_allowed_address_pairs(aaps2)
         self.vnc_lib.virtual_machine_interface_update(self.vmi1_obj)
         self.vnc_lib.virtual_machine_interface_update(self.vmi2_obj)
-        return True 
+        return True
 
     def remove_from_cleanups(self, func_call, *args):
         for cleanup in self._cleanups:
