@@ -18,6 +18,7 @@ from tcutils.commands import ssh, execute_cmd, execute_cmd_out
 import ConfigParser
 import re
 from tcutils.contrail_status_check import *
+from contrailapi import ContrailVncApi
 
 contrail_api_conf = '/etc/contrail/contrail-api.conf'
 
@@ -35,6 +36,7 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
         cls.cn_inspect = cls.connections.cn_inspect
         cls.analytics_obj = cls.connections.analytics_obj
         cls.api_s_inspect = cls.connections.api_server_inspect
+        cls.vnc_h = ContrailVncApi(cls.vnc_lib, cls.logger)
 
         if cls.inputs.admin_username:
             public_creds = cls.admin_isolated_creds
@@ -360,31 +362,17 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
             return next_hops['itf']
     # end get_active_snat_node
 
-    def config_aap(self, port1, port2, ip, vsrx=False, zero_mac=False):
-        self.logger.info('Configuring AAP on ports %s and %s' %
-                         (port1['id'], port2['id']))
-#        port1_dict = {'allowed_address_pairs': [
-#            {"ip_address": ip + '/32', "mac_address": port1['mac_address']}]}
-#        port2_dict = {'allowed_address_pairs': [
-#            {"ip_address": ip + '/32', "mac_address": port2['mac_address']}]}
-        if zero_mac:
-            port1_dict = {'allowed_address_pairs': [
-                {"ip_address": ip + '/32', "mac_address": '00:00:00:00:00:00'}]}
-            port2_dict = {'allowed_address_pairs': [
-                {"ip_address": ip + '/32', "mac_address": '00:00:00:00:00:00'}]}
+    def config_aap(self, port, prefix, prefix_len=32, mac='', aap_mode='active-standby', contrail_api=False):
+        self.logger.info('Configuring AAP on port %s' % port['id'])
+        if is_v6(prefix):
+            prefix_len = 128
+        if contrail_api:
+            self.vnc_h.add_allowed_pair(
+                port['id'], prefix, prefix_len, mac, aap_mode)
         else:
-            if vsrx:
-                port1_dict = {'allowed_address_pairs': [
-                    {"ip_address": ip + '/32', "mac_address": '00:00:5e:00:01:01'}]}
-                port2_dict = {'allowed_address_pairs': [
-                    {"ip_address": ip + '/32', "mac_address": '00:00:5e:00:01:01'}]}
-            else:
-                port1_dict = {'allowed_address_pairs': [
-                    {"ip_address": ip + '/32'}]}
-                port2_dict = {'allowed_address_pairs': [
-                    {"ip_address": ip + '/32'}]}
-        port1_rsp = self.update_port(port1['id'], port1_dict)
-        port2_rsp = self.update_port(port2['id'], port2_dict)
+            port_dict = {'allowed_address_pairs': [
+                {"ip_address": prefix + '/' + str(prefix_len), "mac_address": mac}]}
+            port_rsp = self.update_port(port['id'], port_dict)
         return True
     # end config_aap
 
