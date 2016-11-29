@@ -978,6 +978,10 @@ def skip_because(*args, **kwargs):
                     skip = True
                     msg = "Skipped as testcase is not supported with Service Template v2"
                     raise testtools.TestCase.skipException(msg)
+            if 'domain_isolation' in kwargs:
+                if ((not self.inputs.domain_isolation) and (kwargs['domain_isolation'] == False)):
+                    skip = True
+                    msg = "This test is run only if domain_isolation is enabled."
             return f(self, *func_args, **func_kwargs)
         return wrapper
     return decorator
