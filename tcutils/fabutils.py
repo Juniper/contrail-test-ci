@@ -14,7 +14,8 @@ log = logging.getLogger('log01')
 
 def remote_cmd(host_string, cmd, password=None, gateway=None,
                gateway_password=None, with_sudo=False, timeout=120,
-               as_daemon=False, raw=False, cwd=None, warn_only=True):
+               as_daemon=False, raw=False, cwd=None, warn_only=True,
+               abort_on_prompts=True):
     """ Run command on remote node through another node (gateway).
         This is useful to run commands on VMs through compute node
     Args:
@@ -29,6 +30,9 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
         as_daemon: run in background
         warn_only: run fab with warn_only
         raw: If raw is True, will return the fab _AttributeString object itself without removing any unwanted output
+        abort_on_prompts : Run command with abort_on_prompts set to True
+                           Note that this SystemExit does get caught and
+                           counted against `tries`
     """
     fab_connections.clear()
     kwargs = {}
@@ -58,7 +62,7 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
             warn_only=warn_only,
             shell=shell,
             disable_known_hosts=True,
-            abort_on_prompts=False):
+            abort_on_prompts=abort_on_prompts):
         env.forward_agent = True
         gateway_hoststring = (gateway if re.match(r'\w+@[\d\.]+:\d+', gateway)
                               else gateway + ':22')
@@ -83,7 +87,8 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
         while tries > 0:
             try:
                 output = _run(cmd, timeout=timeout, **kwargs)
-            except CommandTimeout:
+            except (CommandTimeout, SystemExit) as e:
+                log.exception('Unable to run command %s: %s' % (cmd, str(e)))
                 pass
 
             if output and 'Fatal error' in output:
