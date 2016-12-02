@@ -46,6 +46,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     logger = contrail_logging.getLogger(__name__)
 
     cfgm_host = env.roledefs['cfgm'][0]
+    openstack_host = env.roledefs['openstack'][0]
 
     auth_protocol = get_authserver_protocol()
     auth_server_ip = get_authserver_ip()
@@ -525,6 +526,10 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         config.set('global','cafile', api_cafile)
         config.set('global','keyfile', api_keyfile)
         config.set('global','insecure',api_insecure_flag)
+        api_ssl_cert_files_list = [api_certfile, api_cafile, api_keyfile]
+        cfgm_password = get_env_passwords(cfgm_host)
+        copy_cert_ca_key_file(api_ssl_cert_files_list, cfgm_host, cfgm_password)
+
     if auth_protocol == 'https':
         if 'auth' not in config.sections():
             config.add_section('auth')
@@ -532,6 +537,9 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         config.set('auth','cafile', keystone_cafile)
         config.set('auth','keyfile', keystone_keyfile)
         config.set('auth','insecure', keystone_insecure_flag)
+        key_ssl_cert_files_list = [keystone_certfile, keystone_cafile, keystone_keyfile]
+        openstack_host_password = get_env_passwords(openstack_host)
+        copy_cert_ca_key_file(key_ssl_cert_files_list, openstack_host, openstack_host_password)
 
     with open(vnc_api_ini,'w') as f:
         config.write(f)
@@ -544,6 +552,20 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         update_js_config('openstack', '/etc/contrail/config.global.js',
                          'contrail-webui')
 
+def copy_cert_ca_key_file(ssl_cert_files_list, source_host, password):
+    ssh_opt = '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null '
+    scp_cmd = 'sshpass -p ' + password + ' scp -r '
+    for cert_file in ssl_cert_files_list:
+        file_path_split = cert_file.split('/')
+        ssl_cert_file = ''
+        for path in range(len(file_path_split)):
+            if path > 0 and path < len(file_path_split)-1:
+                file_path = '/' + file_path_split[path]
+                ssl_cert_file += file_path
+                if not os.path.exists(ssl_cert_file):
+                    os.makedirs(ssl_cert_file)
+        cmd = scp_cmd + ssh_opt + source_host + ':' + cert_file + ' ' + cert_file
+        local(cmd)
 
 def main(argv=sys.argv):
     ap = argparse.ArgumentParser(
