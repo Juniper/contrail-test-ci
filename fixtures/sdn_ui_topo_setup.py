@@ -138,7 +138,7 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
         return True
     # end create_floating_ip
 
-     def allocate_floating_ip(self):
+    def allocate_floating_ip(self):
         assert topo_steps.allocNassocFIP(self, self.config_topo, assoc=False)
         return True
     # end allocate_floating_ip
