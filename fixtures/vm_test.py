@@ -1024,7 +1024,7 @@ class VMFixture(fixtures.Fixture):
     def reset_state(self, state):
         self.vm_obj.reset_state(state)
 
-    def ping_vm_from_host(self, vn_fq_name):
+    def ping_vm_from_host(self, vn_fq_name, timeout=2):
         ''' Ping the VM metadata IP from the host
         '''
         host = self.inputs.host_data[self.vm_node_ip]
@@ -1034,9 +1034,11 @@ class VMFixture(fixtures.Fixture):
                 host_string='%s@%s' % (host['username'], self.vm_node_ip),
                 password=host['password'],
                     warn_only=True, abort_on_prompts=False):
-                #		output = run('ping %s -c 1' % (self.local_ips[vn_fq_name]))
-                #                expected_result = ' 0% packet loss'
-                output = run('ping %s -c 2' % (self.local_ips[vn_fq_name]))
+            #   Workaround till Bug 1615048 is fixed
+            #   output = run('ping %s -c 1' % (self.local_ips[vn_fq_name]))
+            #   expected_result = ' 0% packet loss'
+                output = run('ping %s -c 2 -W %s' % (
+                              self.local_ips[vn_fq_name], timeout))
                 failure = ' 100% packet loss'
                 self.logger.debug(output)
 #                if expected_result not in output:
