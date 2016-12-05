@@ -406,7 +406,7 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
 
     def disassoc_fip(self, fip_id):
         self.vnc_h.disassoc_floating_ip(fip_id)
-
+    
     def del_fip(self, fip_id):
         self.vnc_h.delete_floating_ip(fip_id)
 
