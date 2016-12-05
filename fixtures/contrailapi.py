@@ -31,7 +31,7 @@ class ContrailApi(Orchestrator):
         vm_obj = self._vnc.virtual_machine_read(id=vm_id)
         vmi = vm_obj.get_virtual_machine_interface_back_refs()[0]['uuid']
         vmintf = self._vnc.virtual_machine_interface_read(id=vmi)
-        fip_obj.set_virtual_machine_interface(vmintf)
+        fip_obj.add_virtual_machine_interface(vmintf)
         self._log.debug('Associating FIP:%s with VMI:%s' % (fip_id, vm_id))
         self._vnc.floating_ip_update(fip_obj)
         return fip_obj
