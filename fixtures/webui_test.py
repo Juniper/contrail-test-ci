@@ -1211,11 +1211,11 @@ class WebuiTest:
                     'build_info')).get('build-info')[0].get('build-id')
                 version = self.ui.get_version_string(version)
                 xmpp_messages = vrouters_ops_data.get(
-                    'VrouterStatsAgent').get('xmpp_stats_list')
-                for i, item in enumerate(xmpp_messages):
-                    if item['ip'] == ip_address:
-                        xmpp_in_msgs = item['in_msgs']
-                        xmpp_out_msgs = item['out_msgs']
+                    'VrouterControlStats').get('xmpp_stats')
+                for key, value in xmpp_messages.iteritems():
+                    if key == ip_address:
+                        xmpp_in_msgs = value['in_msgs']
+                        xmpp_out_msgs = value['out_msgs']
                         xmpp_msgs_string = str(xmpp_in_msgs) + \
                             ' In, ' + \
                             str(xmpp_out_msgs) + ' Out'
