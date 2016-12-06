@@ -2032,8 +2032,8 @@ class WebuiTest:
                 for index in range(len(item_list)):
                     intf_dict = {}
                     label = self.ui.find_element(
-                        'label',
-                        'tag',
+                        'row',
+                        'class',
                         browser=item_list[index],
                         elements=True)
                     for lbl in label:
@@ -2254,8 +2254,8 @@ class WebuiTest:
                     elements=True)
                 for item in item_list:
                     label = self.ui.find_element(
-                        'label',
-                        'tag',
+                        'row',
+                        'class',
                         browser=item,
                         elements=True)
                     for lbl in label:
