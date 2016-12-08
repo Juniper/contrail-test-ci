@@ -2792,6 +2792,13 @@ class AnalyticsVerification(fixtures.Fixture):
         return self.verify_alarms(role='all', alarm_type='disk-usage')
     # end verify_disk_usage_alarm
 
+    def verify_configured_alarm(self,role='virtual-network', alarm_name=None, verify_alarm_cleared=False):
+        service_ip = self.inputs.collector_ips[0]
+        return self._verify_alarms_by_type(service=None, service_ip=service_ip,
+                    role=role, alarm_type=alarm_name,
+                     verify_alarm_cleared=verify_alarm_cleared, built_in=False)
+    # end  verify_configured_alarm
+
     def _verify_alarms_stop_svc(self, service, service_ip, role, alarm_type, multi_instances=False, soak_timer=15):
         result = True
         self.logger.info("Verify alarms generated after stopping the service %s:" % (service))
@@ -2828,7 +2835,7 @@ class AnalyticsVerification(fixtures.Fixture):
         return result
 
     def _verify_alarms_by_type(self, service, service_ip, role, alarm_type, multi_instances=False,
-            soak_timer=15, verify_alarm_cleared=False):
+            soak_timer=15, verify_alarm_cleared=False, built_in=True):
         result = True
         soaking = False
         supervisor = False
@@ -2883,7 +2890,7 @@ class AnalyticsVerification(fixtures.Fixture):
                             if retry > MAX_RETRY_COUNT:
                                 self.logger.error("No alarms have been generated")
                                 return False
-                        role_alarms = self.get_alarms(all_alarms, hostname, role, alarm_t, service=service)
+                        role_alarms = self.get_alarms(all_alarms, hostname, role, alarm_t, service=service, built_in=built_in)
                         if not role_alarms:
                             retry = retry + 1
                             time.sleep(SLEEP_DURATION)
@@ -2905,7 +2912,7 @@ class AnalyticsVerification(fixtures.Fixture):
                     retry = 0
                     all_alarms = self.ops_inspect[collector_ip].get_ops_alarms()
                     if all_alarms:
-                        role_alarms = self.get_alarms(all_alarms, hostname, role, alarm_t, service=service, clear=True)
+                        role_alarms = self.get_alarms(all_alarms, hostname, role, alarm_t, service=service, clear=True, built_in=built_in)
                         if not role_alarms:
                             self.logger.info("Alarm type %s cleared for role %s" % (alarm_t, role))
                     else:
@@ -2915,7 +2922,7 @@ class AnalyticsVerification(fixtures.Fixture):
                         all_alarms = self.ops_inspect[collector_ip].get_ops_alarms()
                         role_alarms = None
                         if all_alarms:
-                            role_alarms = self.get_alarms(all_alarms, hostname, role, alarm_t, service=service, clear=True)
+                            role_alarms = self.get_alarms(all_alarms, hostname, role, alarm_t, service=service, clear=True, built_in=built_in)
                         retry = retry + 1
                         time.sleep(SLEEP_DURATION)
                         if retry % 10 == 0:
@@ -3043,7 +3050,7 @@ class AnalyticsVerification(fixtures.Fixture):
         return result
     # end _verify_contrail_alarms
 
-    def get_alarms(self, alarms, hostname, role, alarm_type=None, service=None, clear=False):
+    def get_alarms(self, alarms, hostname, role, alarm_type=None, service=None, clear=False,built_in=True):
         '''To return the dict of alarms based on host, service or alarm type
         hostname = host
         role = analytics-node, vrouter, database-node, config-node, control-node
@@ -3064,7 +3071,11 @@ class AnalyticsVerification(fixtures.Fixture):
         else:
             return None
         for nalarms in role_alarms:
-            h_name = nalarms['name'].split('.')[0]
+            if built_in:
+                h_name = nalarms['name'].split('.')[0]
+                alarm_type = 'system-defined-' + alarm_type 
+            else:
+                h_name = hostname
             if h_name == hostname:
                 if not alarm_type and not service:
                     # return all alarms for a host
@@ -3116,9 +3127,9 @@ class AnalyticsVerification(fixtures.Fixture):
                                             print type_alarms
                                             return type_alarms
 
-                        elif not clear:
-                            self.logger.warn("Alarm type %s alarms not generated yet ..wait .checking again" % (alarm_type))
-                    return None
+        if not clear:
+            self.logger.warn("Alarm type %s alarms not generated yet ..wait .checking again" % (alarm_type))
+        return None
     # end get_alarms
 
 # Config-node uve verification
