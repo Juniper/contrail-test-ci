@@ -120,11 +120,17 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
                     svm_name = get_random_name("pt_svm" + str(i))
                     pt_name = get_random_name("port_tuple" + str(i))
                     if svc_mode == 'transparent':
+                        svm_vns = [self.trans_mgmt_vn_fixture, self.trans_left_vn_fixture, self.trans_right_vn_fixture]
+                        if svc_type == 'analyzer':
+                            svm_vns = [self.trans_left_vn_fixture]
                         svm_fixture = self.config_and_verify_vm(
-                            svm_name, image_name=svc_img_name, vns=[self.trans_mgmt_vn_fixture, self.trans_left_vn_fixture, self.trans_right_vn_fixture], count=1, flavor='m1.large')
+                            svm_name, image_name=svc_img_name, vns=svm_vns, count=1, flavor='m1.large')
                     else:
+                        svm_vns=[self.mgmt_vn_fixture, self.vn1_fixture, self.vn2_fixture]
+                        if svc_type == 'analyzer':
+                            svm_vns = [self.vn1_fixture]
                         svm_fixture = self.config_and_verify_vm(
-                            svm_name, image_name=svc_img_name, vns=[self.mgmt_vn_fixture, self.vn1_fixture, self.vn2_fixture], count=1, flavor='m1.large')
+                            svm_name, image_name=svc_img_name, vns=svm_vns, count=1, flavor='m1.large')
                     si_fixture.add_port_tuple(svm_fixture, pt_name)
             si_fixture.verify_on_setup()
             si_fixtures.append(si_fixture)
