@@ -3072,8 +3072,10 @@ class AnalyticsVerification(fixtures.Fixture):
             return None
         for nalarms in role_alarms:
             if built_in:
+                fqname = 'default-global-system-config'
+                prefix = 'system-defined-'
                 h_name = nalarms['name'].split('.')[0]
-                alarm_type = 'system-defined-' + alarm_type 
+                alarm_type = fqname + ':' + prefix  + alarm_type
             else:
                 h_name = hostname
             if h_name == hostname:
@@ -3085,7 +3087,7 @@ class AnalyticsVerification(fixtures.Fixture):
                     #print type_alarms_list
                     for type_alarms in type_alarms_list:
                         #print type_alarms['type']
-                        if type_alarms['type'] == 'system-defined-' + alarm_type:
+                        if type_alarms['type'] ==  alarm_type:
                             if not clear:
                                 self.logger.info("%s alarms generated" % alarm_type)
                             if not service:
