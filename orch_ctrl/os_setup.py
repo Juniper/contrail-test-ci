@@ -4,6 +4,8 @@ from fabric.context_managers import settings
 from fabric.operations import sudo, put
 from common import FlavorMgr, ImageMgr, RoundRobin
 
+#TODO: logging
+
 class OpenstackControl (object):
 
    ''' Single openstack-contrail cluster setup
@@ -143,7 +145,9 @@ class OpenstackControl (object):
    def _pick_image (self, image):
        for ns in self._namespaces:
            try:
-               return self._img_mgr.get_image(ns, image)
+               img = self._img_mgr.get_image(ns, image)
+               #TODO: add debug
+               return img
            except NameError:
                pass
        raise Exception('Image %s not in %s' % (image, self._namespaces))
@@ -163,6 +167,7 @@ class OpenstackControl (object):
                zone, host = self.select_lb.next(zone)
            ns = self.hosts[host].hypervisor_type.lower()
            image_obj = self._img_mgr.get_image(ns, image)
+           #TODO add debug
            return zone + ':' + host, image_obj
 
        attempts = len(self.select_lb)
@@ -171,6 +176,7 @@ class OpenstackControl (object):
            ns = self.hosts[host].hypervisor_type.lower()
            try:
                image_obj = self._img_mgr.get_image(ns, image)
+               #TODO add debug
                return zone + ':' + host, image_obj
            except NameError:
                attempts -= 1
@@ -183,7 +189,8 @@ class OpenstackControl (object):
        zone, image = self._pick_host_and_image(kwargs.get('availability_zone',
                                                          None),
                                               kwargs['image'])
-       kwargs['availability_zone'] = zone
+       if zone:
+           kwargs['availability_zone'] = zone
        kwargs['image'] = image
        return self.get_api('openstack').create_virtual_machine(**kwargs)
 
@@ -198,7 +205,11 @@ class OpenstackControl (object):
        ctx = self.oswrap.get_flavor(name)
        if ctx:
            return ctx
-       return self.oswrap.create_flavor(name=name, **kwargs)
+       self.logger.debug('Adding flavor %s' % name)
+       ctx = self.oswrap.create_flavor(name=name, **kwargs)
+       if self.inputs.dpdk_data:
+           ctx.set_keys({'hw:mem_page_size': 'any'})
+       return ctx
 
    def _install_image (self, ns, img_info, img_url):
        #TODO: check if docker requires special handling

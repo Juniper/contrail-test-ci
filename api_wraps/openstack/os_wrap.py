@@ -81,11 +81,9 @@ try:
            except novaException.NotFound:
                return None
 
-       def create_flavor (self, name, vcpus, ram, disk, extra_specs=None):
+       def create_flavor (self, name, vcpus, ram, disk):
            self._nh.flavors.create(name=name, vcpus=vcpus, ram=ram, disk=disk)
            flavor = self.get_flavor(name)
-           if extra_specs:
-               flavor.set_keys(ast.literal_eval(extra_specs))
            return flavor
 
        def get_image (self, name_or_id):
@@ -109,14 +107,15 @@ try:
            obj = self._nh.servers.create(**kwargs)
            return obj.id
 
-       def get_virtual_machine (self, rid):
-           ret = self._nh.servers.list(search_opts={'uuid':rid})
+       def get_virtual_machine (self, uuid):
+           ret = self._nh.servers.list(search_opts={'uuid':uuid})
            if ret:
                return ret[0]
            return None
 
-       def delete_virtual_machine (self, vm):
-           return self._nh.servers.delete(vm.id)
+       def delete_virtual_machine (self, obj=None, uuid=None):
+           uuid = uuid or obj.id
+           return self._nh.servers.delete(uuid)
 
        #TODO get/create/delete/update virtual_machine
        #TODO get/create/delete/update virtual_machine_interface

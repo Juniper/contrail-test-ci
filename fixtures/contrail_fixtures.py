@@ -9,10 +9,12 @@ def _process_refs_to (val, objs):
        return objs['id-map'][val].fq_name
 
 def process_refs (args, refs, objs):
+
    ''' Helper routine to handle refs, converts
        - [fqdn...] to [{"to":fqdn}...]
        - [fqdn...] + [ref-data...] to [{"to":fqdn, "attr":ref-data}...]
    '''
+
    new_args = copy.deepcopy(args)
    for ref in refs:
        try:
@@ -34,60 +36,101 @@ class ContrailFixture (fixtures.Fixture):
 
    ''' Base class for all fixtures. '''
 
-   def __init__ (self, uuid=None, connections=None):
-       self._id = uuid
-       self._connections = connections
-       self._inputs = None
-       self._logger = None
+   def __init__ (self, connections, uuid=None, params=None, fixs=None):
+       self.fixs = fixs
+       self.connections = connections
+       self.inputs = connections.inputs
+       self.logger = connections.logger
+       self._ctrl = connections.get_orch_ctrl()
+       self.type_name = self.vnc_class.resource_type
+       self._setup_ref_fields()
+       self._vnc = self._ctrl.get_api('vnc')
+       if type(uuid) == type([]):
+           self.uuid = self._vnc.fqn_to_id(self.type_name, uuid)
+       else:
+           self.uuid = uuid
+       self._args_type = None
        self._vnc_obj = None
-       self._verify_on_setup = os.getenv('VERIFY_ON_SETUP') or False
+       self._obj = None
+       self._owned = False if uuid else True
+       self._args = self._handle_args(params)
        self._verify_on_cleanup = os.getenv('VERIFY_ON_CLEANUP') or False
-       if connections:
-           self._ctrl = self._connections.get_orch_ctrl()
-           self._vnc = self._ctrl.get_api('vnc')
-           self._inputs = connections.inputs
-           self._logger = connections.logger
+
+   def _setup_ref_fields (self):
+       self.ref_fields = []
+       for ref in self.vnc_class.ref_fields:
+           if self.vnc_class.ref_field_types[ref][1] != 'None':
+               self.ref_fields.append((ref, ref + '_data'))
+           else:
+               self.ref_fields.append((ref,))
+
+   def _handle_args (self, params):
+       if not params:
+           return None
+       res_type = params['type']
+       if 'OS::ContrailV2' in res_type and getattr(self, 'ref_fields', None):
+           args = process_refs(params, self.ref_fields, self.fixs)
+       else:
+           args = params
+       self._args_type = args['type']
+       del args['type']
+       return args
+
+   def _update_args (self, params):
+       self._args.update(params) #TODO: delete all entries set to None/[]/{}
+
+   #@property
+   #def uuid (self):
+   #    return self._uuid or self._vnc_obj.uuid
 
    @property
-   def uuid (self):
-       return self._vnc_obj.uuid
+   def vnc_obj (self):
+       if not self._vnc_obj:
+           self._read()
+       return self._vnc_obj
+
+   @property
+   def args (self):
+       return self._args or self._parse_args_from_vnc_obj()
 
    @property
    def name (self):
-       return self._vnc_obj.name
+       return self.vnc_obj.name
 
    @property
    def fq_name (self):
-       return self._vnc_obj.get_fq_name()
+       if not self._vnc_obj:
+           return self._vnc.id_to_fqn(self.uuid)
+       return self.vnc_obj.get_fq_name()
 
    @property
    def fq_name_str (self):
-       return self._vnc_obj.get_fq_name_str()
+       if not self._vnc_obj:
+           return ':'.join(self._vnc.id_to_fqn(self.uuid))
+       return self.vnc_obj.get_fq_name_str()
 
    def setUp (self):
        super(ContrailFixture, self).setUp()
-       if self._id:
-           self._read(self._id)
+       if not self._owned:
+           self._read()
        else:
            self._create()
-       if self._verify_on_setup:
-           self.verify_on_setup()
 
    def cleanUp (self):
        super(ContrailFixture, self).cleanUp()
-       if not self._id:
+       if self._owned:
            self._delete()
        if self._verify_on_cleanup:
            self.verify_on_cleanup()
 
    def update (self, params=None):
        if not params:
-           self._read(self.uuid)
+           self._read()
        else:
-           self._update (params)
-       if self._verify_on_setup:
-           self.verify_on_setup()
+           self._update_args(self._handle_args(params))
+           self._update()
 
+#TODO: check with contrail_fix_ext reqd?
 def contrail_fix_ext(*dargs, **dkwargs):
     '''
         Must have methods = (verify_on_setup)

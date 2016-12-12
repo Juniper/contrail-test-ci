@@ -7,6 +7,7 @@ import cgitb
 import cStringIO
 from datetime import datetime
 from tcutils.util import v4OnlyTestException
+from common import resource_handler
 
 from cores import *
 
@@ -71,6 +72,9 @@ def preposttest_wrapper(function):
             log.info('Initial checks done. Running the testcase now')
             log.info('')
             result = function(self, *args, **kwargs)
+            if not result:
+                if getattr(self, 'objs', None):
+                    resource_handler.verify_on_setup(self.objs)
         except KeyboardInterrupt:
             raise
         except (TestSkipped, v4OnlyTestException), msg:

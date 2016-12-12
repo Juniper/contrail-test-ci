@@ -1,7 +1,7 @@
 #TODO: This module replaces fixtures/contrailapi.py
 import functools
 from vnc_api.vnc_api import *
-from tcutils.util import get_random_name
+from tcutils.util import get_random_name, retry
 
 _RESOURCES = {
    'access_control_list':  AccessControlList,
@@ -85,6 +85,19 @@ class VncWrap:
        self._project = self._get('project', project_id)
        self._export_fns()
 
+   def fqn_to_id (self, resource, fqn):
+       return True, self._vnc.fq_name_to_id(resource, fqn)
+
+   @retry(delay=1, tries=5)
+   def _get_fqn (self, rid):
+       try:
+           return True, self._vnc.id_to_fq_name(rid)
+       except NoIdError:
+           return False, None
+
+   def id_to_fqn (self, rid):
+       return self._get_fqn(rid)[1]
+
    def _get_vnc_fn (self, resource, ops):
        fn_name = resource + '_' + ops
        fn = getattr(self._vnc, fn_name, None)
@@ -101,10 +114,11 @@ class VncWrap:
            except NoIdError:
                return None
 
-   def _delete (self, resource, obj):
+   def _delete (self, resource, obj=None, uuid=None):
        fn = self._get_vnc_fn(resource, 'delete')
+       uuid = uuid or obj.uuid
        try:
-           fn(id=obj.uuid)
+           fn(id=uuid)
        except NoIdError:
            pass
 
@@ -147,9 +161,10 @@ class VncWrap:
                _RESOURCES[resource].ref_fields)
        return fn(obj)
 
-   def _update (self, resource, obj, **kwargs):
+   def _update (self, resource, obj=None, uuid=None, **kwargs):
        fn = self._get_vnc_fn(resource, 'update')
        self._set_parent_type(resource, kwargs)
+       obj = obj or self._get(resource, uuid)       
        kwargs['fq_name'] = obj.fq_name
        kwargs['uuid'] = obj.uuid
        obj_upd = _RESOURCES[resource].from_dict(**kwargs)
