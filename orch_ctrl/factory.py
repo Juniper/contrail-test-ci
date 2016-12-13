@@ -2,17 +2,21 @@ import os
 from common import RoundRobin, RoundRobinZoneRestricted
 
 def _setup_1 (conn):
-   from os_ctrl import OpenstackControl
+   from os_setup import OpenstackControl
    cfgm_ip = conn.inputs.api_server_ip or \
              conn.inputs.contrail_external_vip or conn.inputs.cfgm_ip
 
+   conn.logger.debug('Intializing OpenstackControl')
    hyper = os.getenv('HYPERVISOR_TYPE')
    if hyper:
        zone = 'nova'
        if hyper == 'docker':
            zone = 'nova/docker'
+       conn.logger.debug('load-balance-algo: hypervisor:%s, zone:%s' % (hyper,
+                         zone))
        lb_class = RoundRobinZoneRestricted(zone)
    else:
+       conn.logger.debug('load-balance-algo: default')
        lb_class = RoundRobin()
 
    args = {'username':conn.username,
@@ -34,7 +38,7 @@ def _setup_1 (conn):
 _DEPLOYMENTS = {
    'openstack' : _setup_1, # single openstack cluster
    #TODO 'vcenter' : _setup_2, # single vcenter cluster
-   #TODO 'openstack+vcenter-' : _setup_3, # openstack with vcenter as compute
+   #TODO 'openstack+vcenter' : _setup_3, # openstack with vcenter as compute
    #TODO 'openstack+vcenter-gateway' : _setup_4, # openstack with vcenter gateway
 }
 

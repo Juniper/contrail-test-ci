@@ -1,31 +1,18 @@
-from contrail_fixtures import ContrailFixture, process_refs
-
-def _v2_args (args, objs):
-   fields = [
-       ('service_health_check_refs',),
-       ('routing_instance_refs', 'routing_instance_refs_data'),
-       ('security_group_refs',),
-       ('physical_interface_refs',),
-       ('port_tuple_refs',),
-       ('interface_route_table_refs',),
-       ('virtual_machine_inteface_refs',),
-       ('virtual_network_refs',),
-       ('virtual_machine_refs',),
-       ('qos_config_refs',),
-   ]
-   new_args = process_refs(args, fields, objs)
-   return new_args
-
-def transform_args (ver, args, topo):
-   if 'OS::ContrailV2::' in ver:
-       return _v2_args(args, topo)
-   return args
+#TODO integrate with port_fixture.py
+from contrail_fixtures import ContrailFixture
+from tcutils.util import retry
+from vnc_api.vnc_api import VirtualMachineInterface
 
 class PortFixture (ContrailFixture):
 
-   def __init__ (self, connections, rid=None, params=None):
-       super(PortFixture, self).__init__(rid, connections)
-       self._args = params
+   vnc_class = VirtualMachineInterface
+
+   def __init__ (self, connections, uuid=None, params=None, fixs=None):
+       super(PortFixture, self).__init__(
+           uuid=uuid,
+           connections=connections,
+           params=params,
+           fixs=fixs)
 
    def get_attr (self, lst):
        if lst == ['fq_name']:
@@ -35,22 +22,46 @@ class PortFixture (ContrailFixture):
    def get_resource (self):
        return self.uuid
 
-   def _read (self, rid):
-       self._vnc_obj = self._vnc.get_virtual_machine_interface(rid)
+   def __str__ (self):
+       #TODO: __str__
+       if self._args:
+           info = ''
+       else:
+           info = ''
+       return '%s:%s' % (self.type_name, info)
+
+   @retry(delay=1, tries=5)
+   def _read (self):
+       self._vnc_obj = self._vnc.get_virtual_machine_interface(self.uuid)
+       self._vnc_obj = self._vnc.get_virtual_machine_interface(self.uuid)
+       return self._vnc_obj and self._obj
 
    def _create (self):
-       rid = self._ctrl.create_virtual_machine_interface(**self._args)
-       self._read(rid)
-       pass
+       self.logger.debug('Creating %s' % self)
+       self.uuid = self._ctrl.create_virtual_machine_interface(**self._args)
 
    def _delete (self):
-       self._ctrl.delete_virtual_machine_interface(self._vnc_obj)
+       self.logger.debug('Deleting %s' % self)
+       self._ctrl.delete_virtual_machine_interface(obj=self._obj,
+                                                   uuid=self.uuid)
 
-   def _update (self, params):
-       pass
+   def _update (self):
+       self.logger.debug('Updating %s' % self)
+       self._ctrl.update_virtual_machine_interface(obj=self._obj,
+                                                   uuid=self.uuid,
+                                                   **self.args)
 
-   def verify_on_setup ():
-       pass
+   def verify_on_setup (self):
+       assert self.vnc_obj, '%s not found' % self
+       #TODO: check if more verification is needed
 
-   def verify_on_cleanup ():
-       pass
+   def verify_on_cleanup (self):
+       ret, err = self._verify_not_in_api_server()
+       assert ret, err
+       #TODO: check if more verification is needed
+
+   @retry(delay=5, tries=6)
+   def _verify_not_in_api_server (self):
+       if self._vnc.get_virtual_machine_interface(self.uuid):
+           return False, '%s not removed' % self
+       return True, None

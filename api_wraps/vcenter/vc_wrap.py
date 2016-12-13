@@ -166,17 +166,11 @@ try:
 
        #TODO def register_virtual_machine_template
 
-       #TODO def get_virtual_machine (self, dc, rid):
+       #TODO def get_virtual_machine (self, dc, uuid):
 
        #TODO def create_virtual_machine (self, dc, **kwargs):
 
-       def delete_virtual_machine (self, vm_obj):
-           if vm_obj.runtime.powerState != 'poweredOff':
-               try:
-                   _wait_for_task_timeout(vm_obj.PowerOff())
-               except RuntimeError: # Ignore if VM shutdown took too long
-                   pass
-               _wait_for_task_timeout(vm_obj.Destroy())
+       #TODO def delete_virtual_machine (self, dc, obj=None, uuid=None):
 
        def migrate_virtual_machine (self, vm_obj, host):
            if host == vm_obj.runtime.host:
@@ -185,7 +179,7 @@ try:
            _wait_for_task_timeout(vm.RelocateVM_Task(_vim_obj('vm.Reloc',
                                    host=tgt, datastore=tgt.datastore[0])))
 
-       #TODO def get_virtual_network (self, dc, rid):
+       #TODO def get_virtual_network (self, dc, uuid):
 
        #TODO def create_virtual_network (self, dc, **kwargs):
 

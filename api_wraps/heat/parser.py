@@ -67,11 +67,11 @@ def _parse_get_param (tmpl, params, objs):
 def _parse_get_attr (tmpl, params, objs):
    res_name = tmpl['get_attr'][0]
    attr = tmpl['get_attr'][1:]
-   return objs[res_name]['fixture'].get_attr(attr)
+   return objs['fixtures'][res_name].get_attr(attr)
 
 def _parse_get_resource (tmpl, params, objs):
    res_name = tmpl['get_resource']
-   return objs[res_name]['fixture'].get_resource()
+   return objs['fixtures'][res_name].get_resource()
 
 def _parse_list_join (tmpl, params, objs):
    delim = tmpl['list_join'][0]
@@ -259,7 +259,7 @@ def _fix_refs_in_list (tmpl, objs):
        lst.append(item)
    return lst
 
-def fix_fwd_refs (topo, tmpl, refs):
+def fix_fwd_refs (objs, tmpl, refs):
 
    ''' Resolve forward references.
        This function is called between first-pass (resource creation), and
@@ -270,6 +270,6 @@ def fix_fwd_refs (topo, tmpl, refs):
        props = tmpl['resources'][res]['properties']
        for prop, prop_tmpl in props.items():
            if type(prop_tmpl) == type({}):
-               props[prop] = _fix_refs_in_dict(prop_tmpl, topo)
+               props[prop] = _fix_refs_in_dict(prop_tmpl, objs)
            elif type(prop_tmpl) == type([]):
-               props[prop] = _fix_refs_in_list(prop_tmpl, topo)
+               props[prop] = _fix_refs_in_list(prop_tmpl, objs)

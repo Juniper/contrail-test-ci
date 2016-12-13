@@ -1,14 +1,13 @@
-#TODO integrate with vm_test.py
 from contrail_fixtures import ContrailFixture
 from tcutils.util import retry
-from vnc_api.vnc_api import VirtualMachine
+from vnc_api.vnc_api import PortTuple
 
-class VMFixture (ContrailFixture):
+class PortTupleFixture (ContrailFixture):
 
-   vnc_class = VirtualMachine
+   vnc_class = PortTuple
 
    def __init__ (self, connections, uuid=None, params=None, fixs=None):
-       super(VMFixture, self).__init__(
+       super(PortTupleFixture, self).__init__(
            uuid=uuid,
            connections=connections,
            params=params,
@@ -32,22 +31,25 @@ class VMFixture (ContrailFixture):
 
    @retry(delay=1, tries=5)
    def _read (self):
-       self._obj = self._ctrl.get_virtual_machine(self.uuid)
-       self._vnc_obj = self._vnc.get_virtual_machine(self.uuid)
+       self._vnc_obj = self._vnc.get_port_tuple(self.uuid)
+       # no orchestrator has api for port-tuple, retain vnc obj
+       self._obj = self._vnc_obj
        return self._vnc_obj and self._obj
 
    def _create (self):
        self.logger.debug('Creating %s' % self)
-       self.uuid = self._ctrl.create_virtual_machine(**self._args)
+       self.uuid = self._ctrl.create_port_tuple(
+           **self._args)
 
    def _delete (self):
        self.logger.debug('Deleting %s' % self)
-       self._ctrl.delete_virtual_machine(obj=self._obj, uuid=self.uuid)
+       self._ctrl.delete_port_tuple(
+           obj=self._obj, uuid=self.uuid)
 
    def _update (self):
        self.logger.debug('Updating %s' % self)
-       self._ctrl.update_virtual_machine(obj=self._obj, uuid=self.uuid,
-                                         **self.args)
+       self._ctrl.update_port_tuple(
+           obj=self._obj, uuid=self.uuid, **self.args)
 
    def verify_on_setup (self):
        assert self.vnc_obj, '%s not found' % self
@@ -60,6 +62,6 @@ class VMFixture (ContrailFixture):
 
    @retry(delay=5, tries=6)
    def _verify_not_in_api_server (self):
-       if self._vnc.get_virtual_machine(self.uuid):
+       if self._vnc.get_port_tuple(self.uuid):
            return False, '%s not removed' % self
        return True, None

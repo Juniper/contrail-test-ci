@@ -1,13 +1,18 @@
+#TODO: integrate with policy_test.py
 from contrail_fixtures import ContrailFixture
-
-def transform_args (ver, args, topo):
-   return args
+from tcutils.util import retry
+from vnc_api.vnc_api import NetworkPolicy
 
 class PolicyFixture (ContrailFixture):
 
-   def __init__(self, connections, rid=None, params=None):
-       super(PolicyFixture, self).__init__(rid, connections)
-       self._args = params
+   vnc_class = NetworkPolicy
+
+   def __init__ (self, connections, uuid=None, params=None, fixs=None):
+       super(PolicyFixture, self).__init__(
+           uuid=uuid,
+           connections=connections,
+           params=params,
+           fixs=fixs)
 
    def get_attr (self, lst):
        if lst == ['fq_name']:
@@ -17,25 +22,44 @@ class PolicyFixture (ContrailFixture):
    def get_resource (self):
        return self.uuid
 
-   def _read (self, rid):
-       self._obj = self._ctrl.get_network_policy(rid)
-       self._vnc_obj = self._vnc.get_network_policy(rid)
+   def __str__ (self):
+       #TODO: __str__
+       if self._args:
+           info = ''
+       else:
+           info = ''
+       return '%s:%s' % (self.type_name, info)
+
+   @retry(delay=1, tries=5)
+   def _read (self):
+       self._obj = self._ctrl.get_network_policy(self.uuid)
+       self._vnc_obj = self._vnc.get_network_policy(self.uuid)
+       return self._vnc_obj and self._obj
 
    def _create (self):
-       rid = self._ctrl.create_network_policy(**self._args)
-       self._read(rid)
+       self.logger.debug('Creating %s' % self)
+       self.uuid = self._ctrl.create_network_policy(**self._args)
 
    def _delete (self):
-       self._ctrl.delete_network_policy(self._obj)
+       self.logger.debug('Deleting %s' % self)
+       self._ctrl.delete_network_policy(obj=self._obj, uuid=self.uuid)
 
-   def _update (self, params):
-       self._args.update(params)
-       rid = self._vnc_obj.uuid
-       self._ctrl.update_network_policy(self._obj, **self._args)
-       self._read(rid)
+   def _update (self):
+       self.logger.debug('Updating %s' % self)
+       self._ctrl.update_network_policy(obj=self._obj, uuid=self.uuid,
+                                        **self.args)
 
-   def verify_on_setup ():
-       pass
+   def verify_on_setup (self):
+       assert self.vnc_obj, '%s not found' % self
+       #TODO: check if more verification is needed
 
-   def verify_on_cleanup ():
-       pass
+   def verify_on_cleanup (self):
+       ret, err = self._verify_not_in_api_server()
+       assert ret, err
+       #TODO: check if more verification is needed
+
+   @retry(delay=5, tries=6)
+   def _verify_not_in_api_server (self):
+       if self._vnc.get_network_policy(self.uuid):
+           return False, '%s not removed' % self
+       return True, None

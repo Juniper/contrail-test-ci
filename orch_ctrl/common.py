@@ -25,7 +25,7 @@ class NFSMgr:
 
    __metaclass__ = Singleton
 
-   def __init__ (self, inputs, get_fn, create_fn, delete_fn, hosts,
+   def __init__ (self, inputs, get_fn, create_fn, delete_fn, hosts, logger,
                  nfs=None, nfs_path='/nfs', name='nfs-ds'):
        self.name = name
        self.nfs_path = nfs_path
@@ -33,8 +33,10 @@ class NFSMgr:
        self.nfs = nfs or inputs.cfgm_ip
 
        if get_fn(self.name):
+           logger.debug('NFS %s already in system' % self.name)
            return
 
+       logger.debug('NFS:%s [%s] on %s' % (self.name, self.nfs_path, self.nfs))
        username = inputs.host_data[self.nfs]['username']
        password = inputs.host_data[self.nfs]['password']
        with settings(host_string=username+'@'+self.nfs, password=password,
@@ -46,12 +48,13 @@ class NFSMgr:
                 % self.nfs_path)
            sudo('service nfs-kernel-server restart')
 
+       loger.debug('NFS started, mounting the volume')
        self._objs = create_fn(rhost=self.nfs, rpath=self.nfs_path, lpath=name,
                               hosts=hosts)
        atexit.register(self.cleanUp)
 
    def cleanUp (self):
-       self.delete_fn(self._objs)
+       self._delete_fn(self._objs)
 
 class VlanMgr:
 
@@ -99,15 +102,17 @@ class FlavorMgr:
        try:
            info = self.flavor_info[flavor]
        except KeyError as e:
-           if 'contrail_' not in flavor:
+           if 'contrail' not in flavor:
+               # non-contrail system definied flavors are preloaded, just read
                self.flavor_info[flavor] = {}
                info = self.flavor_info[flavor]
            else:
                raise e
-       with self._lock:
-           try:
-               return info['context']
-           except KeyError:
+
+       try:
+           return info['context']
+       except KeyError:
+           with self._lock:
                info['context'] = self._loader(name=flavor, **info)
                return info['context']
 
@@ -215,8 +220,7 @@ class RoundRobin (object):
 
    def _next_host (self, zone):
        while True:
-           hosts = self._zones[zone]['hosts']
-           for host in hosts:
+           for host in self._zones[zone]['hosts']:
                yield host
 
    def _find_host_zone (self, host):
