@@ -6000,15 +6000,8 @@ class WebuiTest:
                     if key == 'Security Groups':
                        sg_value = str(key_value[1]).split(',')
                        if sg_value:
-                           value = []
-                           for sg in sg_value:
-                               search_value = re.search("(.*)\(.*:(.*)", sg)
-                               if search_value:
-                                   sec_group = search_value.group(2).strip('\)') + '-' + \
-                                               search_value.group(1).strip()
-                               else:
-                                   sec_group = self.project_name_input + '-' + sg.strip()
-                               value.append((sec_group))
+                           value = self.ui.format_sec_group_name(sg_value,
+                                                        self.project_name_input)
                     if key == 'DHCP Options':
                         if isinstance(value, list):
                             value.pop(0)
@@ -6050,9 +6043,13 @@ class WebuiTest:
                                     key_value = value_multi_string
                                 elif value_double_string:
                                     key_value = value_double_string
+                                else:
+                                    key_value = None
                                 if key_value:
                                     mirror_key = key_value.group(1).replace(' ', '_')
                                     mirror_value = key_value.group(2)
+                                else:
+                                    mirror_value = '-'
                             if mirror_value != '-':
                                 dom_arry_basic.append({'key': mirror_key, 'value': mirror_value})
                         continue
