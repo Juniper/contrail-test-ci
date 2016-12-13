@@ -778,7 +778,47 @@ l[0]={'protocol': '1', 'stats_bytes': '222180', 'stats_packets': '2645', 'setup_
         xml_obj = self.dict_get('Snh_SandeshUVECacheReq?x=VrouterAgent')
         return xml_obj.xpath('./UveVrouterAgent/data/VrouterAgent/phy_if/list/'
                              'AgentInterface/name')[0].text
-    # end get_agent_physical_interface        
+    # end get_agent_physical_interface
+
+    def get_agent_vm_interface_drop_stats(self, ip):
+        ''' Get it from http://nodek2:8085/Snh_SandeshUVECacheReq?x=UveVMInterfaceAgent
+        '''
+        xml_obj = self.dict_get('Snh_SandeshUVECacheReq?x=UveVMInterfaceAgent')
+        xml_data = xml_obj.xpath('./UveVMInterfaceAgentTrace/data/UveVMInterfaceAgent')
+        l = []
+        for index, x_data in enumerate(xml_data):
+            ip_addr = x_data.xpath('./ip_address')[0].text
+            if ip == ip_addr:
+                x_path = './UveVMInterfaceAgentTrace/data/UveVMInterfaceAgent/raw_drop_stats/AgentDropStats'
+                raw_drop_stats_obj = xml_obj.xpath(x_path)
+                raw_drop_stats_obj = raw_drop_stats_obj[index]
+                dct = {}
+                for e in raw_drop_stats_obj.getchildren():
+                    k1 = e.tag
+                    v1 = e.text
+                    d = {k1: v1}
+                    dct.update(d)
+                l.append(dct)
+        return l
+    # end get_agent_vm_interface_drop_stats
+
+    def get_agent_vrouter_drop_stats(self):
+        ''' Get it from http://nodek2:8085/Snh_SandeshUVECacheReq?x=VrouterStatsAgent
+        '''
+        xml_obj = self.dict_get('Snh_SandeshUVECacheReq?x=VrouterStatsAgent')
+        xml_data = xml_obj.xpath('./VrouterStats/data/VrouterStatsAgent')[0]
+        raw_drop_stats = xml_data.xpath('./raw_drop_stats')[0]
+        agent_raw_drop_stats_obj = raw_drop_stats.xpath('./AgentDropStats')[0]
+        l = []
+        dct = {}
+        for e in agent_raw_drop_stats_obj.getchildren():
+            k1 = e.tag
+            v1 = e.text
+            d = {k1: v1}
+            dct.update(d)
+        l.append(dct)
+        return l
+    # end  get_agent_vrouter_drop_stats
 
     def get_agent_qos_queue(self, uuid):
         ''' Get it from http://nodei16:8085/Snh_QosQueueSandeshReq?uuid=
