@@ -1,4 +1,5 @@
 import re
+from tcutils.util import Lock
 
 from common.neutron.base import BaseNeutronTest
 from compute_node_test import ComputeNodeFixture
@@ -57,7 +58,7 @@ class QosTestBase(BaseNeutronTest):
     # end setup_qos_config_on_vmi
 
     def remove_qos_config_on_vmi(self, qos_fixture, vmi_uuid):
-        self._remove_from_cleanup(qos_fixture.remove_from_vmi, vmi_uuid)
+        self.remove_from_cleanups(qos_fixture.remove_from_vmi, vmi_uuid)
         return qos_fixture.remove_from_vmi(vmi_uuid)
 
     def setup_qos_config_on_vn(self, qos_fixture, vn_uuid):
@@ -67,12 +68,12 @@ class QosTestBase(BaseNeutronTest):
     # end setup_qos_config_on_vn
 
     def remove_qos_config_on_vn(self, qos_fixture, vn_uuid):
-        self._remove_from_cleanup(qos_fixture.remove_from_vn, vn_uuid)
+        self.remove_from_cleanups(qos_fixture.remove_from_vn, vn_uuid)
         return qos_fixture.remove_from_vn(vn_uuid)
 
     def delete_qos_config(self, qos_fixture):
         qos_fixture.cleanUp()
-        self._remove_from_cleanup(qos_fixture.cleanUp)
+        self.remove_from_cleanups(qos_fixture.cleanUp)
     # end delete_qos_config
     
     def validate_packet_qos_marking(self,
@@ -521,3 +522,40 @@ class TestQosSVCBase(QosTestExtendedBase):
         cls.st_fixture.cleanUp()
         super(TestQosSVCBase, cls).tearDownClass()
     # end tearDownClass
+    
+class FcIdGenerator():
+    '''
+        This class parse through the FCs present and 
+        return a unique FC ID which is not in use.
+    '''
+    
+    def __init__(self, vnc_lib):
+        self.vnc_lib = vnc_lib
+    
+    def get_free_fc_ids(self, number):
+        ''' "number" is number of free fc_ids to be returned'''
+        try:
+            file = '/tmp/fc_id.lock'
+            lock = Lock(file)
+            lock.acquire()
+            fc_uuids = []
+            for elem in self.vnc_lib.forwarding_classs_list()['forwarding-classs']:
+                fc_uuids.append(elem['uuid'])
+            fc_ids = []
+            for elem in fc_uuids:
+                fc_ids.append(self.vnc_lib.forwarding_class_read(id =elem).\
+                            forwarding_class_id)
+            returned_fc_ids = []
+            count = 0
+            for fc_id in range(0, 256):
+                if number > 0:
+                    if fc_id not in fc_ids:
+                        returned_fc_ids.append(fc_id)
+                        count = count +1
+                        if count == number:
+                            break
+                else:
+                    break
+        finally:
+            lock.release()
+            return returned_fc_ids
