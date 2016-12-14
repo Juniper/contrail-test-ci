@@ -1,6 +1,7 @@
 import time
 import paramiko
 import fixtures
+import random
 from fabric.api import run, hide, settings
 from tcutils.commands import ssh, execute_cmd, execute_cmd_out
 from tcutils.util import get_random_cidr
@@ -35,7 +36,7 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
                      right_vn_fixture=None, svc_type='firewall',
                      svc_mode='transparent', flavor='contrail_flavor_2cpu',
                      static_route=[None, None, None], ordered_interfaces=True,
-                     svc_img_name=None, st_version=1):
+                     svc_img_name=None, st_version=1, vm_launch_mode=None):
 
         svc_type_props = {
             'firewall': {'in-network-nat': 'tiny_nat_fw',
@@ -86,7 +87,9 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
         st_fixture = self.useFixture(SvcTemplateFixture(
             connections=self.connections, inputs=self.inputs, domain_name=domain,
             st_name=st_name, svc_img_name=svc_img_name, svc_type=svc_type,
-            if_list=if_list, svc_mode=svc_mode, svc_scaling=svc_scaling, flavor=flavor, ordered_interfaces=ordered_interfaces, version=st_version))
+            if_list=if_list, svc_mode=svc_mode, svc_scaling=svc_scaling,
+            flavor=flavor, ordered_interfaces=ordered_interfaces,
+            version=st_version))
         assert st_fixture.verify_on_setup()
 
         mgmt_vn_name = mgmt_vn_fixture.vn_fq_name if mgmt_vn_fixture else None
@@ -129,19 +132,39 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
                     self.trans_right_vn_fixture = self.config_vn(
                         self.trans_right_vn_name, self.trans_right_vn_subnets)
                 non_docker_zones = [x for x in self.nova_h.zones if x != 'nova/docker']
+                compute_nodes = self.orch.get_hosts()
+                compute_nodes_len = len(compute_nodes)
+                index = random.randint(0,compute_nodes_len-1)
                 for i in range(max_inst):
                     svm_name = get_random_name("pt_svm" + str(i))
                     pt_name = get_random_name("port_tuple" + str(i))
+
+                    # Incase, vm_launch_mode is distribute, distribute the SVMs
+                    # if it is non-distribute, launch all the SVMs on one node
+                    if vm_launch_mode == 'distribute':
+                        node_name = compute_nodes[i%compute_nodes_len]
+                    elif vm_launch_mode == 'non-distribute':
+                        node_name = compute_nodes[index]
+                    else:
+                        node_name = None
+
                     if svc_mode == 'transparent':
                         svm_fixture = self.config_and_verify_vm(
-                            svm_name, image_name=svc_img_name, vns=[self.trans_mgmt_vn_fixture, self.trans_left_vn_fixture, self.trans_right_vn_fixture], count=1, flavor='m1.large', zone=random.choice(non_docker_zones))
+                            svm_name, image_name=svc_img_name,
+                            vns=[self.trans_mgmt_vn_fixture,
+                                 self.trans_left_vn_fixture,
+                                 self.trans_right_vn_fixture],
+                            count=1, flavor='m1.large',
+                            zone=random.choice(non_docker_zones)
+                            node_name=node_name)
                     else:
                         svm_fixture = self.config_and_verify_vm(
                             svm_name, image_name=svc_img_name,
                             vns=[mgmt_vn_fixture, left_vn_fixture,
                                 right_vn_fixture],
                             count=1, flavor='m1.large',
-                            zone=random.choice(non_docker_zones))
+                            zone=random.choice(non_docker_zones),
+                            node_name=node_name)
                     si_fixture.add_port_tuple(svm_fixture, pt_name)
             si_fixture.verify_on_setup()
             si_fixtures.append(si_fixture)
@@ -177,17 +200,16 @@ class ConfigSvcChain(fixtures.TestWithFixtures):
             self.inputs, self.connections, vn_fix, policy_fix, policy_type))
         return policy_attach_fix
 
-    def config_and_verify_vm(self, vm_name, vn_fix=None, image_name='ubuntu-traffic', vns=[], count=1, flavor='contrail_flavor_small',
-            zone=None):
+    def config_and_verify_vm(self, vm_name, vn_fix=None, image_name='ubuntu-traffic', vns=[], count=1, flavor='contrail_flavor_small', zone=None, node_name=None):
         if vns:
             vn_objs = [vn.obj for vn in vns]
             vm_fixture = self.config_vm(
                 vm_name, vns=vn_objs, image_name=image_name, count=count,
-                flavor=flavor, zone=zone)
+                flavor=flavor, zone=zone, node_name=node_name)
         else:
             vm_fixture = self.config_vm(
                 vm_name, vn_fix=vn_fix, image_name=image_name, count=count,
-                flavor=flavor, zone=zone)
+                flavor=flavor, zone=zone, node_name=node_name)
         assert vm_fixture.verify_on_setup(), 'VM verification failed'
         assert vm_fixture.wait_till_vm_is_up(), 'VM does not seem to be up'
         return vm_fixture
