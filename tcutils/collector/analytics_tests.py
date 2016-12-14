@@ -2792,11 +2792,11 @@ class AnalyticsVerification(fixtures.Fixture):
         return self.verify_alarms(role='all', alarm_type='disk-usage')
     # end verify_disk_usage_alarm
 
-    def verify_configured_alarm(self,role='virtual-network', alarm_name=None, verify_alarm_cleared=False):
+    def verify_configured_alarm(self,role='virtual-network', alarm_type=None, alarm_name=None, verify_alarm_cleared=False):
         service_ip = self.inputs.collector_ips[0]
         return self._verify_alarms_by_type(service=None, service_ip=service_ip,
-                    role=role, alarm_type=alarm_name,
-                     verify_alarm_cleared=verify_alarm_cleared, built_in=False)
+                    role=role, alarm_type=alarm_type,
+                     verify_alarm_cleared=verify_alarm_cleared, built_in=False,alarm_name=alarm_name)
     # end  verify_configured_alarm
 
     def _verify_alarms_stop_svc(self, service, service_ip, role, alarm_type, multi_instances=False, soak_timer=15):
@@ -2835,7 +2835,7 @@ class AnalyticsVerification(fixtures.Fixture):
         return result
 
     def _verify_alarms_by_type(self, service, service_ip, role, alarm_type, multi_instances=False,
-            soak_timer=15, verify_alarm_cleared=False, built_in=True):
+            soak_timer=15, verify_alarm_cleared=False, built_in=True, alarm_name=None):
         result = True
         soaking = False
         supervisor = False
@@ -2870,6 +2870,8 @@ class AnalyticsVerification(fixtures.Fixture):
                 if prouters_data[prouter]['mgmt_ip'] == service_ip:
                     hostname = prouters_data[prouter]['name']
                     break
+        elif not built_in:
+            hostname = alarm_name
         else:
             hostname = self.inputs.host_data[service_ip]['name']
         if not isinstance(alarm_type, list):
@@ -3077,7 +3079,7 @@ class AnalyticsVerification(fixtures.Fixture):
                 h_name = nalarms['name'].split('.')[0]
                 alarm_type = fqname + ':' + prefix  + alarm_type
             else:
-                h_name = hostname
+                h_name = nalarms['name']
             if h_name == hostname:
                 if not alarm_type and not service:
                     # return all alarms for a host
