@@ -52,7 +52,7 @@ class AlarmFixture(fixtures.Fixture):
     def read(self):
         if self.alarm_id:
             self.alarm_obj = self.vnc_lib_h.alarm_read(id=self.alarm_id)
-            self.alarm_fq_name = self.alarm_obj.get_fq_name()
+            self.alarm_fq_name = self.get_fq_name()
             self.alarm_name = self.alarm_obj.name
     # end read
 
@@ -90,6 +90,7 @@ class AlarmFixture(fixtures.Fixture):
                                    uve_keys=uve_keys_type)
             # need to set rules and other parameters before passing alarm_obj
             self.alarm_id = self.vnc_lib_h.alarm_create(self.alarm_obj)
+            self.alarm_fq_name = self.get_fq_name()
     # end create
 
     def create_expression(self, params_dict):
@@ -123,7 +124,7 @@ class AlarmFixture(fixtures.Fixture):
             self.alarm_or_list = self.create_or_list(self.alarm_and_list)
             return self.alarm_or_list
         except:
-            self.logger.info('error configuring alarm')
+            self.logger.warn('error configuring alarm')
     # end configure_alarm_rules
 
     def getObj(self):
@@ -167,7 +168,8 @@ class AlarmFixture(fixtures.Fixture):
                 self.vnc_lib_h.alarm_update(self.alarm_obj)
                 return True
         except:
-            return False
+            self.logger.warn('Setting alarm_rules Failed')
+            return None
     # end set_alarm_rules
 
     def set_alarm_enable(self, enable):
@@ -181,21 +183,36 @@ class AlarmFixture(fixtures.Fixture):
     # end get_alarm_severity
 
     def set_alarm_severity(self, severity):
-        self.alarm_severity = severity
-        self.alarm_obj.set_alarm_severity(severity)
-        self.vnc_lib_h.alarm_update(self.alarm_obj)
+        try:
+            self.alarm_severity = severity
+            self.alarm_obj.set_alarm_severity(severity)
+            self.vnc_lib_h.alarm_update(self.alarm_obj)
+            return True
+        except :
+            self.logger.warn('Setting alarm Severity Failed')
+            return None
     # set_alarm_severity
 
     def set_uve_keys(self, uve_key):
-        self.uve_keys = uve_key
-        uve_key_type = UveKeysType(uve_key)
-        self.alarm_obj.set_uve_keys(uve_key_type)
-        self.vnc_lib_h.alarm_update(self.alarm_obj)
+        try:
+            self.uve_keys = uve_key
+            uve_key_type = UveKeysType(uve_key)
+            self.alarm_obj.set_uve_keys(uve_key_type)
+            self.vnc_lib_h.alarm_update(self.alarm_obj)
+            return True
+        except :
+            self.logger.warn('Setting UVE keys Failed')
+            return None
     # set_uve_keys
 
     def get_uve_keys(self):
         return self.uve_keys
     # end get_uve_keys
+    
+    def get_fq_name(self):
+        obj = self.getObj()
+        fq_name = obj.get_fq_name()
+        return ':'.join(fq_name)
 
     def verify_alarm_in_api_server(self):
         if self.parent_obj_type == 'project':
