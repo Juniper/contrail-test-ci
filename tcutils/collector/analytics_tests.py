@@ -3087,12 +3087,15 @@ class AnalyticsVerification(fixtures.Fixture):
                 self.logger.info("%s alarms generated for %s " % (role, hostname))
         else:
             return None
+
+        fqname = 'default-global-system-config'
+        prefix = 'system-defined-'
+        inbuild_alarm_type = fqname + ':' + prefix  + alarm_type
+
         for nalarms in role_alarms:
             if built_in:
-                fqname = 'default-global-system-config'
-                prefix = 'system-defined-'
                 h_name = nalarms['name'].split('.')[0]
-                alarm_type = fqname + ':' + prefix  + alarm_type
+                alarm_type = inbuild_alarm_type
             else:
                 h_name = nalarms['name']
             if h_name == hostname:
