@@ -374,6 +374,12 @@ class OpenstackAuth(OrchestratorAuth):
        except:
            self.logger.info("%s user already present"%(self.user))
 
+   def create_role(self, role):
+       self.keystone.create_role(role)
+
+   def delete_role(self, role):
+       self.keystone.delete_role(role)
+
    def add_user_to_project(self, user, project, role='admin'):
        try:
            self.keystone.add_user_to_tenant(project, user, role)
