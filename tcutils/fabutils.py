@@ -16,7 +16,8 @@ log = logging.getLogger('log01')
 
 def remote_cmd(host_string, cmd, password=None, gateway=None,
                gateway_password=None, with_sudo=False, timeout=120,
-               as_daemon=False, raw=False, cwd=None, warn_only=True, tries=1):
+               as_daemon=False, raw=False, cwd=None, warn_only=True, tries=1,
+               abort_on_prompts=True):
     """ Run command on remote node.
     remote_cmd method to be used to run command on any remote nodes - whether it
     is a remote server or VM or between VMs. This method has capability to
@@ -57,6 +58,9 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
         as_daemon: run in background
         warn_only: run fab with warn_only
         raw: If raw is True, will return the fab _AttributeString object itself without removing any unwanted output
+        abort_on_prompts : Run command with abort_on_prompts set to True
+                           Note that this SystemExit does get caught and
+                           counted against `tries`
     """
     fab_connections.clear()
     if as_daemon:
@@ -84,7 +88,7 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
             warn_only=warn_only,
             shell=shell,
             disable_known_hosts=True,
-            abort_on_prompts=False):
+            abort_on_prompts=abort_on_prompts):
         update_env_passwords(host_string, password, gateway, gateway_password)
 
         log.debug(cmd)
@@ -92,8 +96,8 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
         while tries > 0:
             try:
                 output = _run(cmd, timeout=timeout, pty=not as_daemon)
-            except (CommandTimeout, NetworkError) as e:
-                log.warn('Unable to run command %s: %s' % (cmd, str(e)))
+            except (CommandTimeout, NetworkError, SystemExit) as e:
+                log.exception('Unable to run command %s: %s' % (cmd, str(e)))
                 tries -= 1
                 time.sleep(5)
                 continue
