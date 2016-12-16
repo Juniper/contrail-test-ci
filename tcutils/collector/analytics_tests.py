@@ -2874,6 +2874,7 @@ class AnalyticsVerification(fixtures.Fixture):
             hostname = alarm_name
         else:
             hostname = self.inputs.host_data[service_ip]['name']
+            hostname = hostname.split('.')[0]
         if not isinstance(alarm_type, list):
             alarm_type = [alarm_type]
         try:
