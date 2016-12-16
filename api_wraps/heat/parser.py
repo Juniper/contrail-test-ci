@@ -162,7 +162,9 @@ def _parse_resource (tmpl, params, objs):
    return args
 
 def parse_resource (tmpl, params, objs):
-   return _parse_resource(tmpl['properties'], params, objs)
+   args =  _parse_resource(tmpl['properties'], params, objs)
+   args['type'] = tmpl['type']
+   return args
 
 def _get_dependency_from_dict (desc):
    ret = []

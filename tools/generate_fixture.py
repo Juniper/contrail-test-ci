@@ -3,7 +3,48 @@
 import string
 import argparse
 
-fixture_code = string.Template(
+orch_read_fn = string.Template(
+'''
+   @retry(delay=1, tries=5)
+   def _read_orch_obj (self):
+       obj = self._ctrl.get_$__object_type__(self.uuid)
+       found = 'not' if not obj else ''
+       self.logger.debug('%s %s found in orchestrator' % (self, found))
+       return obj != None, obj
+''')
+
+orch_read_call = (
+'''       ret, obj = self._read_orch_obj()
+       if ret:
+           self._obj = obj''')
+
+orch_read_nocall = (
+'''       self._obj = self._vnc_obj''')
+
+orch_verify_fns = string.Template(
+'''
+   def _verify_in_orch (self):
+       if not self._read_orch_obj()[0]:
+           return False, '%s not found in orchestrator' % self
+       return True, None
+
+   @retry(delay=5, tries=6)
+   def _verify_not_in_orch (self):
+       if self._ctrl.get_$__object_type__(self.uuid):
+           msg = '%s not removed from orchestrator' % self
+           self.logger.debug(msg)
+           return False, msg
+       self.logger.debug('%s removed from orchestrator' % self)
+       return True, None
+''')
+
+verify_in_orch_call = (
+'''       self.assert_on_setup(*self._verify_in_orch())''')
+
+verify_not_in_orch_call = (
+'''       self.assert_on_cleanup(*self._verify_not_in_orch())''')
+
+base = string.Template(
 '''from contrail_fixtures import ContrailFixture
 from tcutils.util import retry
 from vnc_api.vnc_api import $__vnc_class__
@@ -37,59 +78,67 @@ class $__fixture__ (ContrailFixture):
        return '%s:%s' % (self.type_name, info)
 
    @retry(delay=1, tries=5)
+   def _read_vnc_obj (self):
+       obj = self._vnc.get_$__object_type__(self.uuid)
+       found = 'not' if not obj else ''
+       self.logger.debug('%s %s found in api-server' % (self, found))
+       return obj != None, obj
+$__orch_read_fn__
    def _read (self):
-       self._vnc_obj = self._vnc.get_$__object_type__(self.uuid)
-       # Note:
-       # option-1: if resource object can be read/created/deleted through
-       #           non-contrail api, then read resource object through
-       #           orchestrator control
-       # option-2: retain the vnc object
-       # Example, service-instance can be read/created/deleted only
-       #          through contrail-api. Thus option-2 is applicable.
-       #          floatin-ip can be read/created/deleted through openstack
-       #          apis. Thus option-1 is applicable 
-       # 1. self._obj = self._ctrl.get_$__object_type__(self.uuid)
-       # 2. self._obj = self._vnc_obj
-       # !!! Remove this comment section !!!
-       return self._vnc_obj and self._obj
+       ret, obj = self._read_vnc_obj()
+       if ret:
+           self._vnc_obj = obj
+$__orch_read_call__
 
    def _create (self):
-       self.logger.debug('Creating %s' % self)
+       self.logger.info('Creating %s' % self)
        self.uuid = self._ctrl.create_$__object_type__(
            **self._args)
 
    def _delete (self):
-       self.logger.debug('Deleting %s' % self)
+       self.logger.info('Deleting %s' % self)
        self._ctrl.delete_$__object_type__(
            obj=self._obj, uuid=self.uuid)
 
    def _update (self):
-       self.logger.debug('Updating %s' % self)
+       self.logger.info('Updating %s' % self)
        self._ctrl.update_$__object_type__(
            obj=self._obj, uuid=self.uuid, **self.args)
 
    def verify_on_setup (self):
-       assert self.vnc_obj, '%s not found' % self
+       self.assert_on_setup(*self._verify_in_api_server())
+$__verify_in_orch__
        #TODO: check if more verification is needed
 
    def verify_on_cleanup (self):
-       ret, err = self._verify_not_in_api_server()
-       assert ret, err
+       self.assert_on_cleanup(*self._verify_not_in_api_server())
+$__verify_not_in_orch__
        #TODO: check if more verification is needed
+
+   def _verify_in_api_server (self):
+       if not self._read_vnc_obj()[0]:
+           return False, '%s not found in api-server' % self
+       return True, None
 
    @retry(delay=5, tries=6)
    def _verify_not_in_api_server (self):
        if self._vnc.get_$__object_type__(self.uuid):
-           return False, '%s not removed' % self
+           msg = '%s not removed from api-server' % self
+           self.logger.debug(msg)
+           return False, msg
+       self.logger.debug('%s removed from api-server' % self)
        return True, None
-''')
+$__orch_verify_fns__''')
 
 ap = argparse.ArgumentParser(description='Generate fixture boilerplate code')
 ap.add_argument('--vnc-class', type=str, required=True,
    help='vnc resource class [see vnc_api/gen/resource_common.py]')
 ap.add_argument('--object-type', type=str, required=True,
    help='object_type for resource class [see vnc_api/gen/resource_common.py]')
-ap.add_argument('--fixture', type=str, required=True, help='fixture name')
+ap.add_argument('--orch-api', action='store_true', default=False,
+   help='True if Orchestrator has API for this resource')
+ap.add_argument('--fixture', type=str, required=True,
+   help='Name of fixture class')
 ap.add_argument('--file', type=str,  required=True, help='output file')
 args =  ap.parse_args()
 
@@ -99,7 +148,25 @@ params = {
    '__object_type__': args.object_type,
 }
 
-code = fixture_code.substitute(params)
+if args.orch_api:
+   orch = {
+       '__orch_read_fn__': orch_read_fn.substitute(params),
+       '__orch_read_call__': orch_read_call,
+       '__verify_in_orch__': verify_in_orch_call,
+       '__verify_not_in_orch__': verify_not_in_orch_call,
+       '__orch_verify_fns__': orch_verify_fns.substitute(params)
+   }
+else:
+   orch = {
+       '__orch_read_fn__': '',
+       '__orch_read_call__': orch_read_nocall,
+       '__verify_in_orch__': '',
+       '__verify_not_in_orch__': '',
+       '__orch_verify_fns__': '',
+   }
+params.update(orch)
+
+code = base.substitute(params)
 fh = open(args.file, 'w')
 fh.write(code)
 fh.close()
