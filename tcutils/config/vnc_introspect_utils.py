@@ -40,6 +40,7 @@ class VNCApiInspect (VerificationUtilBase):
             'table': {},
             'loadbalancer': {},
             'alarm':{},
+            'api-access-list': {}
         }
 
     def update_cache(self, otype, fq_path, d):
@@ -273,6 +274,10 @@ class VNCApiInspect (VerificationUtilBase):
         '''
 
     # end get_cs_fip_list
+
+    def get_cs_fip_pool(self, fip_pool_id):
+        p = self.dict_get('floating-ip-pool/%s'%fip_pool_id)
+        return CsUseFipResult(p) if p else None
 
     def get_cs_fip(self, fip_id, refresh):
         '''
@@ -593,6 +598,21 @@ class VNCApiInspect (VerificationUtilBase):
                 self.update_cache('si', p.fq_name().split(':'), p)
         return p
 
+    def get_cs_st_by_id(self, st_id='', refresh=False):
+        '''
+        method: get_cs_st_by_id find a st
+        returns None if not found, a dict w/ attrib. eg:
+
+        '''
+        p = self.try_cache_by_id('st', st_id, refresh)
+        if not p and st_id:
+            # cache miss
+            pp = self.dict_get('service-template/' + st_id)
+            if pp:
+                p = CsServiceTemplateResult(pp)
+                self.update_cache('st', p.fq_name().split(':'), p)
+        return p
+
     def get_cs_st(self, domain='default-domain', project='admin',
                   st='nat-template', refresh=False):
         '''
@@ -782,6 +802,27 @@ class VNCApiInspect (VerificationUtilBase):
                 break
         if gl_alarm['alarm']['parent_type'] == 'global-system-config':
             return gl_alarm
+
+    def get_api_access_list(self, acl_id):
+        '''
+            method: get_api_access_list get the api access control list
+            returns None if not found, a dict w/ attrib. eg:
+
+        '''
+        obj = self.dict_get('api-access-list/%s'%acl_id)
+        if obj:
+            return CsApiAccessList(obj)
+        return None
+
+    def get_aaa_mode(self):
+        ''' get aaa-mode '''
+        dct = self.dict_get('aaa-mode')
+        return dct.get('aaa-mode') if dct else None
+
+    def set_aaa_mode(self, aaa_mode):
+        ''' set rbac mode '''
+        dct = {'aaa-mode': aaa_mode}
+        self.put(path='aaa-mode', payload=dct)
 
 if __name__ == '__main__':
     va = VNCApiInspect('10.84.7.2')
