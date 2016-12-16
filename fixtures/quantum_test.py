@@ -864,5 +864,3 @@ class QuantumHelper():
             self.logger.debug('show member on %s failed' % (lb_member_id))
             return None
     # end show_lb_member
-
-# end QuantumHelper

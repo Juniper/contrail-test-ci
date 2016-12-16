@@ -347,7 +347,6 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
 
         self.project_fixture = self.useFixture(
             ProjectFixture(
-                vnc_lib_h=self.vnc_lib,
                 project_name=self.inputs.project_name,
                 connections=self.connections))
         self.logger.info(
