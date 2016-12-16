@@ -180,6 +180,7 @@ class VerifyIntfMirror(VerifySvcMirror):
 
         self.policy_name_vn1_vn2 = get_random_name("vn1_vn2_pass")
         self.policy_name_vn1_vn3 = get_random_name("vn1_vn3_pass")
+        self.policy_name_vn2_vn3 = get_random_name("vn2_vn3_pass")
 
         self.vn1_fixture = self.config_vn(self.vn1_name, self.vn1_subnets)
         self.vn2_fixture = self.config_vn(self.vn2_name, self.vn2_subnets)
@@ -203,16 +204,6 @@ class VerifyIntfMirror(VerifySvcMirror):
                        'simple_action': 'pass',
                        'action_list': {'simple_action': 'pass'}
                        }]
-        self.rules_vn1_vn2.append({'direction': '<>',
-                               'protocol': 'udp',
-                               'source_network': self.vn1_name,
-                               'src_ports': [0, -1],
-                               'dest_network': self.vn2_name,
-                               'dst_ports': [0, -1],
-                               'simple_action': 'pass',
-                               'action_list': {'simple_action': 'pass'}
-                               }
-                              )
 
         self.rules_vn1_vn3 = [{'direction': '<>',
                        'protocol': 'icmp',
@@ -232,18 +223,29 @@ class VerifyIntfMirror(VerifySvcMirror):
                        'simple_action': 'pass',
                        'action_list': {'simple_action': 'pass'}
                        }]
-        self.rules_vn1_vn3.append({'direction': '<>',
-                               'protocol': 'udp',
-                               'source_network': self.vn1_name,
-                               'src_ports': [0, -1],
-                               'dest_network': self.vn3_name,
-                               'dst_ports': [0, -1],
-                               'simple_action': 'pass',
-                               'action_list': {'simple_action': 'pass'}
-                               }
-                              )
+
+        self.rules_vn2_vn3 = [{'direction': '<>',
+                       'protocol': 'icmp',
+                       'source_network': self.vn2_name,
+                       'src_ports': [0, -1],
+                       'dest_network': self.vn3_name,
+                       'dst_ports': [0, -1],
+                       'simple_action': 'pass',
+                       'action_list': {'simple_action': 'pass'}
+                       },
+                       {'direction': '<>',
+                       'protocol': 'icmp6',
+                       'source_network': self.vn2_name,
+                       'src_ports': [0, -1],
+                       'dest_network': self.vn3_name,
+                       'dst_ports': [0, -1],
+                       'simple_action': 'pass',
+                       'action_list': {'simple_action': 'pass'}
+                       }]
+
         self.policy_fixture_vn1_vn2 = self.config_policy(self.policy_name_vn1_vn2, self.rules_vn1_vn2)
         self.policy_fixture_vn1_vn3 = self.config_policy(self.policy_name_vn1_vn3, self.rules_vn1_vn3)
+        self.policy_fixture_vn2_vn3 = self.config_policy(self.policy_name_vn2_vn3, self.rules_vn2_vn3)
 
         self.policy_fixture_vn1_vn2 = self.config_policy(self.policy_name_vn1_vn2, self.rules_vn1_vn2)
         self.policy_fixture_vn1_vn3 = self.config_policy(self.policy_name_vn1_vn3, self.rules_vn1_vn3)
@@ -257,6 +259,12 @@ class VerifyIntfMirror(VerifySvcMirror):
             self.policy_fixture_vn1_vn3, self.vn1_fixture)
         self.vn3_policy_fix = self.attach_policy_to_vn(
             self.policy_fixture_vn1_vn3, self.vn3_fixture)
+
+
+        self.vn2_policy_fix = self.attach_policy_to_vn(
+            self.policy_fixture_vn2_vn3, self.vn2_fixture)
+        self.vn3_policy_fix = self.attach_policy_to_vn(
+            self.policy_fixture_vn2_vn3, self.vn3_fixture)
 
         self.vm1_fixture_vn1 = self.config_vm(
             vn_fix=self.vn1_fixture, vm_name=self.vm1_name_vn1, node_name=src_compute, image_name=image_name)
