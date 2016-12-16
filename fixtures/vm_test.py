@@ -169,8 +169,7 @@ class VMFixture(fixtures.Fixture):
         if self.vm_id:
             return self.read()
         self.project_fixture = self.useFixture(
-                ProjectFixture(vnc_lib_h=self.vnc_lib_h,
-                               project_name=self.project_name,
+                ProjectFixture(project_name=self.project_name,
                                connections=self.connections))
         self.vn_ids = [self.orch.get_vn_id(x) for x in self.vn_objs]
         self.vm_obj = self.orch.get_vm_if_present(self.vm_name,
@@ -1295,10 +1294,10 @@ class VMFixture(fixtures.Fixture):
         for vn_fq_name in self.vn_fq_names:
             vn_name = vn_fq_name.split(':')[-1]
             ri_name = vn_fq_name + ':' + vn_name
-            ri = self.vnc_lib_h.routing_instance_read(fq_name=[ri_name])
+            ri = self.vnc_lib_fixture.routing_instance_read(fq_name=[ri_name])
             rt_refs = ri.get_route_target_refs()
             for rt_ref in rt_refs:
-                rt_obj = self.vnc_lib_h.route_target_read(id=rt_ref['uuid'])
+                rt_obj = self.vnc_lib_fixture.route_target_read(id=rt_ref['uuid'])
                 rt_list.append(rt_obj.name)
         for rt in rt_list:
             ctrl_node = self.get_active_controller()
