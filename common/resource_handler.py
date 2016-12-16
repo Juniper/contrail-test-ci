@@ -56,6 +56,7 @@ def _create_via_heat (test, tmpl, params):
    tmpl_first, tmpl_to_update = parser.remove_fwd_refs(tmpl_first, refs)
    st = wrap.stack_create(get_random_name(), tmpl_first, params)
    objs = {'heat_wrap': wrap, 'stack': st,
+           'fixture_cleanup': test.connections.inputs.fixture_cleanup,
            'fixtures': {}, 'id-map': {}, 'fqn-map': {}}
    test.addCleanup(_delete_via_heat, objs)
    for out in st.outputs:
@@ -81,8 +82,12 @@ def _create_via_heat (test, tmpl, params):
    return objs
 
 def _delete_via_heat (objs):
+   if objs['fixture_cleanup'] == 'no':
+       return
    wrap = objs['heat_wrap']
    wrap.stack_delete(objs['stack'])
+   if os.getenv('VERIFY_ON_CLEANUP'):
+       verify_on_cleanup(objs)
 
 def _update_via_heat (test, objs, tmpl, params):
 
@@ -155,7 +160,6 @@ def _create_via_fixture (test, tmpl, params):
            res_tmpl = tmpl_first['resources'][res_name]
            res_type = _HEAT_2_FIXTURE[res_tmpl['type']]
            args = parser.parse_resource(res_tmpl, params, objs)
-           args['type'] = res_tmpl['type']
            obj = test.useFixture(res_type(test.connections, params=args,
                                           fixs=objs))
            objs['fixtures'][res_name] = obj
@@ -168,7 +172,6 @@ def _create_via_fixture (test, tmpl, params):
            res_tmpl = tmpl_to_update['resources'][res_name]
            args = parser.parse_resource(res_tmpl, params, objs)
            diff_args = _get_delta(objs['args'][res_name], args)
-           args['type'] = res_tmpl['type']
            objs['fixtures'][res_name].update(args)
            objs['args'][res_name].update(diff_args)
    return objs
@@ -196,7 +199,6 @@ def _update_via_fixture (test, objs, tmpl, params):
                res_tmpl = tmpl_first['resources'][res_name]
                res_type = _HEAT_2_FIXTURE[res_tmpl['type']]
                args = parser.parse_resource(res_tmpl, params, objs)
-               args['type'] = res_tmpl['type']
                obj = test.useFixture(res_type(test.connections, params=args,
                                               fixs=objs))
                objs['fixtures'][res_name] = obj

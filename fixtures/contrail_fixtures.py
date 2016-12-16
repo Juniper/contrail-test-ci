@@ -52,6 +52,8 @@ class ContrailFixture (fixtures.Fixture):
        self._args_type = None
        self._vnc_obj = None
        self._obj = None
+       # ownership flag, set if fixture creates the resource and is
+       # responsible cleanup
        self._owned = False if uuid else True
        self._args = self._handle_args(params)
        self._verify_on_cleanup = os.getenv('VERIFY_ON_CLEANUP') or False
@@ -71,17 +73,13 @@ class ContrailFixture (fixtures.Fixture):
        if 'OS::ContrailV2' in res_type and getattr(self, 'ref_fields', None):
            args = process_refs(params, self.ref_fields, self.fixs)
        else:
-           args = params
+           args = copy.deepcopy(params)
        self._args_type = args['type']
        del args['type']
        return args
 
    def _update_args (self, params):
        self._args.update(params) #TODO: delete all entries set to None/[]/{}
-
-   #@property
-   #def uuid (self):
-   #    return self._uuid or self._vnc_obj.uuid
 
    @property
    def vnc_obj (self):
@@ -118,10 +116,16 @@ class ContrailFixture (fixtures.Fixture):
 
    def cleanUp (self):
        super(ContrailFixture, self).cleanUp()
-       if self._owned:
+       # Flag fixture_cleanup
+       # set to 'force', forces resource deletion irrespective ownership.
+       # When fixtures owns the resource,
+       # set to 'no', retains the resource
+       # set to 'yes', cleanup action is performed
+       if self.inputs.fixture_cleanup == 'force' or \
+          (self._owned and self.inputs.fixture_cleanup == 'yes'):
            self._delete()
-       if self._verify_on_cleanup:
-           self.verify_on_cleanup()
+           if self._verify_on_cleanup:
+               self.verify_on_cleanup()
 
    def update (self, params=None):
        if not params:
@@ -129,6 +133,15 @@ class ContrailFixture (fixtures.Fixture):
        else:
            self._update_args(self._handle_args(params))
            self._update()
+
+   def assert_on_cleanup (self, flag, msg):
+       assert flag, msg
+
+   def assert_on_setup (self, flag, msg):
+       if self._owned and self.inputs.fixture_cleanup == 'yes':
+           assert flag, msg
+       else:
+           self.logger.warn(msg)
 
 #TODO: check with contrail_fix_ext reqd?
 def contrail_fix_ext(*dargs, **dkwargs):

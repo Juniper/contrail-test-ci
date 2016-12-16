@@ -85,10 +85,17 @@ class VncWrap:
        self._project = self._get('project', project_id)
        self._export_fns()
 
-   def fqn_to_id (self, resource, fqn):
-       return True, self._vnc.fq_name_to_id(resource, fqn)
+   @retry(delay=1, tries=10)
+   def _get_id (self, resource, fqn):
+       try:
+           return True, self._vnc.fq_name_to_id(resource, fqn)
+       except NoIdError:
+           return False, None
 
-   @retry(delay=1, tries=5)
+   def fqn_to_id (self, resource, fqn):
+       return self._get_id(resource, fqn)[1]
+
+   @retry(delay=1, tries=10)
    def _get_fqn (self, rid):
        try:
            return True, self._vnc.id_to_fq_name(rid)

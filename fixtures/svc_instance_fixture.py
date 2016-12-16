@@ -12,7 +12,7 @@ class SvcInstanceFixture (ContrailFixture):
            connections=connections,
            params=params,
            fixs=fixs)
-       self.api_s_inspect = connections.api_server_inspect
+       self.api_inspect = connections.api_server_inspect
 
    def get_attr (self, lst):
        if lst == ['fq_name']:
@@ -25,52 +25,67 @@ class SvcInstanceFixture (ContrailFixture):
    def __str__ (self):
        #TODO: __str__
        if self._args:
-           info = self._args['name']
+           info = ''
        else:
-           info = self.uuid
+           info = ''
        return '%s:%s' % (self.type_name, info)
 
    @retry(delay=2, tries=10)
+   def _read_vnc_obj (self):
+       obj = self._vnc.get_service_instance(self.uuid)
+       found = 'not' if not obj else ''
+       self.logger.debug('%s %s found in api-server' % (self, found))
+       return obj != None, obj
+
    def _read (self):
-       self._vnc_obj = self._vnc.get_service_instance(self.uuid)
-       # no orchestrator has api for service-instance, retain vnc obj
+       ret, obj = self._read_vnc_obj()
+       if ret:
+           self._vnc_obj = obj
        self._obj = self._vnc_obj
-       return self._vnc_obj and self._obj
 
    def _create (self):
-       self.logger.debug('Creating %s' % self)
-       if self.inputs.availability_zone:
-           self.args['service_instance_properties']\
-                    ['availability_zone'] = self.inputs.availability_zone
-
-       self.uuid = self._ctrl.create_service_instance(**self._args)
+       self.logger.info('Creating %s' % self)
+       self.uuid = self._ctrl.create_service_instance(
+           **self._args)
 
    def _delete (self):
-       self.logger.debug('Deleting %s' % self)
-       self._ctrl.delete_service_instance(obj=self._obj, uuid=self.uuid)
+       self.logger.info('Deleting %s' % self)
+       self._ctrl.delete_service_instance(
+           obj=self._obj, uuid=self.uuid)
 
    def _update (self):
-       self.logger.debug('Updating %s' % self)
-       self._ctrl.update_service_instance(obj=self._obj, uuid=self.uuid,
-                                          **self.args)
+       self.logger.info('Updating %s' % self)
+       self._ctrl.update_service_instance(
+           obj=self._obj, uuid=self.uuid, **self.args)
 
    def verify_on_setup (self):
-       assert self.vnc_obj, '%s not found' % self
-       ret, err = self._verify_st()
-       assert ret, err
-       ret, err = self._verify_pt()
-       assert ret, err
+       self.assert_on_setup(*self._verify_in_api_server())
+       self.assert_on_setup(*self._verify_st())
+       self.assert_on_setup(*self._verify_pt())
        #TODO: check if more verification is needed
 
    def verify_on_cleanup (self):
-       ret, err = self._verify_not_in_api_server()
-       assert ret, err
+       self.assert_on_cleanup(*self._verify_not_in_api_server())
        #TODO: check if more verification is needed
+
+   def _verify_in_api_server (self):
+       if not self._read_vnc_obj()[0]:
+           return False, '%s not found in api-server' % self
+       return True, None
+
+   @retry(delay=5, tries=6)
+   def _verify_not_in_api_server (self):
+       if self._vnc.get_service_instance(self.uuid):
+           msg = '%s not removed from api-server' % self
+           self.logger.debug(msg)
+           return False, msg
+       self.logger.debug('%s removed from api-server' % self)
+       return True, None
 
    @retry(delay=2, tries=10)
    def _verify_st (self):
        project, si = self.fq_name[1:]
-       self.cs_si = self.api_s_inspect.get_cs_si(project=project, si=si,
+       self.cs_si = self.api_inspect.get_cs_si(project=project, si=si,
                                                   refresh=True)
        try:
            st_refs = self.cs_si['service-instance']['service_template_refs']
@@ -99,10 +114,4 @@ class SvcInstanceFixture (ContrailFixture):
        if not pt_refs:
            errmsg = "%s has no port tuple refs" % self
            return False, errmsg
-       return True, None
-
-   @retry(delay=5, tries=6)
-   def _verify_not_in_api_server (self):
-       if self._vnc.get_service_instance(self.uuid):
-           return False, '%s not removed' % self
        return True, None
