@@ -9,6 +9,7 @@ from fabric.api import env, run, local, lcd
 from fabric.context_managers import settings, hide
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 from common import log_orig as contrail_logging
+from fabric.operations import get
 
 def detect_ostype():
     return platform.dist()[0].lower()
@@ -52,17 +53,6 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     auth_server_port = get_authserver_port()
     api_auth_protocol = get_apiserver_protocol()
 
-    if auth_protocol == 'https':
-        keystone_certfile = get_keystone_certfile()
-        keystone_keyfile = get_keystone_keyfile()
-        keystone_cafile = get_keystone_cafile()
-        keystone_insecure_flag = get_keystone_insecure_flag()
-    else:
-        keystone_certfile = ""
-        keystone_keyfile = ""
-        keystone_cafile = ""
-        keystone_insecure_flag = True
-
     if api_auth_protocol == 'https':
         api_certfile = get_apiserver_certfile()
         api_keyfile = get_apiserver_keyfile()
@@ -73,6 +63,29 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
        api_keyfile = ""
        api_cafile = ""
        api_insecure_flag = True
+
+    api_ssl_cert_files_list = [api_certfile, api_cafile, api_keyfile]
+    cfgm_password = get_env_passwords(cfgm_host)
+
+    if auth_protocol == 'https':
+        keystone_cert_files_list = [get_keystone_certfile(), get_keystone_cafile()]
+        api_keystone_certfile = []
+        for cert_file in range(len(keystone_cert_files_list)):
+            if api_ssl_cert_files_list:
+                keystone_certfile_spilt = keystone_cert_files_list[
+                                          cert_file].split('/')
+                api_certfile_split = api_ssl_cert_files_list[cert_file].split('/')
+                api_certfile_split[-1]=keystone_certfile_spilt[-1]
+                api_keystone_certfile.append("/".join(api_certfile_split))
+        keystone_certfile = api_keystone_certfile[0]
+        keystone_cafile = api_keystone_certfile[1]
+        keystone_keyfile = api_keystone_certfile[0]
+        keystone_insecure_flag = get_keystone_insecure_flag()
+    else:
+        keystone_certfile = ""
+        keystone_keyfile = ""
+        keystone_cafile = ""
+        keystone_insecure_flag = True
 
     with settings(warn_only=True), hide('everything'):
         with lcd(contrail_fab_path):
@@ -525,6 +538,8 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         config.set('global','cafile', api_cafile)
         config.set('global','keyfile', api_keyfile)
         config.set('global','insecure',api_insecure_flag)
+        copy_cert_ca_key_file(api_ssl_cert_files_list, cfgm_host, cfgm_password)
+
     if auth_protocol == 'https':
         if 'auth' not in config.sections():
             config.add_section('auth')
@@ -532,6 +547,9 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         config.set('auth','cafile', keystone_cafile)
         config.set('auth','keyfile', keystone_keyfile)
         config.set('auth','insecure', keystone_insecure_flag)
+        keystone_ssl_cert_files_list = [keystone_certfile, keystone_cafile,
+                                        keystone_keyfile]
+        copy_cert_ca_key_file(keystone_ssl_cert_files_list, cfgm_host, cfgm_password)
 
     with open(vnc_api_ini,'w') as f:
         config.write(f)
@@ -544,6 +562,19 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         update_js_config('openstack', '/etc/contrail/config.global.js',
                          'contrail-webui')
 
+def copy_cert_ca_key_file(ssl_cert_files_list, source_host, password):
+    for cert_file in ssl_cert_files_list:
+        file_path_split = cert_file.split('/')
+        ssl_cert_file = ''
+        for path in range(len(file_path_split)):
+            if path > 0 and path < len(file_path_split)-1:
+                file_path = '/' + file_path_split[path]
+                ssl_cert_file += file_path
+                if not os.path.exists(ssl_cert_file):
+                    os.makedirs(ssl_cert_file)
+        with settings(host_string='%s' %(source_host), password=password,
+                  warn_only=True, abort_on_prompts=False):
+            get(cert_file, cert_file)
 
 def main(argv=sys.argv):
     ap = argparse.ArgumentParser(
