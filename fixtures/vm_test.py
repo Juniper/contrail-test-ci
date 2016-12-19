@@ -529,6 +529,8 @@ class VMFixture(fixtures.Fixture):
 
                     # Check the label and nh details 
                     route = route_table[0]
+                    if route['nh']['type'] == 'COMPOSITE':
+                        continue
                     if compute_ip == self.vm_node_ip:
                         result = validate_local_route_in_vrouter(route,
                             inspect_h, tap_intf['name'], self.logger)
@@ -931,10 +933,11 @@ class VMFixture(fixtures.Fixture):
                     return False
                 for agent_path in self.agent_path[vn_fq_name]:
                     for intf in agent_path['path_list']:
+                        if intf['nh'].get('mc_list', None):
+                            continue
                         if 'itf' in intf['nh']:
                             intf_name = intf['nh']['itf'] 
-                            if not intf['nh'].get('mc_list', None):
-                                agent_label = intf['label']
+                            agent_label = intf['label']
                             break 
                         self.agent_label[vn_fq_name].append(agent_label)
     
@@ -1109,6 +1112,8 @@ class VMFixture(fixtures.Fixture):
                             agent_label = path['label']
                             self.agent_label[vn_fq_name].append(agent_label)
                             break
+                        else:
+                            continue
                         if agent_label not in self.agent_label[vn_fq_name]:
                             self.logger.warn(
                                 'The route for VM IP %s in Node %s is having '
@@ -1478,7 +1483,15 @@ class VMFixture(fixtures.Fixture):
                                     (vm_ip, cn))
                             self.vm_in_cn_flag = self.vm_in_cn_flag and False
                             return False
-                        if cn_routes[0]['next_hop'] != self.vm_node_data_ip:
+                        else:
+                            cn_route_next_hop=False
+                            cn_route_label=False
+                        for cn_route in cn_routes:
+                            if cn_route['next_hop'] == self.vm_node_data_ip and cn_route['label'] in self.agent_label[vn_fq_name]:
+                                cn_route_next_hop = True
+                                cn_route_label = True
+                                break
+                        if not cn_route_next_hop:
                             with self.printlock:
                                 self.logger.warn(
                                     'Next hop for VM %s is not set to %s in Control-node'
@@ -1486,7 +1499,7 @@ class VMFixture(fixtures.Fixture):
                             self.vm_in_cn_flag = self.vm_in_cn_flag and False
                             return False
                         # Label in agent and control-node should match
-                        if cn_routes[0]['label'] not in self.agent_label[vn_fq_name]:
+                        if not cn_route_label:
                             with self.printlock:
                                 self.logger.warn(
                                     "Label for VM %s differs between Control-node "
@@ -1678,6 +1691,7 @@ class VMFixture(fixtures.Fixture):
                     self.vm_in_op_flag = self.vm_in_op_flag and False
                     return False
                 ops_intf = ops_intf_list[ops_index]
+                vm_ip_in_op_server=False
                 for vm_ip in self.vm_ip_dict[vn_fq_name]:
                     try:
                         if is_v6(vm_ip):
@@ -1689,7 +1703,11 @@ class VMFixture(fixtures.Fixture):
                     except Exception as e:
                         return False
 
-                    if vm_ip != op_data:
+                    if vm_ip == op_data:
+                        vm_ip_in_op_server = True
+                        break
+
+                if not vm_ip_in_op_server:
                         self.logger.warn(
                             "Opserver doesnt list IP Address %s of vm %s" % (
                                 vm_ip, self.vm_name))
@@ -2548,15 +2566,17 @@ class VMFixture(fixtures.Fixture):
             self,
             prefix='111.1.0.0/16',
             tenant_name=None,
-            api_server_ip='127.0.0.1',
-            api_server_port='8082',
+            api_server_ip=None,
+            api_server_port=None,
             oper='add',
             virtual_machine_interface_id='',
             route_table_name='my_route_table',
             user='admin',
             password='contrail123'):
 
-        api_server_port = self.inputs.api_server_port
+        api_server_ip = api_server_ip or self.inputs.api_server_ip or \
+                  self.inputs.contrail_external_vip or self.inputs.cfgm_ip
+        api_server_port = api_server_port or self.inputs.api_server_port
         if not tenant_name:
             tenant_name = self.inputs.stack_tenant
         cmd = "python /usr/share/contrail-utils/provision_static_route.py --prefix %s \

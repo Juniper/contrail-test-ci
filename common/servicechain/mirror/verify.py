@@ -637,8 +637,6 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         svmname = si_prefix + str('2_1')
         for svm_name, (session, pcap) in sessions.items():
             count = 10
-            if svm_name == svmname:
-                count = 0
             if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
                 count = count * 2
             self.verify_icmp_mirror(svm_name, session, pcap, count)
@@ -724,8 +722,6 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                      self.si_fixtures[0], self.inputs.project_name)[0].name
         for svm_name, (session, pcap) in sessions.items():
             count = 10
-            if svm_name == svmname:
-                count = 0
             if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
                 count = count * 2
             self.verify_icmp_mirror(svm_name, session, pcap, count)
@@ -749,8 +745,6 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                      self.si_fixtures[0], self.inputs.project_name)[0].name
         for svm_name, (session, pcap) in sessions.items():
             count = sent
-            if svm_name == svmname:
-                count = 0
             if new_left_vm_fix.vm_node_ip != new_right_vm_fix.vm_node_ip:
                 count = count * 2
             self.verify_l4_mirror(svm_name, session, pcap, count, 'udp')
@@ -778,8 +772,6 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                      self.si_fixtures[0], self.inputs.project_name)[0].name
         for svm_name, (session, pcap) in sessions.items():
             count = sent
-            if svm_name == svmname:
-                count = 0
             if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
                 count = count * 2
             self.verify_l4_mirror(svm_name, session, pcap, count, 'udp')
@@ -795,8 +787,6 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                      self.si_fixtures[0], self.inputs.project_name)[0].name
         for svm_name, (session, pcap) in sessions.items():
             count = 10
-            if svm_name == svmname:
-                count = 0
             if left_vm_fix.vm_node_ip != right_vm_fix.vm_node_ip:
                 count = count * 2
             self.verify_icmp_mirror(svm_name, session, pcap, count)
