@@ -25,7 +25,7 @@ class TestDiscoveryBasic(BaseDiscoveryTest):
         pass
     # end runTest
 
-    @test.attr(type=['sanity', 'ci_sanity', 'vcenter', 'suite1'])
+    @test.attr(type=['sanity', 'ci_sanity', 'vcenter', 'suite1', 'vcenter_compute'])
     @preposttest_wrapper
     def test_all_publishers_registered_to_discovery_service(self):
         '''
@@ -44,7 +44,7 @@ class TestDiscoveryBasic(BaseDiscoveryTest):
         return True
 
 
-    @test.attr(type=['sanity', 'ci_sanity', 'vcenter', 'suite1'])
+    @test.attr(type=['sanity', 'ci_sanity', 'vcenter', 'suite1', 'vcenter_compute'])
     @preposttest_wrapper
     def test_agent_gets_control_nodes_from_discovery(self):
         '''
@@ -59,7 +59,7 @@ class TestDiscoveryBasic(BaseDiscoveryTest):
             assert self.ds_obj.verify_bgp_connection(ip)
         return True
 
-    @test.attr(type=['sanity', 'ci_sanity', 'vcenter', 'suite1'])
+    @test.attr(type=['sanity', 'ci_sanity', 'vcenter', 'suite1', 'vcenter_compute'])
     @preposttest_wrapper
     def test_webui_subscribed_to_apiserver_service(self):
         ''' Validate webui subscribed to apiserver service

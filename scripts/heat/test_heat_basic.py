@@ -33,7 +33,7 @@ class TestBasicHeat(BaseHeatTest, ECMPTraffic, ECMPVerify):
     def tearDownClass(cls):
         super(TestBasicHeat, cls).tearDownClass()
 
-    @test.attr(type=['sanity'])
+    @test.attr(type=['sanity', 'vcenter_compute'])
     @preposttest_wrapper
     def test_svc_creation_with_heat(self):
         '''
@@ -80,6 +80,11 @@ class TestBasicHeatIPv6(TestBasicHeat):
     def setUpClass(cls):
         super(TestBasicHeatIPv6, cls).setUpClass()
         cls.inputs.set_af('v6')
+
+    def is_test_applicable(self):
+        if os.environ.get('VCENTER_COMPUTE') == '1' and not self.connections.orch.is_feature_supported('ipv6'):
+            return(False, 'Skipping IPv6 Test on vcenter setup')
+        return (True, None)
 
 class TestBasicHeatv2IPv6(TestBasicHeatv2):
     @classmethod

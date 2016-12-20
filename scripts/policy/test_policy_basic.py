@@ -55,7 +55,7 @@ class TestBasicPolicy(BasePolicyTest):
                 flavor=flavor,
                 node_name=node_name))
 
-    @test.attr(type=['sanity','ci_sanity','quick_sanity', 'suite1', 'vcenter'])
+    @test.attr(type=['sanity','ci_sanity','quick_sanity', 'suite1', 'vcenter', 'vcenter_compute'])
     @preposttest_wrapper
     def test_policy(self):
         """ Configure policies based on topology and run policy related verifications.
@@ -100,7 +100,7 @@ class TestBasicPolicy(BasePolicyTest):
         return True
     # end test_policy
 
-    @test.attr(type=['sanity','ci_sanity','quick_sanity', 'vcenter', 'suite1'])
+    @test.attr(type=['sanity','ci_sanity','quick_sanity', 'vcenter', 'suite1', 'vcenter_compute'])
     @preposttest_wrapper
     def test_policy_to_deny(self):
         ''' Test to validate that with policy having rule to disable icmp within the VN, ping between VMs should fail
@@ -164,7 +164,7 @@ class TestBasicPolicyNegative(BasePolicyTest):
     def runTest(self):
         pass
 
-    @test.attr(type=['sanity','ci_sanity', 'suite1', 'vcenter'])
+    @test.attr(type=['sanity','ci_sanity', 'suite1', 'vcenter', 'vcenter_compute'])
     @preposttest_wrapper
     def test_remove_policy_with_ref(self):
         ''' This tests the following scenarios.
@@ -240,7 +240,7 @@ class TestBasicPolicyModify(BasePolicyTest):
     def runTest(self):
         pass
 
-    @test.attr(type=['sanity', 'ci_sanity', 'suite1', 'vcenter'])
+    @test.attr(type=['sanity', 'ci_sanity', 'suite1', 'vcenter', 'vcenter_compute'])
     @preposttest_wrapper
     def test_policy_modify_vn_policy(self):
         """ Configure policies based on topology;
@@ -368,7 +368,7 @@ class TestDetailedPolicy0(BasePolicyTest):
     def setUpClass(cls):
         super(TestDetailedPolicy0, cls).setUpClass()
 
-    @test.attr(type=['sanity', 'ci_sanity', 'vcenter', 'suite1'])
+    @test.attr(type=['sanity', 'ci_sanity', 'vcenter', 'suite1', 'vcenter_compute'])
     @preposttest_wrapper
     def test_repeated_policy_modify(self):
         """ Configure policies based on topology; Replace VN's existing policy [same policy name but with different rule set] multiple times and verify.
