@@ -200,7 +200,7 @@ class VerifySvcFirewall(VerifySvcMirror):
         """Validate the service chaining datapath"""
         if not image_name:
             if ci and self.inputs.get_af() == 'v4':
-                image_name = 'cirros-0.3.0-x86_64-uec'
+                image_name = 'cirros'
             else:
                 image_name = 'ubuntu-traffic'
 
@@ -324,7 +324,7 @@ class VerifySvcFirewall(VerifySvcMirror):
 
         if not image_name:
             if ci and self.inputs.get_af() == 'v4' and self.inputs.orchestrator != 'vcenter':
-                image_name = 'cirros-0.3.0-x86_64-uec'
+                image_name = 'cirros'
             else:
                 image_name = 'ubuntu-traffic'
 
