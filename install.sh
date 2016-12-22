@@ -14,7 +14,7 @@ PACKAGES_REQUIRED_UBUNTU="python-pip ant python-novaclient python-neutronclient 
     python-contrail python-glanceclient python-heatclient python-ceilometerclient python-setuptools contrail-utils \
     patch git ipmitool python-requests"
 PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD="$PACKAGES_REQUIRED_UBUNTU python-dev libxslt1-dev libz-dev libyaml-dev sshpass"
-EXTRAS="http://launchpadlibrarian.net/264517293/libexpat1_2.1.0-4ubuntu1.3_amd64.deb http://launchpadlibrarian.net/264517288/libexpat1-dev_2.1.0-4ubuntu1.3_amd64.deb https://launchpad.net/~ubuntu-security/+archive/ubuntu/ppa/+build/7566120/+files/libpython2.7-dev_2.7.6-8ubuntu0.2_amd64.deb https://launchpad.net/~ubuntu-security/+archive/ubuntu/ppa/+build/7566120/+files/python2.7-dev_2.7.6-8ubuntu0.2_amd64.deb"
+EXTRAS="http://security.ubuntu.com/ubuntu/pool/main/e/expat/libexpat1-dev_2.1.0-4ubuntu1.3_amd64.deb http://security.ubuntu.com/ubuntu/pool/main/e/expat/libexpat1_2.1.0-4ubuntu1.3_amd64.deb http://security.ubuntu.com/ubuntu/pool/main/p/python2.7/libpython2.7-dev_2.7.6-8ubuntu0.3_amd64.deb http://security.ubuntu.com/ubuntu/pool/main/p/python2.7/python2.7-dev_2.7.6-8ubuntu0.3_amd64.deb"
 
 usage () {
     cat <<EOF
