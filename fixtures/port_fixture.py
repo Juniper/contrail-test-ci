@@ -49,6 +49,7 @@ class PortFixture(vnc_api_test.VncLibFixture):
         self.vlan_id = kwargs.get('vlan_id', None)
         self.parent_vmi = kwargs.get('parent_vmi', None)
         self.vn_obj = None
+        self.instance_ip_secondary = kwargs.get('instance_ip_secondary', False)
      # end __init__
 
     def setUp(self):
@@ -146,12 +147,24 @@ class PortFixture(vnc_api_test.VncLibFixture):
                 iip_obj.set_instance_ip_address(fixed_ip['ip_address'])
                 self.vnc_api_h.instance_ip_create(iip_obj)
         else:
-            iip_id = str(uuid.uuid4())
-            iip_obj = vnc_api_test.InstanceIp(name=iip_id)
-            iip_obj.uuid = iip_id
-            iip_obj.add_virtual_machine_interface(vmi_obj)
-            iip_obj.add_virtual_network(self.vn_obj)
-            self.vnc_api_h.instance_ip_create(iip_obj)
+            if self.instance_ip_secondary:
+                # If user want to use secondary instance IP, then 2 IIPs need to be created.
+                # IIP 1 will have instance_ip_secondary = False and IIP 2 will have as True.
+                loop_count = 2
+            else:
+                loop_count = 1
+            self.iip_objs = []
+            for i in range(0,loop_count):
+                iip_id = str(uuid.uuid4())
+                iip_obj = vnc_api_test.InstanceIp(name=iip_id)
+                iip_obj.uuid = iip_id
+                if i == 1:
+                    iip_obj.instance_ip_secondary = True
+                iip_obj.add_virtual_machine_interface(vmi_obj)
+                iip_obj.add_virtual_network(self.vn_obj)
+                id = self.vnc_api_h.instance_ip_create(iip_obj)
+                iip_obj = self.vnc_api_h.instance_ip_read(id=id)
+                self.iip_objs.append(iip_obj)
     # end _contrail_create_port
 
     def cleanUp(self):
