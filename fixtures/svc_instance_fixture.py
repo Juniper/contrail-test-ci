@@ -4,6 +4,7 @@ from tcutils.util import retry
 from time import sleep
 from tcutils.services import get_status
 from vm_test import VMFixture
+from svc_hc_fixture import HealthCheckFixture
 try:
     from webui_test import *
 except ImportError:
@@ -11,10 +12,9 @@ except ImportError:
 
 
 class SvcInstanceFixture(fixtures.Fixture):
-
     def __init__(self, connections, inputs, domain_name, project_name, si_name,
                  svc_template, if_list, mgmt_vn_name=None, left_vn_name=None, right_vn_name=None, do_verify=True, max_inst=1, static_route=['None', 'None', 'None'],
-                 availability_zone = None):
+                 availability_zone = None, hc_list=None):
         self.connections = connections
         self.vnc_lib = connections.vnc_lib
         self.api_s_inspect = connections.api_server_inspect
@@ -44,6 +44,9 @@ class SvcInstanceFixture(fixtures.Fixture):
         self.cs_svc_ris = []
         self.availability_zone = self.inputs.availability_zone or availability_zone
         self.svn_list = ['svc-vn-mgmt', 'svc-vn-left', 'svc-vn-right']
+        self.hc_list = hc_list or [] # List of dicts of eg: [{'uuid': '1', 'intf_type': 'left'},
+                                     #                       {'uuid': '2', 'intf_type': 'right'}]
+        self._vnc = self.connections.orch.vnc_h
         if self.inputs.verify_thru_gui():
             self.browser = connections.browser
             self.browser_openstack = connections.browser_openstack
@@ -82,6 +85,7 @@ class SvcInstanceFixture(fixtures.Fixture):
             svc_instance = self.vnc_lib.service_instance_read(
                 fq_name=self.si_fq_name)
             self.already_present = True
+            self.uuid = svc_instance.uuid
             self.logger.debug(
                 "Service instance: %s already exists", self.si_fq_name)
         except NoIdError:
@@ -138,13 +142,83 @@ class SvcInstanceFixture(fixtures.Fixture):
             if self.inputs.is_gui_based_config():
                 self.webui.create_svc_instance(self)
             else:
-                self.vnc_lib.service_instance_create(svc_instance)
+                self.uuid = self.vnc_lib.service_instance_create(svc_instance)
             svc_instance = self.vnc_lib.service_instance_read(
                 fq_name=self.si_fq_name)
+        for hc in self.hc_list:
+             self.associate_hc(hc['uuid'], hc['intf_type'])
         return svc_instance
     # end _create_si
 
+    def associate_hc(self, hc_uuid, intf_type):
+        self.logger.debug("Associating hc(%s) to si (%s)"%(hc_uuid, self.uuid))
+        self._vnc.assoc_health_check_to_si(self.uuid, hc_uuid, intf_type)
+        d = {'uuid': hc_uuid, 'intf_type': intf_type}
+        if d not in self.hc_list:
+            self.hc_list.append(d) 
+
+    def disassociate_hc(self, hc_uuid):
+        self.logger.debug("Disassociating hc(%s) from si (%s)"%(hc_uuid, self.uuid))
+        self._vnc.disassoc_health_check_from_si(self.uuid, hc_uuid)
+        for hc in list(self.hc_list):
+            if hc['uuid'] == hc_uuid:
+                self.hc_list.remove(hc)
+
+    def _get_vn_of_intf_type(self, intf_type):
+        if (intf_type == 'left'):
+            return self.left_vn_name
+        elif (intf_type == 'right'):
+            return self.right_vn_name
+        elif (intf_type == 'management'):
+            return self.management_vn_name
+
+    def get_hc_status(self):
+        for svm in self.svm_list:
+            inspect_h = self.connections.agent_inspect[svm.vm_node_ip]
+            for hc in self.hc_list:
+                virtual_network = self._get_vn_of_intf_type(hc['intf_type'])
+                vmi_id = svm.get_vmi_id(virtual_network)
+                hc_obj = inspect_h.get_health_check(hc['uuid'])
+                if not hc_obj or not vmi_id:
+                    return False
+                if not hc_obj.is_hc_active(vmi_id):
+                    return False
+        return True
+
+    @retry(delay=2, tries=10)
+    def verify_hc_is_active(self):
+        return self.get_hc_status()
+
+    @retry(delay=2, tries=10)
+    def verify_hc_is_not_active(self):
+        return not self.get_hc_status()
+
+    @retry(delay=2, tries=10)
+    def verify_hc_in_agent(self):
+        for svm in self.svm_list:
+            vm_node_ip = svm.vm_node_ip
+            for hc in self.hc_list:
+                hc_obj = self.useFixture(HealthCheckFixture(connections=self.connections,
+                                                     uuid=hc['uuid']))
+                if not hc_obj.verify_in_agent(vm_node_ip):
+                    return False
+        return True
+
+    @retry(delay=2, tries=10)
+    def verify_hc_not_in_agent(self, hc_list):
+        for svm in self.svm_list:
+            inspect_h = self.connections.agent_inspect[svm.vm_node_ip]
+            for hc in hc_list:
+                hc_obj = inspect_h.get_health_check(hc['uuid'])
+                if hc_obj:
+                    return False
+        return True
+
     def _delete_si(self):
+        curr_hc_list = list(self.hc_list)
+        for hc in curr_hc_list:
+            self.disassociate_hc(hc['uuid'])
+        self.verify_hc_not_in_agent(curr_hc_list)
         self.logger.debug("Deleting service instance: %s", self.si_fq_name)
         self.vnc_lib.service_instance_delete(fq_name=self.si_fq_name)
     # end _delete_si
