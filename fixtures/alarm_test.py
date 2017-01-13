@@ -75,8 +75,7 @@ class AlarmFixture(fixtures.Fixture):
             if self.parent_obj_type == 'project':
                 if not self.project_fixture:
                     self.project_fixture = self.useFixture(
-                        ProjectFixture(vnc_lib_h=self.vnc_lib_h,
-                                       project_name=self.project_name,
+                        ProjectFixture(project_name=self.project_name,
                                        connections=self.connections))
                 self.parent_obj = self.project_fixture.getObj()
             if not self.parent_obj:
