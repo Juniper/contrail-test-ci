@@ -34,12 +34,16 @@ else:
 # import handling for keystone
 try:
     from keystoneclient.v2_0 import client as ks_client
+    from keystoneclient.v3 import client as ks_v3_client
+    from keystoneauth1.identity import v3
+    from keystoneauth1 import session
     from keystoneclient import exceptions as ks_exceptions
     from keystoneclient.auth.identity import v2 as ks_auth_identity_v2
     from keystoneclient import session as ks_session
     import keystoneclient
 except:
     ks_client = None
+    ks_v3_client = None
     ks_exceptions = None
     keystoneclient = None
     ks_auth_identity_v2 = None

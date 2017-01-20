@@ -13,6 +13,8 @@ import time
 import re
 import ast
 from common import vcenter_libs
+from keystoneauth1 import session
+from keystoneauth1.identity import v3
 
 #from contrail_fixtures import contrail_fix_ext
 
@@ -25,7 +27,8 @@ class NovaHelper():
                  project_name,
                  key='key1',
                  username=None,
-                 password=None):
+                 password=None,
+                 auth=None):
         httpclient = None
         self.inputs = inputs
         self.username = username or inputs.stack_user
@@ -50,11 +53,24 @@ class NovaHelper():
         self.hypervisor_type = os.environ.get('HYPERVISOR_TYPE') \
                                 if os.environ.has_key('HYPERVISOR_TYPE') \
                                 else None
+        self.auth=auth
+        if self.auth:
+            self.domain_id=self.auth.keystone.keystone.domain_id
     # end __init__
 
     def _connect_to_openstack(self):
         insecure = bool(os.getenv('OS_INSECURE',True))
-        self.obj = mynovaclient.Client('2',
+        if 'v3' in self.auth_url:
+            auth = v3.Password(auth_url=self.auth_url,
+                   username=self.username,
+                    password=self.password,
+                    project_name=self.project_name,
+                    user_domain_id=self.domain_id,
+                    project_domain_id=self.domain_id)
+            sess = session.Session(auth=auth)
+            self.obj = mynovaclient.Client('2', session=sess)
+        else:
+            self.obj = mynovaclient.Client('2',
                                        username=self.username,
                                        project_id=self.project_name,
                                        api_key=self.password,
