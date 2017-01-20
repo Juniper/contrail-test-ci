@@ -5,6 +5,8 @@ from common.openstack_libs import network_client as client
 from common.openstack_libs import network_http_client as HTTPClient
 from common.openstack_libs import network_client_exception as CommonNetworkClientException
 from netaddr import IPNetwork
+from keystoneauth1.identity import v3
+from keystoneauth1 import session
 
 class NetworkClientException(CommonNetworkClientException):
 
@@ -27,7 +29,9 @@ class QuantumHelper():
             password,
             project_id,
             inputs,
-            auth_server_ip=None):
+            auth_server_ip=None,
+            auth=None,
+            project_name=None):
         self.username = username
         self.password = password
         self.project_id = get_plain_uuid(project_id)
@@ -40,11 +44,29 @@ class QuantumHelper():
                         os.getenv('OS_AUTH_URL') or \
                         'http://%s:5000/v2.0' % self.auth_server_ip
         self.region_name = inputs.region_name if inputs else None
+        self.auth=auth
+        self.project_name = project_name
+        #need to move to keystone to get session
+        if self.auth:
+            self.domain_id=self.auth.keystone.keystone.domain_id
+        else:
+            self.domain_id='default'
     # end __init__
 
     def setUp(self):
         insecure = bool(os.getenv('OS_INSECURE', True))
-        self.obj = client.Client('2.0', username=self.username,
+        #need to move to keystone to get session
+        if 'v3' in self.auth_url:
+            auth = v3.Password(auth_url=self.auth_url,
+                   username=self.username,
+                    password=self.password,
+                    project_name=self.project_name,
+                    user_domain_id=self.domain_id,
+                    project_domain_id=self.domain_id)
+            sess = session.Session(auth=auth)
+            self.obj = client.Client('2', session=sess)
+        else:
+            self.obj = client.Client('2.0', username=self.username,
                                  password=self.password,
                                  tenant_id=self.project_id,
                                  auth_url=self.auth_url,
