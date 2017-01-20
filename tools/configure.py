@@ -247,6 +247,22 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     stack_password = env.test.get('stack_password',
                          os.getenv('STACK_PASSWORD') or '')
     stack_tenant = env.test.get('stack_tenant', os.getenv('STACK_TENANT') or '')
+    if not env.has_key('domain_isolation'):
+        env.domain_isolation = False
+    if not env.has_key('cloud_admin_domain'):
+        env.cloud_admin_domain = 'Default'
+    if not env.has_key('cloud_admin_user'):
+        env.cloud_admin_user = 'admin'
+    if not env.has_key('cloud_admin_password'):
+        env.cloud_admin_password = env.openstack_admin_password
+    domain_isolation = env.test.get('domain_isolation',
+                           os.getenv('DOMAIN_ISOLATION') or env.domain_isolation)
+    cloud_admin_domain = env.test.get('cloud_admin_domain',
+                           os.getenv('CLOUD_ADMIN_DOMAIN') or env.cloud_admin_domain)
+    cloud_admin_user = env.test.get('cloud_admin_user',
+                           os.getenv('CLOUD_ADMIN_USER') or env.cloud_admin_user)
+    cloud_admin_password = env.test.get('cloud_admin_password',
+                           os.getenv('CLOUD_ADMIN_PASSWORD') or env.cloud_admin_password)
     tenant_isolation = env.test.get('tenant_isolation',
                            os.getenv('TENANT_ISOLATION') or '')
 
@@ -356,6 +372,10 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
          '__admin_user__'          : admin_user,
          '__admin_password__'      : admin_password,
          '__admin_tenant__'        : admin_tenant,
+         '__domain_isolation__'    : domain_isolation,
+         '__cloud_admin_domain__'  : cloud_admin_domain,
+         '__cloud_admin_user__'    : cloud_admin_user,
+         '__cloud_admin_password__': cloud_admin_password,
          '__tenant_isolation__'    : tenant_isolation,
          '__stack_user__'          : stack_user,
          '__stack_password__'      : stack_password,
