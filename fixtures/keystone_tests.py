@@ -1,5 +1,6 @@
 import os
 from common.openstack_libs import ks_client as keystone_client
+from common.openstack_libs import ks_v3_client as keystone_v3_client
 from common.openstack_libs import ks_exceptions
 from common.openstack_libs import keystoneclient
 from common import log_orig as contrail_logging
@@ -12,16 +13,23 @@ class KeystoneCommands():
     def __init__(self, username=None, password=None, tenant=None,
                  auth_url=None, token=None, endpoint=None,
                  insecure=True, region_name=None,
-                 logger=None):
+                 logger=None, inputs=None, domain=None):
 
         self.logger = logger or contrail_logging.getLogger(__name__)
         if token:
             self.keystone = keystoneclient.Client(
                 token=token, endpoint=endpoint)
+        elif ('v3' in auth_url) and (inputs is not None) and (inputs.domain_isolation is True):
+                self.keystone = keystone_v3_client.Client(
+                                user_domain_name=domain,
+                                username=username,
+                              password=password,
+                            domain_name=domain,
+                    auth_url=auth_url)
         else:
-            self.keystone = keystone_client.Client(
-                username=username, password=password, tenant_name=tenant, auth_url=auth_url,
-                insecure=insecure, region_name=region_name or 'RegionOne')
+           self.keystone = keystone_client.Client(
+                        username=username, password=password, tenant_name=tenant, auth_url=auth_url,
+                        insecure=insecure, region_name=region_name or 'RegionOne')
 
     def get_session(self):
         auth = keystoneclient.auth.identity.v2.Password(auth_url=self.keystone.auth_url,
@@ -52,18 +60,63 @@ class KeystoneCommands():
             if (x.name == tenant_name):
                 return x
         return None
+    
+    def get_group_dct(self,group_name):
+        all_groups = self.group_list()
+        for x in all_groups:
+            if (x.name == group_name):
+                return x
+        return None
+    
+    def find_domain(self, domain_name):
+        return self.keystone.domains.find(name=domain_name)
 
-    def create_project(self, name):
-       return get_dashed_uuid(self.keystone.tenants.create(name).id)
+    def get_domain(self, domain_obj):
+        return self.keystone.domains.get(domain_obj)
+
+    def list_domains(self):
+        return self.keystone.domains.list()
+
+    def update_domain(self, domain_obj, domain_name=None,
+                      description=None, enabled=None):
+        return self.keystone.domains.update(domain=domain_obj, name=domain_name,
+                                            description=description,
+                                            enabled=enabled)
+
+    def create_domain(self, domain_name):
+        return get_dashed_uuid(self.keystone.domains.create(domain_name).id)
+
+    def delete_domain(self, domain_name, domain_obj=None):
+        if not domain_obj:
+            domain_obj=self.find_domain(domain_name)
+        self.update_domain(domain_obj=domain_obj, enabled=False)
+        return self.keystone.domains.delete(domain_obj)
+
+
+    def create_project(self, project_name, domain_name=None):
+        if self.keystone.auth_ref.domain_scoped:
+            if domain_name == self.keystone.domain_name:
+                domain = self.keystone.domains.get(self.keystone.domain_id)
+                return get_dashed_uuid(self.keystone.projects.create(name=project_name, domain=domain).id)
+            else:
+                domain=self.find_domain(domain_name)
+                return get_dashed_uuid(self.keystone.projects.create(name=project_name, domain=domain).id)
+        else:
+            return get_dashed_uuid(self.keystone.tenants.create(project_name).id)
  
     def delete_project(self, name, obj=None):
-       if not obj:
-           obj = self.keystone.tenants.find(name=name)
-       self.keystone.tenants.delete(obj)
+       if self.keystone.auth_ref.domain_scoped:
+           if not obj:
+               obj = self.keystone.projects.find(name=name)
+           self.keystone.projects.delete(obj)
+       else:
+           if not obj:
+               obj = self.keystone.tenants.find(name=name)
+           self.keystone.tenants.delete(obj)
 
     def create_tenant_list(self, tenants=[]):
         for tenant in tenants:
-            return_vlaue = self.create_project(tenant)
+            return_vlaue = self.create_project(project_name=tenant)
 
     def delete_tenant_list(self, tenants=[]):
         for tenant in tenants:
@@ -75,12 +128,21 @@ class KeystoneCommands():
         self.keystone.tenants.update(
             tenant_id, tenant_name=tenant_name, description=description, enabled=enabled)
 
-    def add_user_to_tenant(self, tenant, user, role):
+    def add_user_to_tenant(self, tenant, user, role, domain=None):
         ''' inputs have to be string '''
         user = self.get_user_dct(user)
         role = self.get_role_dct(role)
         tenant = self.get_tenant_dct(tenant)
-        self._add_user_to_tenant(tenant, user, role)
+        if self.keystone.auth_ref.domain_scoped:
+            domain_id=self.find_domain(domain)
+            mem_role=self.get_role_dct('_member_')
+            self.keystone.roles.grant(role, user=user, group=None, domain=domain_id)
+            self.keystone.roles.grant(role, user=user, group=None, project=tenant)
+            self.keystone.roles.grant(mem_role, user=user, group=None, domain=domain_id)
+            self.keystone.roles.grant(mem_role, user=user, group=None, project=tenant)
+
+        else:
+            self._add_user_to_tenant(tenant, user, role)
 
     def _add_user_to_tenant(self, tenant, user, role):
         ''' inputs could be id or obj '''
@@ -91,6 +153,19 @@ class KeystoneCommands():
                 self.logger.debug(str(e))
             else:
                 self.logger.info(str(e))
+    
+    def add_group_to_tenant(self, tenant, group, role, domain=None):
+        ''' inputs have to be string '''
+        group = self.get_group_dct(group)
+        role = self.get_role_dct(role)
+        tenant = self.get_tenant_dct(tenant)
+        if self.keystone.auth_ref.domain_scoped:
+            domain_id=self.find_domain(domain)
+            mem_role=self.get_role_dct('_member_')
+            self.keystone.roles.grant(role, user=None, group=group, domain=domain_id)
+            self.keystone.roles.grant(role, user=None, group=group, project=tenant)
+            self.keystone.roles.grant(mem_role, user=None, group=group, domain=domain_id)
+            self.keystone.roles.grant(mem_role, user=None, group=group, project=tenant)
 
     def remove_user_from_tenant(self, tenant, user, role):
 
@@ -100,8 +175,13 @@ class KeystoneCommands():
         self.keystone.tenants.remove_user(tenant, user, role)
 
     def tenant_list(self, limit=None, marker=None):
-
-        return self.keystone.tenants.list()
+        if self.keystone.auth_ref.domain_scoped:
+            return self.keystone.projects.list()
+        else:
+            return self.keystone.tenants.list()
+    
+    def group_list(self,):
+        return self.keystone.groups.list()
 
     def create_role(self, role):
         self.keystone.roles.create(role)
@@ -139,10 +219,15 @@ class KeystoneCommands():
 
         return self.keystone.roles.list()
 
-    def create_user(self, user, password, email='', tenant_name=None, enabled=True):
-
-        tenant_id = self.get_tenant_dct(tenant_name).id if tenant_name else None
-        self.keystone.users.create(user, password, email, tenant_id, enabled)
+    def create_user(self, user, password, email='', tenant_name=None,
+                    enabled=True, project_name=None, domain_name=None):
+        if self.keystone.auth_ref.domain_scoped:
+            project_id=self.get_tenant_dct(project_name).id
+            domain_id=self.find_domain(domain_name).id
+            self.keystone.users.create(user, domain_id, project_id, password, email, enabled=enabled)
+        else:
+            tenant_id = self.get_tenant_dct(tenant_name).id if tenant_name else None
+            self.keystone.users.create(user, password, email, tenant_id, enabled)
 
     @retry(delay=3, tries=5)
     def delete_user(self, user):
@@ -171,13 +256,29 @@ class KeystoneCommands():
 
     def services_list(self, tenant_id=None, limit=None, marker=None):
         return self.keystone.services.list()
+    
+    def get_domain_id(self, domain_name):        
+       try:        
+           obj =  self.find_domain(domain_name=domain_name)        
+           return get_dashed_uuid(obj.id)        
+       except ks_exceptions.NotFound:        
+           return None
 
     def get_id(self):
-        return get_dashed_uuid(self.keystone.auth_tenant_id)
+        if self.keystone.auth_ref.domain_scoped:
+            if self.keystone.auth_domain_id == 'default':
+                return get_dashed_uuid(self.keystone.projects.find(name='admin').id)
+            else:
+                return None
+        else:
+            return get_dashed_uuid(self.keystone.auth_tenant_id)
 
     def get_project_id(self, name):
        try:
-           obj =  self.keystone.tenants.find(name=name)
+           if 'v3' in self.keystone.auth_url:
+               obj =  self.keystone.projects.find(name=name, domain_id=self.keystone.domain_id)
+           else:
+               obj =  self.keystone.tenants.find(name=name)
            return get_dashed_uuid(obj.id)
        except ks_exceptions.NotFound:
            return None
@@ -185,3 +286,16 @@ class KeystoneCommands():
     def get_endpoint(self, service):
        ''' Given the service-name return the endpoint ip '''
        return self.keystone.service_catalog.get_urls(service_type=service)
+   
+       def create_group(self,name,domain_name):
+        domain=self.find_domain(domain_name)
+        return self.keystone.groups.create(name=name, domain=domain)
+    
+    def delete_group(self,name):
+        domain=self.find(domain_name)
+        return self.keystone.groups.delete(name=name)
+    
+    def add_user_to_group(self,user,group):
+        user = self.get_user_dct(user)
+        group = self.get_group_dct(group)
+        self.keystone.users.add_to_group(user, group)

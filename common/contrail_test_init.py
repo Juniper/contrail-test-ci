@@ -74,7 +74,14 @@ class TestInputs(object):
                                             'Basic', 'provFile', None)
         self.key = read_config_option(self.config,
                                       'Basic', 'key', 'key1')
-
+        self.domain_isolation = read_config_option(self.config,
+            'Basic',
+            'domain_isolation',
+            False)
+        self.cloud_admin_domain = read_config_option(self.config,
+            'Basic',
+            'cloud_admin_domain',
+            'Default')
         self.tenant_isolation = read_config_option(self.config,
             'Basic',
             'tenant_isolation',
@@ -98,6 +105,11 @@ class TestInputs(object):
             'Basic',
             'adminTenant',
             os.getenv('OS_TENANT_NAME', 'admin'))
+        
+        self.admin_domain = read_config_option(self.config,
+            'Basic',
+            'adminDomain',
+            os.getenv('OS_DOMAIN_NAME','Default'))
 
         self.stack_user = read_config_option(
             self.config,
@@ -279,10 +291,16 @@ class TestInputs(object):
 
         self.prov_file = self.prov_file or self._create_prov_file()
         self.prov_data = self.read_prov_file()
-        self.auth_url = os.getenv('OS_AUTH_URL') or \
-                        '%s://%s:%s/v2.0'%(self.auth_protocol,
+        if self.domain_isolation is True:
+            self.auth_url = os.getenv('OS_AUTH_URL') or \
+                        '%s://%s:%s/v3'%(self.auth_protocol,
                                            self.auth_ip,
                                            self.auth_port)
+        else:
+            self.auth_url = os.getenv('OS_AUTH_URL') or \
+                            '%s://%s:%s/v2.0'%(self.auth_protocol,
+                                               self.auth_ip,
+                                               self.auth_port)
         #vcenter server
         self.vcenter_dc = read_config_option(
            self.config, 'vcenter', 'vcenter_dc', None)
@@ -596,7 +614,7 @@ class TestInputs(object):
                * OS_USERNAME (default: admin)
                * OS_PASSWORD (default: contrail123)
                * OS_TENANT_NAME (default: admin)
-               * OS_DOMAIN_NAME (default: default-domain)
+               * OS_DOMAIN_NAME (default: Default)
                * OS_AUTH_URL (default: http://127.0.0.1:5000/v2.0)
                * OS_INSECURE (default: True)
               login creds:
@@ -619,6 +637,7 @@ class TestInputs(object):
                                         auth_url,
                                         region_name=self.region_name,
                                         insecure=insecure,
+                                        inputs=self.inputs,
                                         logger=self.logger)
             match = re.match(pattern, keystone.get_endpoint('identity')[0])
             self.auth_ip = match.group('ip')

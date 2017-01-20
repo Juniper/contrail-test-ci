@@ -1,6 +1,8 @@
 import os
 from common.openstack_libs import nova_client as mynovaclient
 from common.openstack_libs import nova_exception as novaException
+from common.openstack_libs import ks_auth_identity_v3 as v3
+from common.openstack_libs import ks_v3_session as session
 from fabric.context_managers import settings, hide, cd, shell_env
 from fabric.api import run, local, env
 from fabric.operations import get, put
@@ -14,6 +16,7 @@ import re
 import ast
 from common import vcenter_libs
 
+
 #from contrail_fixtures import contrail_fix_ext
 
 #@contrail_fix_ext (ignore_verify=True, ignore_verify_on_setup=True)
@@ -25,7 +28,8 @@ class NovaHelper():
                  project_name,
                  key='key1',
                  username=None,
-                 password=None):
+                 password=None,
+                 domain_name=None):
         httpclient = None
         self.inputs = inputs
         self.username = username or inputs.stack_user
@@ -34,6 +38,7 @@ class NovaHelper():
         self.admin_password = inputs.admin_password
         self.admin_tenant = inputs.admin_tenant
         self.project_name = project_name
+        self.doamin_name=domain_name
         self.cfgm_ip = inputs.cfgm_ip
         self.openstack_ip = inputs.openstack_ip
         self.zone = inputs.availability_zone
@@ -50,11 +55,22 @@ class NovaHelper():
         self.hypervisor_type = os.environ.get('HYPERVISOR_TYPE') \
                                 if os.environ.has_key('HYPERVISOR_TYPE') \
                                 else None
+        
     # end __init__
 
     def _connect_to_openstack(self):
         insecure = bool(os.getenv('OS_INSECURE',True))
-        self.obj = mynovaclient.Client('2',
+        if 'v3' in self.auth_url:
+            auth = v3.Password(auth_url=self.auth_url,
+                   username=self.username,
+                    password=self.password,
+                    project_name=self.project_name,
+                    user_domain_name=self.domain_name,
+                    project_domain_name=self.domain_name)
+            sess = session.Session(auth=auth)
+            self.obj = mynovaclient.Client('2', session=sess)
+        else:
+            self.obj = mynovaclient.Client('2',
                                        username=self.username,
                                        project_id=self.project_name,
                                        api_key=self.password,

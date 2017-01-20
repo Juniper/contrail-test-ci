@@ -9,14 +9,19 @@ class BaseTestCase_v1(BaseTestCase):
         cls.admin_inputs = None
         cls.admin_connections = None
         super(BaseTestCase_v1, cls).setUpClass()
-
+        
+        if cls.inputs.domain_isolation:
+            domain_name = cls.__name__
+        else:
+            domain_name = cls.inputs.domain_name
+            
         if not cls.inputs.tenant_isolation:
             project_name = cls.inputs.stack_tenant
         else:
             project_name = cls.__name__
-
         cls.isolated_creds = IsolatedCreds(
             cls.inputs,
+            domain_name=domain_name,
             project_name=project_name,
             ini_file=cls.ini_file,
             logger=cls.logger)
@@ -24,12 +29,14 @@ class BaseTestCase_v1(BaseTestCase):
         if cls.inputs.tenant_isolation:
             cls.admin_isolated_creds = AdminIsolatedCreds(
                 cls.inputs,
+                domain_name=cls.inputs.domain_name,
                 ini_file=cls.ini_file,
                 logger=cls.logger)
             cls.admin_isolated_creds.setUp()
-
+            if cls.inputs.domain_isolation:
+                cls.domain_obj = cls.admin_isolated_creds.create_domain(cls.isolated_creds.domain_name)
             cls.project = cls.admin_isolated_creds.create_tenant(
-                cls.isolated_creds.project_name)
+                cls.isolated_creds.project_name,cls.isolated_creds.domain_name)
             cls.admin_inputs = cls.admin_isolated_creds.get_inputs(cls.project)
             cls.admin_isolated_creds.create_and_attach_user_to_tenant(
                 cls.project,
@@ -38,14 +45,13 @@ class BaseTestCase_v1(BaseTestCase):
             cls.admin_connections = cls.admin_isolated_creds.get_connections(
                 cls.admin_inputs)
         # endif
-
         cls.isolated_creds.setUp()
+        
         if not cls.project:
             cls.project = cls.isolated_creds.create_tenant(
                 cls.isolated_creds.project_name)
         cls.inputs = cls.isolated_creds.get_inputs(cls.project)
         cls.connections = cls.isolated_creds.get_connections(cls.inputs)
-
         cls.create_flood_vmi_if_vcenter_gw_setup()
     # end setUpClass
 
@@ -54,6 +60,8 @@ class BaseTestCase_v1(BaseTestCase):
         if cls.inputs.tenant_isolation:
             cls.admin_isolated_creds.delete_tenant(cls.project)
             cls.admin_isolated_creds.delete_user(cls.isolated_creds.username)
+        if cls.inputs.domain_isolation:
+            cls.admin_isolated_creds.delete_domain(cls.domain_obj)
         super(BaseTestCase_v1, cls).tearDownClass()
     # end tearDownClass
 

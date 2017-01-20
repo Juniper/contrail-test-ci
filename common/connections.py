@@ -63,9 +63,9 @@ class ContrailConnections():
                                               inputs=self.inputs,
                                               vnclib=self.vnc_lib,
                                               logger=self.logger,
-                                             auth_server_ip=self.inputs.auth_ip)
-            self.nova_h = self.orch.get_compute_handler()
-            self.quantum_h = self.orch.get_network_handler()
+                                              auth_server_ip=self.inputs.auth_ip)
+            self.nova_h = self.orch.get_compute_handler(self.domain_name)
+            self.quantum_h = self.orch.get_network_handler(self.domain_name)
         elif self.inputs.orchestrator == 'vcenter': # vcenter
             self.orch = VcenterOrchestrator(user=self.username,
                                             pwd=self.password,
@@ -100,7 +100,8 @@ class ContrailConnections():
         if not getattr(env, attr, None) or refresh:
             if self.inputs.orchestrator == 'openstack':
                 env[attr] = OpenstackAuth(username, password,
-                           project_name, self.inputs, self.logger)
+                           project_name, self.inputs, self.logger,
+                           domain_name=self.domain_name)
             else:
                 env[attr] = VcenterAuth(username, password,
                                        project_name, self.inputs)
@@ -130,9 +131,16 @@ class ContrailConnections():
         if cfgm_ip:
             host = cfgm_ip
         if host not in self.api_server_inspects:
-            self.api_server_inspects[host] = VNCApiInspect(host,
-                                                           inputs=self.inputs,
-                                                           logger=self.logger)
+            if self.inputs.domain_isolation:
+                self.api_server_inspects[host] = VNCApiInspect(host,
+                                                               inputs=self.inputs,
+                                                               logger=self.logger,
+                                                               use_admin_auth=True)
+            else:
+                self.api_server_inspects[host] = VNCApiInspect(host,
+                                                               inputs=self.inputs,
+                                                               logger=self.logger)
+            
         return self.api_server_inspects[host]
 
     def get_control_node_inspect_handle(self, host):

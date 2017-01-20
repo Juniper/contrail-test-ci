@@ -1,4 +1,5 @@
 import project_test
+import domain_test
 from common.contrail_test_init import ContrailTestInit
 from common.connections import ContrailConnections
 import os
@@ -13,11 +14,16 @@ from tcutils.util import get_random_name
 class IsolatedCreds(fixtures.Fixture):
 
     def __init__(self, inputs, project_name=None, ini_file=None, logger=None,
-                 username=None, password=None):
+                 username=None, password=None, domain_name=None):
 
         self.username = None
         self.password = None
         self.inputs = inputs
+        
+        if inputs.domain_isolation:
+            self.domain_name = get_random_name(domain_name)
+        else :
+            self.domain_name = domain_name or self.inputs.stack_domain
 
         if inputs.tenant_isolation:
             self.project_name = get_random_name(project_name)
@@ -45,6 +51,7 @@ class IsolatedCreds(fixtures.Fixture):
     def setUp(self):
         super(IsolatedCreds, self).setUp()
         self.connections= ContrailConnections(self.inputs, self.logger,
+            domain_name=self.domain_name,
             username=self.username,
             password=self.password,
             project_name=self.project_name)
@@ -54,13 +61,14 @@ class IsolatedCreds(fixtures.Fixture):
     def use_tenant(self, project_fixture):
         self.project = project_fixture
 
-    def create_tenant(self, project_name):
+    def create_tenant(self, project_name, domain_name='Default'):
         ''' Get a Project. Returns instance of ProjectFixture
             Creates the project if not found
-        ''' 
+        '''
         project = None
         try:
             project = project_test.ProjectFixture(
+                domain_name = domain_name,
                 project_name = project_name,
                 auth=self.auth,
                 username= self.username,
@@ -89,7 +97,8 @@ class IsolatedCreds(fixtures.Fixture):
                                     project_name=self.project_name,
                                     username=self.username,
                                     password=self.password,
-                                    logger=self.logger)
+                                    logger=self.logger,
+                                    domain_name=self.domain_name)
         return self.project_connections
 
     def cleanUp(self):
@@ -99,12 +108,18 @@ class IsolatedCreds(fixtures.Fixture):
 
 class AdminIsolatedCreds(fixtures.Fixture):
     def __init__(self, inputs, admin_project_name=None, ini_file=None, logger=None,
-        username=None, password=None):
+        username=None, password=None, domain_name=None):
+        self.inputs = inputs
+        self.domain_name = domain_name
+        if self.inputs.domain_isolation is True:
+            #for v3_client domain_name must be Default
+            if not domain_name or domain_name == 'default-domain':
+                self.domain_name = 'Default'
+            else:
+                self.domain_name = self.inputs.domain_name
         self.project_name = admin_project_name or inputs.admin_tenant
         self.username = username or inputs.admin_username
         self.password = password or inputs.admin_password
-        self.inputs = inputs
-
         self.ini_file = ini_file
         self.logger = logger
         if self.inputs.orchestrator == 'vcenter':
@@ -115,10 +130,17 @@ class AdminIsolatedCreds(fixtures.Fixture):
     # end __init__
 
     def setUp(self):
-        self.connections = ContrailConnections(self.inputs, self.logger,
-            project_name=self.project_name,
-            username=self.username,
-            password=self.password)
+        if self.inputs.domain_isolation is True:
+            self.connections = ContrailConnections(self.inputs, self.logger,
+                domain_name=self.domain_name,
+                project_name=self.project_name,
+                username=self.username,
+                password=self.password)
+        else:
+            self.connections = ContrailConnections(self.inputs, self.logger,
+                project_name=self.project_name,
+                username=self.username,
+                password=self.password)
         self.vnc_lib = self.connections.vnc_lib
         self.auth = self.connections.auth
 
@@ -129,19 +151,26 @@ class AdminIsolatedCreds(fixtures.Fixture):
             self.auth.delete_user(user)
     # end delete_user
 
-    def create_and_attach_user_to_tenant(self, project_fixture, 
+    def create_and_attach_user_to_tenant(self, project_fixture,
             username, password):
         project_fixture.set_user_creds(username, password)
         project_name = project_fixture.project_name
+        if self.inputs.domain_isolation:
+            domain_name = project_fixture.domain_name
+        else:
+            domain_name = None
         if self.inputs.orchestrator == 'vcenter'  or \
            not self.inputs.tenant_isolation:
             return
         if self.inputs.user_isolation:
-            self.auth.create_user(username, password)
-        self.auth.add_user_to_project(username, project_name)
+            if self.inputs.domain_isolation:
+                self.auth.create_user(username, password, project_name, domain_name)
+            else:
+                self.auth.create_user(username, password)
+        self.auth.add_user_to_project(username, project_name,domain=domain_name)
         if self.inputs.admin_username:
             self.auth.add_user_to_project(self.inputs.admin_username,
-                                          project_name)
+                                          project_name, domain=domain_name)
         # Certain deployments uses neutron username/password for contrail too
         # So the neutron user has to be added to test tenant
         # for Service Chain v1 to launch VMs
@@ -153,7 +182,7 @@ class AdminIsolatedCreds(fixtures.Fixture):
     def use_tenant(self, project_fixture):
         self.project = project_fixture
 
-    def create_tenant(self, project_name):
+    def create_tenant(self, project_name, domain_name='Default'):
         ''' Get a Project. Returns instance of ProjectFixture
             Creates the project if not found
         '''
@@ -161,6 +190,7 @@ class AdminIsolatedCreds(fixtures.Fixture):
         project = None
         try:
             project = project_test.ProjectFixture(
+                domain_name = domain_name,
                 project_name = project_name,
                 auth=self.auth,
                 username= self.username,
@@ -175,6 +205,27 @@ class AdminIsolatedCreds(fixtures.Fixture):
 
     def delete_tenant(self, project_fixture):
         project_fixture.cleanUp()
+    
+    def create_domain(self, domain_name):
+        if self.inputs.orchestrator  == 'vcenter' or self.inputs.vcenter_gw_setup:
+            return
+        if self.inputs.domain_isolation:
+            import pdb;pdb.set_trace()
+            try:
+                domain = domain_test.DomainFixture(connections=self.connections,
+                                                       domain_name=domain_name,
+                                                       username=self.username, password=self.password)
+                domain.setUp()
+            except Exception as e:
+                self.logger.exception("Exception while creating domain")
+            finally:
+                return domain
+
+    def delete_domain(self, domain_obj):
+        if self.inputs.orchestrator  == 'vcenter' or self.inputs.vcenter_gw_setup:
+            return
+        if self.inputs.domain_isolation:
+            domain_obj.cleanUp()
 
     def get_inputs(self, project_fixture):
         project_inputs= ContrailTestInit(self.ini_file,
@@ -188,6 +239,7 @@ class AdminIsolatedCreds(fixtures.Fixture):
                                     project_name=self.project_name,
                                     username=self.username,
                                     password=self.password,
-                                    logger=self.logger)
+                                    logger=self.logger,
+                                    domain_name=self.domain_name)
         return self.project_connections
 # end AdminIsolatedCreds
