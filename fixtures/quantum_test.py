@@ -217,7 +217,14 @@ class QuantumHelper():
         #currently this method can be only used before adding any custom rule to sg
         rules = self.list_security_group_rules(tenant_id=self.project_id)
         for rule in rules['security_group_rules']:
-            if rule['security_group_id'] == sg_id and rule['remote_ip_prefix'] == '0.0.0.0/0':
+            if rule['security_group_id'] == sg_id and (
+                    rule['remote_ip_prefix'] == '0.0.0.0/0'):
+                self.delete_security_group_rule(rule['id'])
+                break
+
+        for rule in rules['security_group_rules']:
+            if rule['security_group_id'] == sg_id and (
+                    rule['remote_ip_prefix'] == '::/0'):
                 self.delete_security_group_rule(rule['id'])
                 break
 
@@ -750,7 +757,7 @@ class QuantumHelper():
     # end update_health_monitor
 
     def get_health_monitor(self, hm_id):
-        ''' Returns Health monitor object as dict. 
+        ''' Returns Health monitor object as dict.
             If not found, returns None
         '''
         try:
@@ -862,7 +869,7 @@ class QuantumHelper():
     # end delete_lb_member
 
     def update_lb_member(self, lb_member_id, lb_member_dict):
-        '''Update lb member using lb_member_dict. 
+        '''Update lb member using lb_member_dict.
            Returns the updated object '''
         pass
 
