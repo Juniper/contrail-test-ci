@@ -6515,3 +6515,9 @@ class WebuiTest:
                 result = result and False
         return result
     # end verify_global_api_data
+
+    def edit_global_config(self, option, paramater_list, **kwargs):
+        option = 'self.webui_edit.edit_global_config_' + option + '_option'
+        result = eval(option)(paramater_list, **kwargs)
+        return result
+    # def edit_global_config
