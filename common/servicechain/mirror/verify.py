@@ -108,7 +108,10 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         compute_2 = host_list[0]
         if len(host_list) > 1:
             compute_1 = host_list[0]
-            compute_2 = host_list[1]
+            if self.inputs.vcenter_compute is not None:
+                compute_2 = self.inputs.host_data[self.inputs.vcenter_compute]['name']
+            else:
+                compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
             vn_fix=self.vn1_fixture, vm_name=self.vm1_name, node_name=compute_1, image_name=image_name)
         self.vm2_fixture = self.config_vm(
@@ -262,7 +265,10 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         compute_2 = host_list[0]
         if len(host_list) > 1:
             compute_1 = host_list[0]
-            compute_2 = host_list[1]
+            if self.inputs.vcenter_compute is not None:
+                compute_2 = self.inputs.host_data[self.inputs.vcenter_compute]['name']
+            else:
+                compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
             vn_fix=self.vn1_fixture, vm_name=self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
@@ -402,7 +408,10 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         compute_2 = host_list[0]
         if len(host_list) > 1:
             compute_1 = host_list[0]
-            compute_2 = host_list[1]
+            if self.inputs.vcenter_compute is not None:
+                compute_2 = self.inputs.host_data[self.inputs.vcenter_compute]['name']
+            else:
+                compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
             vn_fix=self.vn1_fixture, vm_name=self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
@@ -883,7 +892,10 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         compute_2 = host_list[0]
         if len(host_list) > 1:
             compute_1 = host_list[0]
-            compute_2 = host_list[1]
+            if self.inputs.vcenter_compute is not None:
+                compute_2 = self.inputs.host_data[self.inputs.vcenter_compute]['name']
+            else:
+                compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
             vn_fix=self.vn1_fixture, vm_name=self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
@@ -1016,7 +1028,10 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         compute_2 = host_list[0]
         if len(host_list) > 1:
             compute_1 = host_list[0]
-            compute_2 = host_list[1]
+            if self.inputs.vcenter_compute is not None:
+                compute_2 = self.inputs.host_data[self.inputs.vcenter_compute]['name']
+            else:
+                compute_2 = host_list[1]
         self.vm1_fixture = self.config_vm(
             vn_fix=self.vn1_fixture, vm_name=self.vm1_name, node_name=compute_1)
         self.vm2_fixture = self.config_vm(
