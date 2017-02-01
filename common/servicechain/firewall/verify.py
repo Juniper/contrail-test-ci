@@ -335,11 +335,13 @@ class VerifySvcFirewall(VerifySvcMirror):
                               mgmt_vn_name, mgmt_vn_subnets)
 
         # Left
+        #self.orchestrator is sent to left_vn_fixture to launch vn in vcenter
+        #if its vcenter gw setup
         left_vn_name = left_vn_name or get_random_name('in_network_vn1')
         left_vn_subnets = left_vn_subnets or \
                               [get_random_cidr(af=self.inputs.get_af())]
         left_vn_fixture = left_vn_fixture or \
-                              self.config_vn(left_vn_name, left_vn_subnets)
+                              self.config_vn(left_vn_name, left_vn_subnets,orch=self.orchestrator)
 
         # Right 
         right_vn_name = right_vn_name or get_random_name('in_network_vn2')
@@ -349,11 +351,13 @@ class VerifySvcFirewall(VerifySvcMirror):
                                self.config_vn(right_vn_name, right_vn_subnets)
 
         # VMs
+        #self.orchestrator is sent to left_vm_fixture to launch vm in vcenter
+        #if its vcenter gw setup
         left_vm_name = left_vm_name or get_random_name('in_network_vm1')
         right_vm_name = right_vm_name or get_random_name('in_network_vm2')
 
         left_vm_fixture = left_vm_fixture or self.config_and_verify_vm(
-            left_vm_name, vn_fix=left_vn_fixture, image_name=image_name)
+            left_vm_name, vn_fix=left_vn_fixture, image_name=image_name,orch=self.orchestrator)
         right_vm_fixture = right_vm_fixture or self.config_and_verify_vm(
             right_vm_name, vn_fix=right_vn_fixture, image_name=image_name)
 

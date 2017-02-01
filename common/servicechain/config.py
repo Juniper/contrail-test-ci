@@ -184,10 +184,11 @@ class ConfigSvcChain(fixtures.Fixture):
             api=use_vnc_api))
         return policy_fix
 
-    def config_vn(self, vn_name, vn_net):
+    def config_vn(self, vn_name, vn_net,**kwargs):
         vn_fixture = self.useFixture(VNFixture(
             project_name=self.inputs.project_name, connections=self.connections,
-            vn_name=vn_name, inputs=self.inputs, subnets=vn_net))
+            vn_name=vn_name, inputs=self.inputs, subnets=vn_net,**kwargs))
+        vn_fixture.read()
         assert vn_fixture.verify_on_setup()
         return vn_fixture
 
@@ -197,32 +198,32 @@ class ConfigSvcChain(fixtures.Fixture):
         return policy_attach_fix
 
     def config_and_verify_vm(self, vm_name, vn_fix=None, image_name='ubuntu-traffic', vns=[], count=1, flavor='contrail_flavor_small',
-            zone=None):
+            zone=None,**kwargs):
         if vns:
             vn_objs = [vn.obj for vn in vns]
             vm_fixture = self.config_vm(
                 vm_name, vns=vn_objs, image_name=image_name, count=count,
-                flavor=flavor, zone=zone)
+                flavor=flavor, zone=zone,**kwargs)
         else:
             vm_fixture = self.config_vm(
                 vm_name, vn_fix=vn_fix, image_name=image_name, count=count,
-                flavor=flavor, zone=zone)
+                flavor=flavor, zone=zone,**kwargs)
         assert vm_fixture.verify_on_setup(), 'VM verification failed'
         assert vm_fixture.wait_till_vm_is_up(), 'VM does not seem to be up'
         return vm_fixture
 
     def config_vm(self, vm_name, vn_fix=None, node_name=None, image_name='ubuntu-traffic', flavor='contrail_flavor_small', vns=[], count=1,
-            zone=None):
+            zone=None,**kwargs):
         if vn_fix:
             vm_fixture = self.useFixture(VMFixture(
                 project_name=self.inputs.project_name, connections=self.connections,
                 vn_obj=vn_fix.obj, vm_name=vm_name, node_name=node_name, image_name=image_name, flavor=flavor, count=count,
-                zone=zone))
+                zone=zone,**kwargs))
         elif vns:
             vm_fixture = self.useFixture(VMFixture(
                 project_name=self.inputs.project_name, connections=self.connections,
                 vm_name=vm_name, node_name=node_name, image_name=image_name, flavor=flavor, vn_objs=vns, count=count,
-                zone=zone))
+                zone=zone,**kwargs))
 
         return vm_fixture
 

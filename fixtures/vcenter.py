@@ -659,6 +659,7 @@ class VcenterVN:
         pool = vcenter._find_obj(vcenter._dc, 'ip.Pool', {'id':vn.ip_pool_id})
         vn.prefix = IPNetwork(pool.ipv4Config.subnetAddress+'/'+pool.ipv4Config.netmask)
         ip_list = list(vn.prefix.iter_hosts())
+        vn.get() 
         return vn
 
     @retry(tries=30, delay=5)

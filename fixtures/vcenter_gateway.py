@@ -15,7 +15,8 @@ class VcenterGatewayOrch(VcenterOrchestrator):
 
     def create_vn(self, name, subnets, **kwargs):
         vn_obj = super(VcenterGatewayOrch, self).create_vn(name, subnets, **kwargs)
-        self.plug_api.create_network_in_contrail_cluster(name,subnets,**kwargs)
+        vn_id = self.plug_api.create_network_in_contrail_cluster(name,subnets,**kwargs)
+        vn_obj.get()
         return vn_obj
     
     def delete_vn(self, vn_obj, **kwargs):
@@ -45,7 +46,12 @@ class VcenterGatewayOrch(VcenterOrchestrator):
             vm.bring_up_interfaces(self,vm,intfs=['eth0'])
         for vm in vm_objs:
             vm.get()
-            self.plug_api.create_vmobj_in_api_server(vm)
+            try:
+                self.plug_api.create_vmobj_in_api_server(vm)
+            except Exception as e:
+                self.logger.error("Create VM object in API server failed..")
+                self.delete_vm(vm)
+                raise
         return vm_objs
     
     def create_vn_vmi_for_stp_bpdu_to_be_flooded(self,**kwargs):
@@ -89,7 +95,7 @@ class ContrailPlugApi(object):
 
     def create_network_in_contrail_cluster(self,name,subnet,**kwargs):
         self.vn_uuid = self._create_vn(name,subnet)
-        pass
+        return self.vn_uuid
 
     def delete_network_from_contrail_cluster(self,vn_name,**kwargs):
         self._delete_vn(vn_name)
@@ -146,7 +152,7 @@ class ContrailPlugApi(object):
             vnsn_data = VnSubnetsType([subnet_vnc])
             vn_obj.add_network_ipam(self._ipam_obj, vnsn_data)
         try:
-            self._vnc.virtual_network_create(vn_obj)
+            return self._vnc.virtual_network_create(vn_obj)
         except RefsExistError:
             pass
 

@@ -519,9 +519,7 @@ class PolicyFixture(fixtures.Fixture):
                     application=new_rule['application'],
                     dst_addresses=dest_address,
                     dst_ports=new_rule['dst_ports'],
-                    action_list={'simple_action':new_rule['simple_action'],\
-                    'qos_action':new_rule['qos_action']}))
-
+                    action_list=new_rule['action_list']))
         # end for
         self.logger.debug("Policy np_rules : %s" % (np_rules))
         pol_entries = PolicyEntriesType(np_rules)
