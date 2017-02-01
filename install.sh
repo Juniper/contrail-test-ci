@@ -6,16 +6,16 @@ CONTRAIL_TEST_REPO=https://github.com/juniper/contrail-test
 CONTRAIL_TEST_REF=master
 CONTRAIL_FAB_REPO=https://github.com/juniper/contrail-fabric-utils
 CONTRAIL_FAB_REF=master
-CIRROS_IMAGE_URL=${CIRROS_IMAGE_URL:-http://10.204.216.50/images/converts/cirros-0.3.0-x86_64-disk.vmdk.gz}
-SVC_IN_NET_NAT_URL=${SVC_IN_NET_NAT_URL:-http://10.204.216.50/images/tinycore/tinycore-in-network-nat.qcow2.gz}
-SVC_IN_NET_URL=${SVC_IN_NET_URL:-http://10.204.216.50/images/tinycore/tinycore-in-network.qcow2.gz}
+CIRROS_IMAGE_URL=${CIRROS_IMAGE_URL:-http://10.84.5.120/cs-shared/images/converts/cirros-0.3.0-x86_64-disk.vmdk.gz}
+SVC_IN_NET_NAT_URL=${SVC_IN_NET_NAT_URL:-http://10.84.5.120/cs-shared/images/tinycore/tinycore-in-network-nat.qcow2.gz}
+SVC_IN_NET_URL=${SVC_IN_NET_URL:-http://10.84.5.120/cs-shared/images/tinycore/tinycore-in-network.qcow2.gz}
 BASE_DIR=`dirname $(readlink -f $0)`
 PACKAGES_REQUIRED_UBUNTU="python-pip ant python-novaclient python-neutronclient python-cinderclient \
     python-contrail python-glanceclient python-heatclient python-ceilometerclient python-setuptools contrail-utils \
     patch git ipmitool python-requests"
 PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD="$PACKAGES_REQUIRED_UBUNTU python-dev libxslt1-dev libz-dev libyaml-dev sshpass"
 PACKAGES_REQUIRED_RALLY="libssl-dev libffi-dev python-dev libxml2-dev libxslt1-dev libpq-dev libpq5=9.3.15-0ubuntu0.14.04"
-EXTRAS="http://launchpadlibrarian.net/264517293/libexpat1_2.1.0-4ubuntu1.3_amd64.deb http://launchpadlibrarian.net/264517288/libexpat1-dev_2.1.0-4ubuntu1.3_amd64.deb https://launchpad.net/~ubuntu-security/+archive/ubuntu/ppa/+build/7566120/+files/libpython2.7-dev_2.7.6-8ubuntu0.2_amd64.deb https://launchpad.net/~ubuntu-security/+archive/ubuntu/ppa/+build/7566120/+files/python2.7-dev_2.7.6-8ubuntu0.2_amd64.deb"
+EXTRAS="http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1-dev_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libpython2.7-dev_2.7.6-8ubuntu0.2_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/python2.7-dev_2.7.6-8ubuntu0.2_amd64.deb"
 
 usage () {
     cat <<EOF
@@ -161,7 +161,7 @@ if [ $sendmail -eq 1 ]; then
 fi
 
 cd /contrail-test
-./run_ci.sh $mail_arg --contrail-fab-path $CONTRAIL_FABPATH
+./run_ci.sh $mail_arg --contrail-fab-path $CONTRAIL_FABPATH $EXTRA_RUN_TEST_ARGS
 
 if [ -d /contrail-test.save ]; then
     cp -f ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py /contrail-test.save/
@@ -235,29 +235,29 @@ if [ ! $TESTBED -ef ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py ]; then
 fi
 
 cd /contrail-test
-run_tests="./run_tests.sh --contrail-fab-path $CONTRAIL_FABPATH $EXTRA_RUN_TEST_ARGS "
+run_tests="./run_tests.sh --contrail-fab-path $CONTRAIL_FABPATH "
 if [[ -n $TEST_RUN_CMD ]]; then
     $TEST_RUN_CMD $EXTRA_RUN_TEST_ARGS
     rv_run_test=$?
 elif [[ -n $TEST_TAGS ]]; then
-    $run_tests -T $TEST_TAGS
+    $run_tests -T $TEST_TAGS $EXTRA_RUN_TEST_ARGS
     rv_run_test=$?
 else
     case $FEATURE in
         sanity)
-            $run_tests --sanity --send-mail -U
+            $run_tests --sanity --send-mail -U $EXTRA_RUN_TEST_ARGS
             rv_run_test=$?
             ;;
         quick_sanity)
-            $run_tests -T quick_sanity --send-mail -t
+            $run_tests -T quick_sanity --send-mail -t $EXTRA_RUN_TEST_ARGS
             rv_run_test=$?
             ;;
         ci_sanity)
-            $run_tests -T ci_sanity --send-mail -U
+            $run_tests -T ci_sanity --send-mail -U $EXTRA_RUN_TEST_ARGS
             rv_run_test=$?
             ;;
         ci_sanity_WIP)
-            $run_tests -T ci_sanity_WIP --send-mail -U
+            $run_tests -T ci_sanity_WIP --send-mail -U $EXTRA_RUN_TEST_ARGS
             rv_run_test=$?
             ;;
         ci_svc_sanity)
@@ -265,7 +265,7 @@ else
             rv_run_test=$?
             ;;
         upgrade)
-            $run_tests -T upgrade --send-mail -U
+            $run_tests -T upgrade --send-mail -U $EXTRA_RUN_TEST_ARGS
             rv_run_test=$?
             ;;
         webui_sanity)

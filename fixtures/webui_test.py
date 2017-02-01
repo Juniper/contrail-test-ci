@@ -10,9 +10,9 @@ from project_test import *
 from tcutils.util import *
 from vnc_api.vnc_api import *
 from contrail_fixtures import *
+from common.ui.webui_edit import WebuiEdit
 from webui.webui_common import WebuiCommon
 import re
-
 
 class WebuiTest:
 
@@ -29,6 +29,7 @@ class WebuiTest:
         self.frequency = 3
         self.logger = inputs.logger
         self.ui = WebuiCommon(self)
+        self.webui_edit = WebuiEdit(self)
         self.dash = "-" * 60
         self.vnc_lib = connections.vnc_lib_fixture
         self.log_path = None
@@ -490,6 +491,84 @@ class WebuiTest:
         self.ui.click_on_cancel_if_failure('cancelBtn')
         return result
     # end create_svc_instance
+
+    def create_svc_health_check(self, fixture):
+        result = True
+        try:
+            if not self.ui.click_on_create(
+                    'Health Check Service',
+                    'service_health_check',
+                    fixture.name,
+                    prj_name=fixture.project_name):
+                result = result and False
+            self.ui.send_keys(fixture.name, 'name', 'name')
+            self.ui.click_element([
+                's2id_monitor_type_dropdown', 'select2-choice'], [
+                    'id', 'class'])
+            self.ui.select_from_dropdown(fixture.probe_type)
+            url_browser = self.ui.find_element(['url_path', 'input-group-addon'], [
+                'id', 'class'])
+            self.ui.click_on_caret_down(browser=url_browser)
+            self.ui.find_select_from_dropdown(fixture.http_url)
+            self.ui.send_keys(fixture.delay, 'delay', 'name', clear=True)
+            self.ui.send_keys(fixture.timeout, 'timeout', 'name', clear=True)
+            self.ui.send_keys(fixture.max_retries, 'max_retries', 'name', clear=True)
+            self.ui.click_element([
+                's2id_health_check_type_dropdown', 'select2-choice'], [
+                    'id', 'class'])
+            self.ui.select_from_dropdown(fixture.hc_type.title())
+            if not self.ui.click_on_create('Health Check Service',
+                    'HealthCheckServices', save=True):
+                result = result and False
+            rows_detail = self.ui.click_basic_and_get_row_details(
+                'service_health_check', 0)[1]
+            fixture.uuid = self.ui.get_value_of_key(rows_detail, 'UUID')
+            self.logger.info("Running verify_on_setup..")
+            fixture.verify_on_setup()
+        except WebDriverException:
+            self.logger.error(
+                "Error while creating svc health check %s" %
+                (fixture.name))
+            self.ui.screenshot("svc health check creation failed")
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            result = result and False
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end create_svc_health_check
+
+    def create_bgpaas(
+            self,
+            bgpaas_name,
+            autonomous_system=None,
+            ip_addr=None,
+            hold_time=60,
+            loop_count=2):
+        result = True
+        try:
+            if not self.ui.click_on_create(
+                    'BGP as a Service',
+                    'bgp_as_a_service',
+                    bgpaas_name,
+                    prj_name=self.project_name_input):
+                result = result and False
+            self.ui.send_keys(bgpaas_name, 'display_name', 'name')
+            self.ui.send_keys(autonomous_system, 'autonomous_system', 'name')
+            self.ui.click_on_accordian('bgpasas_advanced_opts')
+            self.ui.wait_till_ajax_done(self.browser)
+            self.ui.send_keys(ip_addr, 'bgpaas_ip_address', 'name')
+            self.ui.send_keys(hold_time, 'hold_time', 'name')
+            self.ui.send_keys(loop_count, 'loop_count', 'name')
+            if not self.ui.click_on_create('BGP as a Service', 'bgp_as_a_service', save=True):
+                result = result and False
+        except WebDriverException:
+            self.logger.error("Error while creating %s" % (bgpaas_name))
+            self.ui.screenshot("bgpaas_error")
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            result = result and False
+            raise
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end create_bgpaas
 
     def create_ipam(self, fixture):
         result = True
@@ -1053,14 +1132,12 @@ class WebuiTest:
                     version = json.loads(config_nodes_ops_data.get('ModuleCpuState').get(
                         'build_info')).get('build-info')[0].get('build-id')
                     version = self.ui.get_version_string(version)
-                module_cpu_info_len = len(
-                    config_nodes_ops_data.get('ModuleCpuState').get('module_cpu_info'))
-                cpu_mem_info_dict = {}
-                for i in range(module_cpu_info_len):
-                    if config_nodes_ops_data.get('ModuleCpuState').get(
-                            'module_cpu_info')[i]['module_id'] == 'contrail-api':
-                        cpu_mem_info_dict = config_nodes_ops_data.get(
-                            'ModuleCpuState').get('module_cpu_info')[i]
+                module_cpu_info = config_nodes_ops_data.get(
+                    'NodeStatus').get('process_mem_cpu_usage')
+                module_cpu_info_len = len(module_cpu_info)
+                for key, value in module_cpu_info.iteritems():
+                    if key == 'contrail-api:0':
+                        cpu_mem_info_dict = value
                         break
                 # special handling for overall node status value
                 dom_basic_view = self.ui.get_basic_view_infra()
@@ -3864,6 +3941,10 @@ class WebuiTest:
         return True
     # end delete_policy_in_webui
 
+    def delete_svc_health_check(self, fixture):
+        self.ui.delete_element(fixture, 'svc_health_check_delete')
+    # end svc_health_check_delete
+
     def delete_svc_instance(self, fixture):
         self.ui.delete_element(fixture, 'svc_instance_delete')
         time.sleep(25)
@@ -3894,8 +3975,13 @@ class WebuiTest:
 
     def cleanup(self):
         self.detach_ipam_from_dns_server()
+        self.delete_bgp_aas()
         return True
     # end cleanup
+
+    def delete_bgp_aas(self):
+        self.ui.delete_element(element_type='bgp_aas_delete')
+    # end delete_bgpaas
 
     def delete_dns_server_and_record(self):
         self.detach_ipam_from_dns_server()
@@ -5963,12 +6049,8 @@ class WebuiTest:
             parent_tag = False
             api_fq_name = port_list_api[
                 'virtual-machine-interfaces'][port]['fq_name'][2]
-            project_name = port_list_api[
-                'virtual-machine-interfaces'][port]['fq_name'][1]
-            if project_name == 'default-project':
-                continue
             self.ui.click_configure_ports()
-            self.ui.select_project(project_name)
+            self.ui.select_project(self.project_name_input)
             rows = self.ui.get_rows()
             if not api_fq_name in port_name_list:
                 continue
@@ -5993,16 +6075,8 @@ class WebuiTest:
                     (api_fq_name))
                 self.logger.debug(self.dash)
             else:
-                self.ui.click_configure_ports_basic(match_index)
-                rows = self.ui.get_rows()
-                self.logger.info(
-                    "Verify basic view details for port fq_name %s " %
-                    (api_fq_name))
-                row_container = self.ui.find_element('slick-row-detail-container', 'class', \
-                                browser=rows[match_index+1])
-                row_fluid = self.ui.find_element('row-fluid', 'class', browser=row_container)
-                rows_detail = self.ui.find_element('row', 'class', browser=row_fluid, \
-                              elements=True)
+                rows_detail = self.ui.click_basic_and_get_row_details(
+                                'ports', match_index)[1]
                 for detail in range(len(rows_detail)):
                     key_value = rows_detail[detail].text.split('\n')
                     key = str(key_value.pop(0))
@@ -6015,20 +6089,13 @@ class WebuiTest:
                     if key == 'Security Groups':
                        sg_value = str(key_value[1]).split(',')
                        if sg_value:
-                           value = []
-                           for sg in sg_value:
-                               search_value = re.search("(.*)\(.*:(.*)", sg)
-                               if search_value:
-                                   sec_group = search_value.group(2).strip('\)') + '-' + \
-                                               search_value.group(1).strip()
-                               else:
-                                   sec_group = project_name + '-' + sg.strip()
-                               value.append((sec_group))
+                           value = self.ui.format_sec_group_name(sg_value,
+                                                        self.project_name_input)
                     if key == 'DHCP Options':
                         if isinstance(value, list):
                             value.pop(0)
                         new_value_list = []
-                        if len(value) > 1:
+                        if len(value):
                             for text in value:
                                 new_value = text.replace('-', '')
                                 new_value_list.append(new_value)
@@ -6054,7 +6121,7 @@ class WebuiTest:
                                                    ':' + search_value.group(1).strip()
                                 else:
                                     route_instance = re.search('.* \: (.*)', value[text]).group(1)
-                                    mirror_value = 'default-domain:' + project_name + ':' + \
+                                    mirror_value = 'default-domain:' + self.project_name_input + ':' + \
                                                     route_instance + ':' + route_instance
                             else:
                                 value_multi_string = re.search('(\w+\s+\w+\s+\w+)\s+\: (.*)',
@@ -6065,9 +6132,13 @@ class WebuiTest:
                                     key_value = value_multi_string
                                 elif value_double_string:
                                     key_value = value_double_string
+                                else:
+                                    key_value = None
                                 if key_value:
                                     mirror_key = key_value.group(1).replace(' ', '_')
                                     mirror_value = key_value.group(2)
+                                else:
+                                    mirror_value = '-'
                             if mirror_value != '-':
                                 dom_arry_basic.append({'key': mirror_key, 'value': mirror_value})
                         continue
@@ -6213,13 +6284,14 @@ class WebuiTest:
                             complete_api_data.append({'key' : 'Sub_Interface_VLAN', 'value':
                                 str(vmi_props['sub_interface_vlan_tag'])})
                 if 'virtual_machine_interface_fat_flow_protocols' in api_data_basic:
-                    flat_protocols = api_data_basic['virtual_machine_interface_fat_flow_protocols'][
-                                     'fat_flow_protocol']
-                    if flat_protocols:
+                    fat_flow_protocols = api_data_basic[
+                                         'virtual_machine_interface_fat_flow_protocols'][
+                                         'fat_flow_protocol']
+                    if fat_flow_protocols:
                         protocol_list = []
-                        for protocol in range(len(flat_protocols)):
-                            port = str(flat_protocols[protocol]['protocol']) + " " + \
-                                   str(flat_protocols[protocol]['port'])
+                        for protocol in range(len(fat_flow_protocols)):
+                            port = str(fat_flow_protocols[protocol]['protocol']) + " " + \
+                                   str(fat_flow_protocols[protocol]['port'])
                             protocol_list.append(port)
                         complete_api_data.append({'key': 'Fatflow', 'value': protocol_list})
                 if 'virtual_machine_interface_bindings' in api_data_basic:
@@ -6285,3 +6357,167 @@ class WebuiTest:
                     return result
         return result
     # end verify_port_api_data_in_webui
+
+    def edit_port(self, category, option, port_name, **kwargs):
+        result = True
+        if category == 'vn_port':
+            result = self.webui_edit.edit_port_with_vn_port(option)
+        elif category == 'security_group':
+            result = self.webui_edit.edit_port_with_sec_group(option, port_name, **kwargs)
+        elif category == 'advanced_option':
+            result = self.webui_edit.edit_port_with_advanced_option(option, port_name,
+                                                                   **kwargs)
+        elif category == 'dhcp':
+            result = self.webui_edit.edit_port_with_dhcp_option(option, port_name,
+                                                               **kwargs)
+        elif category == 'FatFlow':
+            result = self.webui_edit.edit_port_with_fat_flow(option, port_name,
+                         **kwargs)
+        return result
+    # edit_port
+
+    def add_subinterface_ports(self, option, port_name, params_list, tc='positive'):
+        result = True
+        try:
+            self.sub_interface = self.ui.edit_remove_option(option, 'subinterface',
+                                                        display_name=port_name)
+            if self.sub_interface:
+                self.ui.click_element('s2id_virtualNetworkName_dropdown')
+                if not self.ui.select_from_dropdown(params_list[0], grep=False):
+                    result = result and False
+                self.ui.send_keys(params_list[1], 'display_name', 'name')
+                self.ui.click_element('advanced_options')
+                self.ui.send_keys(params_list[2], 'sub_interface_vlan_tag', 'name')
+                self.ui.click_on_create(option.strip('s'),
+                                    option.strip('s').lower(), save=True)
+                if tc != 'positive':
+                    result = self.ui.negative_test_proc(option)
+                self.ui.wait_till_ajax_done(self.browser)
+            else:
+                self.logger.error("Clicking the Edit Button is not working")
+                result = result and False
+        except WebDriverException:
+            self.logger.error("Error while trying to edit %s" % (option))
+            self.ui.screenshot(option)
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            raise
+        return result
+    # add_subinterface_ports
+
+    def verify_global_api_data(self, expected_result=None):
+        self.logger.info("Verifying global config api server data on \
+                        Config->Infrastructure->Global Config page ...")
+        self.logger.debug(self.dash)
+        result = True
+        complete_api_data = []
+        global_config_forwarding = self.ui.get_global_config_api_href('vrouter')
+        global_config_bgp = self.ui.get_global_config_api_href('system')
+        if global_config_forwarding:
+            vrouter_config = global_config_forwarding.get('global-vrouter-config')
+            if vrouter_config:
+                forward_mode = vrouter_config.get('forwarding_mode')
+                if forward_mode:
+                    if '_' in forward_mode:
+                        forward_mode = forward_mode.title().replace('_', ' and ')
+                    else:
+                        forward_mode = forward_mode.title() + ' Only'
+                else:
+                    forward_mode = 'Default'
+                vxlan = vrouter_config.get('vxlan_network_identifier_mode')
+                vxlan = 'Auto Configured' if vxlan == 'automatic' else 'User Configured'
+                encap_priority = vrouter_config.get('encapsulation_priorities')
+                if vrouter_config.get('encapsulation_priorities'):
+                    encapsulation = vrouter_config.get(
+                                    'encapsulation_priorities').get('encapsulation')
+                    encap_list = []
+                    for encap in encapsulation:
+                        if 'o' in encap or 'X' in encap:
+                            encap = encap.replace('o', ' Over ')
+                            encap = encap.replace('X', 'x')
+                        encap_list.append(encap)
+                ecmp_fields = vrouter_config.get('ecmp_hashing_include_fields')
+                if ecmp_fields:
+                    ecmp_keys = ecmp_fields.keys()
+                    ecmp_values = ecmp_fields.values()
+                    ecmp_value = ''
+                    for ecmp in range(len(ecmp_values)):
+                        if ecmp_values[ecmp]:
+                            if ecmp_keys[ecmp] == 'hashing_configured':
+                                continue
+                            ecmp_value += str(ecmp_keys[ecmp]).replace('_', '-') + ', '
+                    ecmp_value = ecmp_value.rstrip(', ')
+                flow_export_rate = vrouter_config.get('flow_export_rate')
+                if flow_export_rate:
+                    complete_api_data.append(
+                        {'key': 'Flow_Export_Rate', 'value': str(flow_export_rate)})
+            else:
+                result = result and False
+        else:
+            result = result and False
+        if global_config_bgp:
+            bgp_system_config = global_config_bgp.get('global-system-config')
+            if bgp_system_config:
+                asn = bgp_system_config.get('autonomous_system')
+                full_mesh = bgp_system_config.get('ibgp_auto_mesh')
+                full_mesh = 'Enabled' if full_mesh else 'Disabled'
+                grace_restart = bgp_system_config.get('graceful_restart_parameters')
+                ip_fabric = bgp_system_config.get('ip_fabric_subnets')
+                if ip_fabric:
+                    subnet = ip_fabric.get('subnet')
+                    subnet = str(subnet[0].values()[0]) + '/' + str(subnet[0].values()[1])
+                    complete_api_data.append({'key': 'IP_Fabric_Subnets', 'value':
+                                            subnet})
+                if grace_restart['enable']:
+                    bgp_helper = 'Enabled' if grace_restart['bgp_helper_enable'] else \
+                                 'Disabled'
+                    self.ui.keyvalue_list(complete_api_data, Graceful_Restart='Enabled',
+                        BGP_Helper=bgp_helper, Restart_Time=str(grace_restart['restart_time']),
+                        LLGR_Time=str(grace_restart['long_lived_restart_time']),
+                        End_of_RIB=str(grace_restart['end_of_rib_timeout']))
+                else:
+                    complete_api_data.append({'key': 'Graceful_Restart', 'value': 'Disabled'})
+            else:
+                result = result and False
+        else:
+            result = result and False
+        self.ui.keyvalue_list(complete_api_data, Forwarding_Mode=forward_mode,
+             VxLAN_Identifier_Mode=vxlan, Encapsulation_Priority_Order=encap_list,
+             ECMP_Hashing_Fields=ecmp_value, Global_ASN=asn, iBGP_Auto_Mesh=full_mesh)
+        if not self.ui.click_configure_global_config():
+            result = result and False
+        webui_global_key_value = self.ui.get_global_config_row_details_webui()
+        self.ui.click_element('bgp_options_tab-tab-link')
+        webui_global_key_value = self.ui.get_global_config_row_details_webui(
+                                     webui_global_key_value=webui_global_key_value,
+                                     index=1)
+        if not expected_result:
+            if self.ui.match_ui_kv(complete_api_data, webui_global_key_value):
+                self.logger.info("Global config details matched on \
+                                Config->Infrastructure->Global config page")
+            else:
+                self.logger.error("Global config details match failed on \
+                                 Config->Infrastructure-Global Config page")
+                result = result and False
+        else:
+            if self.ui.match_ui_kv(expected_result, webui_global_key_value, data=
+                   'Expected_key_value', matched_with='WebUI') and self.ui.match_ui_kv(
+                    expected_result, complete_api_data, data='Expected_key_value',
+                    matched_with='API'):
+                    self.logger.info(
+                         "%s of global config  matched on WebUI/API after editing" %
+                         (expected_result))
+            else:
+                self.logger.error(
+                     "%s of global config match failed on WebUI/API after editing" %
+                     (expected_result))
+                result = result and False
+        return result
+    # end verify_global_api_data
+
+
+    def edit_global_config(self, option, paramater_list, **kwargs):
+        option = 'self.webui_edit.edit_global_config_' + option + '_option'
+        result = eval(option)(paramater_list, **kwargs)
+        return result
+    # def edit_global_config

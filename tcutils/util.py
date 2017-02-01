@@ -361,6 +361,19 @@ def fab_put_file_to_vm(host_string, password, src, dest,
     real_output = remove_unwanted_output(output)
 # end fab_put_file_to_vm
 
+@retry(delay=10, tries=120)
+def wait_for_ssh_on_node(host_string, password=None, logger=None):
+    logger = logger or contrail_logging.getLogger(__name__)
+    try:
+        with settings(host_string=host_string, password=password):
+            fab_connections.connect(host_string)
+    except Exception, e:
+        # There can be different kinds of exceptions. Catch all
+        logger.debug('Host: %s, password: %s Unable to connect yet. Got: %s' % (
+            host_string, password, e))
+        return False
+    return True
+# end wait_for_ssh_on_node
 
 @retry(tries=10, delay=3)
 def safe_sudo(cmd, timeout=10, pty=True):
@@ -987,8 +1000,8 @@ def skip_because(*args, **kwargs):
             if "feature" in kwargs:
                 if not self.orch.is_feature_supported(kwargs["feature"]):
                     skip = True
-                    msg = "Skipped as feature %s not supported in %s \
-				orchestration setup" % (kwargs["feature"], self.inputs.orchestrator)
+                    msg = "Skipped as feature %s not supported in this environment"%(
+				kwargs["feature"])
                     raise testtools.TestCase.skipException(msg)
 
             if 'ha_setup' in kwargs:

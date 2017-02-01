@@ -163,6 +163,16 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
         return True
    # end create_security_group
 
+    def create_svc_health_check(self):
+        assert topo_steps.createServiceHealthCheck(self)
+        return True
+    # end create_svc_health_check
+
+    def create_bgp_aas(self):
+        assert ui_topo_steps.createBgpaas(self)
+        return True
+    # end create_bgp_aas
+
     def cleanUp(self):
         if self.inputs.fixture_cleanup == 'yes':
             super(sdnUiTopoSetupFixture, self).cleanUp()

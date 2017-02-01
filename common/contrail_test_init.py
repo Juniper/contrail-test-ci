@@ -30,6 +30,7 @@ import subprocess
 import ast
 from collections import namedtuple
 import random
+from cfgm_common import utils
 
 # monkey patch subprocess.check_output cos its not supported in 2.6
 if "check_output" not in dir(subprocess):  # duck punch it in!
@@ -63,6 +64,7 @@ class TestInputs(object):
         self.jenkins_trigger = self.get_os_env('JENKINS_TRIGGERED')
         self.os_type = custom_dict(self.get_os_version, 'os_type')
         self.config = None
+        self.ini_file = ini_file
         if ini_file:
             self.config = ConfigParser.ConfigParser()
             self.config.read(ini_file)
@@ -88,15 +90,15 @@ class TestInputs(object):
         self.admin_username = read_config_option(self.config,
             'Basic',
             'adminUser',
-            os.getenv('OS_USERNAME', None))
+            os.getenv('OS_USERNAME', 'admin'))
         self.admin_password = read_config_option(self.config,
             'Basic',
             'adminPassword',
-            os.getenv('OS_PASSWORD', None))
+            os.getenv('OS_PASSWORD', 'contrail123'))
         self.admin_tenant = read_config_option(self.config,
             'Basic',
             'adminTenant',
-            os.getenv('OS_TENANT_NAME', None))
+            os.getenv('OS_TENANT_NAME', 'admin'))
 
         self.stack_user = read_config_option(
             self.config,
@@ -144,6 +146,10 @@ class TestInputs(object):
                                             'Basic', 'auth_port', 5000)
         self.auth_protocol = read_config_option(self.config,
                                             'Basic', 'auth_protocol', 'http')
+        self.api_protocol = read_config_option(self.config,
+                                          'cfgm', 'api_protocol', 'http')
+        self.api_insecure = read_config_option(self.config,
+                                          'cfgm', 'api_insecure_flag', True)
         self.ds_port = read_config_option(self.config, 'services',
                                           'discovery_port', '5998')
         self.api_server_port = read_config_option(self.config, 'services',
@@ -276,12 +282,40 @@ class TestInputs(object):
         self.public_host = read_config_option(self.config, 'Basic',
                                               'public_host', '10.204.216.50')
 
-        self.prov_file = self.prov_file or self._create_prov_file()
-        self.prov_data = self.read_prov_file()
         self.auth_url = os.getenv('OS_AUTH_URL') or \
                         '%s://%s:%s/v2.0'%(self.auth_protocol,
                                            self.auth_ip,
                                            self.auth_port)
+        self.apicertfile = read_config_option(self.config,
+                                             'cfgm', 'api_certfile', None)
+        self.apikeyfile = read_config_option(self.config,
+                                            'cfgm', 'api_keyfile', None)
+        self.apicafile = read_config_option(self.config,
+                                           'cfgm', 'api_cafile', None)
+        self.keystonecertfile = read_config_option(self.config,
+                                                  'Basic', 'keystone_certfile', None)
+        self.keystonekeyfile = read_config_option(self.config,
+                                                 'Basic', 'keystone_keyfile', None)
+        self.keystonecafile = read_config_option(self.config,
+                                                'Basic', 'keystone_cafile', None)
+        self.insecure = os.getenv('OS_INSECURE')
+        if self.insecure:
+            self.insecure = bool(self.insecure)
+        else:
+            self.insecure = read_config_option(self.config,
+                                              'Basic', 'keystone_insecure_flag', True)
+        if self.auth_url.startswith('https') and not self.insecure:
+           self.keystone_bundle = '/tmp/' + get_random_string() + '.pem'
+           if self.keystonecertfile and self.keystonekeyfile and \
+                  self.keystonecafile:
+               self.certs = [self.keystonecertfile, self.keystonekeyfile,
+                            self.keystonecafile]
+               self.keycertbundle = utils.getCertKeyCaBundle(self.keystone_bundle,
+                                        self.certs)
+        else:
+            self.keycertbundle = None
+        self.prov_file = self.prov_file or self._create_prov_file()
+        self.prov_data = self.read_prov_file()
         #vcenter server
         self.vcenter_dc = read_config_option(
            self.config, 'vcenter', 'vcenter_dc', None)
@@ -405,7 +439,18 @@ class TestInputs(object):
         self.tor = {}
         self.tor_hosts_data = {}
         self.physical_routers_data = {}
-
+        self.qos_queue = []
+        ''' self.qos_queue used for populating HW to Logical map
+            format self.qos_queue = [['comput_ip' , [{'hw_q_id':[logical_ids]}, {'hw_q_id':[logical_ids]}]]]
+            eg, self.qos_queue= [['10.204.217.128', [{u'3': [u'1', u'6-10', u'12-15']}, {u'11': [u'40-46']}]],
+                            , ['10.204.217.130', [{u'4': [u'1', u'6-10', u'12-15']}, {u'12': [u'40-46']}]]]'''
+        self.qos_queue_pg_properties = []
+        ''' self.qos_queue_pg_properties used for populating per Priority Group Properties
+            format self.qos_queue_pg_properties = [['comput_ip' , [{1st PG properties}, {2nd PG properties}]]]
+            eg, self.qos_queue_pg_properties = [['10.204.217.128', [{u'scheduling': u'strict', u'bandwidth': u'0', u'priority_id': u'0'},
+                                                                {u'scheduling': u'rr', u'bandwidth': u'10', u'priority_id': u'2'}]],
+                            ,                ['10.204.217.130', [{u'scheduling': u'strict', u'bandwidth': u'0', u'priority_id': u'1'},
+                                                                {u'scheduling': u'rr', u'bandwidth': u'25', u'priority_id': u'3'}]]]'''
         self.esxi_vm_ips = {}
         self.vgw_data = {}
         self.hypervisors = {}
@@ -423,6 +468,12 @@ class TestInputs(object):
             self.host_data[host['name']]['host_ip'] = host_ip
             self.host_data[host['name']]['host_data_ip'] = host_data_ip
             self.host_data[host['name']]['host_control_ip'] = host_control_ip
+            qos_queue_per_host, qos_queue_pg_properties_per_host = \
+                                    self._process_qos_data(host_ip)
+            if qos_queue_per_host:
+                self.qos_queue.append(qos_queue_per_host)
+            if qos_queue_pg_properties_per_host:
+                self.qos_queue_pg_properties.append(qos_queue_pg_properties_per_host)
             roles = host["roles"]
             for role in roles:
                 if role['type'] == 'openstack':
@@ -541,8 +592,49 @@ class TestInputs(object):
         for orch in self.orchs:
             if orch['type'] == 'vcenter':
                 return random.choice(orch['gateway_vrouters'])
-              
-            
+
+    def _process_qos_data(self, host_ip):
+        '''
+        Reads and populate qos related values
+        '''
+        qos_queue_per_host = []
+        qos_queue_pg_properties_per_host = []
+        try: 
+            if self.host_data[host_ip]['qos']:
+                hw_to_logical_map_list = []
+                for entry in self.host_data[host_ip]['qos']:
+                    if "default" in entry.keys() and \
+                    "logical_queue" in entry.keys():
+                        entry["logical_queue"].append("default")
+                        hw_to_logical_map = {entry["hardware_q_id"] :
+                                             entry["logical_queue"]}
+                    elif "default" in entry.keys() and \
+                    "logical_queue" not in entry.keys():
+                        hw_to_logical_map = {entry["hardware_q_id"] :
+                                             ["default"]}
+                    else:
+                        hw_to_logical_map = {entry["hardware_q_id"] : 
+                                             entry["logical_queue"]}
+                    hw_to_logical_map_list.append(hw_to_logical_map)
+                qos_queue_per_host = [host_ip , hw_to_logical_map_list]
+        except KeyError, e:
+            pass
+        try: 
+            if self.host_data[host_ip]['qos_niantic']:
+                pg_properties_list = []
+                for entry in self.host_data[host_ip]['qos_niantic']:
+                    if 'bandwidth' not in entry.keys():
+                        entry.update({'bandwidth' : "0"})
+                        pg_property = entry
+                    else:
+                        pg_property = entry
+                    pg_properties_list.append(pg_property)
+                qos_queue_pg_properties_per_host = [host_ip ,
+                                                     pg_properties_list]
+        except KeyError, e:
+            pass
+        return (qos_queue_per_host, qos_queue_pg_properties_per_host)
+        
     def _process_tor_data(self):
         for (device_name, device_dict) in self.physical_routers_data.iteritems():
             device_dict['tor_agents'] = []
@@ -567,7 +659,11 @@ class TestInputs(object):
     # end _process_tor_data
 
     def get_host_ip(self, name):
-        ip = self.host_data[name]['host_ip']
+        try:
+            ip = self.host_data[name]['host_ip']
+        except KeyError:
+            short_name = name.split('.')[0]
+            ip = self.host_data[short_name]['host_ip']
         if ip in self.ha_tmp_list:
             ip = self.contrail_external_vip
         return ip
@@ -587,7 +683,10 @@ class TestInputs(object):
                   'project_name': self.stack_tenant,
                   'auth_ip': self.auth_ip,
                   'auth_port': self.auth_port,
+                  'auth_protocol': self.auth_protocol,
                   'api_server_port': self.api_server_port,
+                  'api_protocol': self.api_protocol,
+                  'insecure': self.insecure,
                  }
         api_h = VNCApiInspect(cfgm_ip, inputs=type('', (), kwargs))
         return api_h.get_computes()
@@ -613,15 +712,17 @@ class TestInputs(object):
             raise Exception('Please specify testbed info in $PARAMS_FILE '
                             'under "Basic" section, keyword "provFile"')
         if self.orchestrator.lower() == 'openstack':
-            auth_url = os.getenv('OS_AUTH_URL', None) or \
+            self.auth_url = os.getenv('OS_AUTH_URL', None) or \
                        'http://127.0.0.1:5000/v2.0'
-            insecure = bool(os.getenv('OS_INSECURE', True))
             keystone = KeystoneCommands(self.stack_user,
                                         self.stack_password,
                                         self.stack_tenant,
-                                        auth_url,
+                                        self.auth_url,
                                         region_name=self.region_name,
-                                        insecure=insecure,
+                                        insecure=self.insecure,
+                                        cert=self.keystonecertfile,
+                                        key=self.keystonekeyfile,
+                                        cacert=self.keycertbundle,
                                         logger=self.logger)
             match = re.match(pattern, keystone.get_endpoint('identity')[0])
             self.auth_ip = match.group('ip')
@@ -742,6 +843,7 @@ class ContrailTestInit(object):
         # address_family = read_config_option(self.config,
         #                      'Basic', 'AddressFamily', 'dual')
         self.address_family = 'v4'
+        self.use_admin_auth = False
     # end __init__
 
     def set_af(self, af):

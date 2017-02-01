@@ -423,6 +423,13 @@ class CsVNResult (Result):
     def route_table(self):
         return self.xpath('virtual-network', 'route_table_refs', 0)
 
+    @property
+    def is_shared(self):
+        return self.xpath('virtual-network', 'is_shared')
+
+    def global_access(self):
+        return self.xpath('virtual-network', 'perms2', 'global_access')
+
 class CsRtResult (Result):
 
     '''
@@ -474,7 +481,7 @@ class CsVMResult (Result):
     '''
 
     def fq_name(self):
-        return ':'.join(self.xpath('virtual-network', 'fq_name'))
+        return ':'.join(self.xpath('virtual-machine', 'fq_name'))
 
     def vr_link(self):
         return self.xpath('virtual-machine', 'virtual_router_back_refs',
@@ -490,6 +497,9 @@ class CsVMResult (Result):
 #        return self.xpath ('virtual-machine', 'virtual_machine_interfaces',
 #                0, 'href')
 
+    def service_instance_refs(self):
+        si_refs = self.xpath('virtual-machine', 'service_instance_refs')
+        return si_refs
 
 class CsVMIResult (Result):
     def get_bindings(self):
@@ -825,15 +835,27 @@ class CsVrouters(Result):
 
 class CsVrouter(Result):
     def is_tor_agent(self):
-        if 'tor-agent' in self.xpath('virtual-router', 'virtual_router_type'):
+        vr_type = self.xpath('virtual-router', 'virtual_router_type')
+        if vr_type and 'tor-agent' == vr_type.lower():
             return True
         return False
 
     def is_tsn(self):
-        if 'tor-service-node' in self.xpath('virtual-router', 'virtual_router_type'):
+        vr_type = self.xpath('virtual-router', 'virtual_router_type')
+        if vr_type and 'tor-service-node' == vr_type.lower():
             return True
         return False
 
     @property
     def ip(self):
         return self.xpath('virtual-router', 'virtual_router_ip_address')
+
+class CsApiAccessList(Result):
+    def fq_name(self):
+        return ':'.join(self.xpath('api-access-list', 'fq_name'))
+
+    def uuid(self):
+        return self.xpath('api-access-list', 'uuid')
+
+    def get_rules(self):
+        return self.xpath('api-access-list', 'api_access_list_entries', 'rbac_rule')

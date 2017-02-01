@@ -778,9 +778,67 @@ l[0]={'protocol': '1', 'stats_bytes': '222180', 'stats_packets': '2645', 'setup_
         xml_obj = self.dict_get('Snh_SandeshUVECacheReq?x=VrouterAgent')
         return xml_obj.xpath('./UveVrouterAgent/data/VrouterAgent/phy_if/list/'
                              'AgentInterface/name')[0].text
-    # end get_agent_physical_interface        
+    # end get_agent_physical_interface
 
+    def get_agent_vm_interface_drop_stats(self, fq_name):
+        ''' Get it from http://nodek2:8085/Snh_SandeshUVECacheReq?x=UveVMInterfaceAgent
+        '''
+        xml_obj = self.dict_get('Snh_SandeshUVECacheReq?x=UveVMInterfaceAgent')
+        xml_data = xml_obj.xpath('./UveVMInterfaceAgentTrace/data/UveVMInterfaceAgent')
+        l = []
+        for index, x_data in enumerate(xml_data):
+            fq_name_inspect = x_data.xpath('./name')[0].text
+            if fq_name == fq_name_inspect:
+                x_path = './UveVMInterfaceAgentTrace/data/UveVMInterfaceAgent/raw_drop_stats/AgentDropStats'
+                raw_drop_stats_obj = xml_obj.xpath(x_path)
+                raw_drop_stats_obj = raw_drop_stats_obj[index]
+                dct = elem2dict(raw_drop_stats_obj)
+                l.append(dct)
+        return l[0]
+    # end get_agent_vm_interface_drop_stats
 
+    def get_agent_vrouter_drop_stats(self):
+        ''' Get it from http://nodek2:8085/Snh_SandeshUVECacheReq?x=VrouterStatsAgent
+        '''
+        xml_obj = self.dict_get('Snh_SandeshUVECacheReq?x=VrouterStatsAgent')
+        xml_data = xml_obj.xpath('./VrouterStats/data/VrouterStatsAgent')[0]
+        raw_drop_stats = xml_data.xpath('./raw_drop_stats')[0]
+        agent_raw_drop_stats_obj = raw_drop_stats.xpath('./AgentDropStats')[0]
+        return elem2dict(agent_raw_drop_stats_obj)
+    # end  get_agent_vrouter_drop_stats
+
+    def get_agent_qos_queue(self, uuid):
+        ''' Get it from http://nodei16:8085/Snh_QosQueueSandeshReq?uuid=
+                        16dc48cb-0c63-4cc4-bfc5-d9f4b7c3f84c&name=&id=
+            Sample : {'uuid': '954bcfda-c38f-41b6-a50b-1c42e400d95e',
+                      'id': '1',
+                      'name': default-global-system-config:default-global-qos-config:ctest-qos_queue-08282381}
+        '''
+        xml_obj = self.dict_get('Snh_QosQueueSandeshReq?uuid=%s&name=&id=' % (uuid))
+        xpath_str = './QosQueueSandeshResp/qos_queue_list/list/QosQueueSandeshData'
+        xml_obj = xml_obj.xpath(xpath_str)
+
+        if not xml_obj or len(xml_obj) != 1:
+            self.log.debug('Unable to fetch qos queue details in agent for '
+                ' uuid %s, Got :%s' % (uuid, xml_obj))
+            return None
+        return elem2dict(xml_obj[0])
+    # end get_agent_qos_queue
+    
+    def get_agent_qos_queue_from_id(self, id):
+        ''' Get it from http://nodei16:8085/Snh_QosQueueSandeshReq?uuid=&name=&id=1
+        '''
+        xml_obj = self.dict_get('Snh_QosQueueSandeshReq?uuid=&name=&id=%d' % (id))
+        xpath_str = './QosQueueSandeshResp/qos_queue_list/list/QosQueueSandeshData'
+        xml_obj = xml_obj.xpath(xpath_str)
+
+        if not xml_obj or len(xml_obj) != 1:
+            self.log.debug('Unable to fetch qos queue details in agent for '
+                ' id %s, Got :%s' % (id, xml_obj))
+            return None
+        return elem2dict(xml_obj[0])
+    # end get_agent_qos_queue_from_id
+    
     def get_agent_forwarding_class(self, uuid):
         '''   Get it from nodek2:8085/Snh_ForwardingClassSandeshReq?uuid=&name=&id=1
             Sample : {'mpls_exp': '1',

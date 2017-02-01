@@ -12,6 +12,7 @@ import threading
 import sys
 from quantum_test import NetworkClientException
 from tcutils.test_lib.contrail_utils import get_interested_computes
+from cfgm_common.exceptions import PermissionDenied
 try:
     from webui_test import *
 except ImportError:
@@ -123,6 +124,7 @@ class VNFixture(fixtures.Fixture):
         self.api_s_routing_instance = None
         self._vrf_ids = {}
         self._interested_computes = []
+        self.vn_network_id = None
     # end __init__
 
     def read(self):
@@ -144,7 +146,8 @@ class VNFixture(fixtures.Fixture):
                 self.vn_subnets = []
             self.logger.debug('Fetched VN: %s(%s) with subnets %s'
                              %(self.vn_fq_name, self.uuid, subnets))
-    
+    # end read
+
     def get_dns_ip(self, ipam_fq_name = None):
         if not ipam_fq_name:
             ipam_fq_name=self.ipam_fq_name
@@ -332,6 +335,8 @@ class VNFixture(fixtures.Fixture):
             self.api_vn_obj = VirtualNetwork(
                 name=vn_name, parent_obj=project_obj)
             if not self.verify_if_vn_already_present(self.api_vn_obj, project_obj):
+                if self.shared:
+                    self.api_vn_obj.is_shared = self.shared
                 self.uuid = self.vnc_lib_h.virtual_network_create(
                     self.api_vn_obj)
                 with self.lock:
@@ -360,15 +365,16 @@ class VNFixture(fixtures.Fixture):
             self.api_vn_obj.add_network_ipam(ipam, VnSubnetsType(ipam_sn_lst))
             self.vnc_lib_h.virtual_network_update(self.api_vn_obj)
             self.vn_fq_name = self.api_vn_obj.get_fq_name_str()
-            self.obj = self.quantum_h.get_vn_obj_if_present(self.vn_name,
-                                                                  self.project_id)
-            if self.obj is None:
-                raise ValueError('could not find %s in neutron/quantum' % (self.vn_name))
-
+        except PermissionDenied:
+            self.logger.info('Permission denied to create VirtualNetwork')
+            raise
         except Exception as e:
             with self.lock:
                 self.logger.exception(
                     'Api exception while creating network %s' % (self.vn_name))
+        self.obj = self.orchestrator.get_vn_obj_from_id(self.uuid)
+        if self.obj is None:
+            raise ValueError('could not find %s in neutron/quantum' % (self.vn_name))
 
     def get_api_obj(self):
         return self.api_vn_obj
@@ -386,7 +392,7 @@ class VNFixture(fixtures.Fixture):
             return self.read()
         if self.inputs.is_gui_based_config():
             self.webui.create_vn(self)
-        elif (self.option == 'api'):
+        elif (self.option == 'contrail'):
             self._create_vn_api(self.vn_name, self.project_obj)
         else:
             self._create_vn_orch()
@@ -417,7 +423,7 @@ class VNFixture(fixtures.Fixture):
         # Configure forwarding mode
         if self.forwarding_mode is not None:
             self.add_forwarding_mode(
-                self.project_obj.project_fq_name, self.vn_name, self.forwarding_mode)
+                self.project_obj.fq_name, self.vn_name, self.forwarding_mode)
 
         # Configure vxlan_id
         if self.vxlan_id is not None:
@@ -605,11 +611,32 @@ class VNFixture(fixtures.Fixture):
             self.api_verification_flag = self.api_verification_flag and False
             return False
         self.ri_ref = self.api_s_routing_instance['routing_instances'][0]['routing-instance']
+        if not self.verify_network_id():
+            return False
         self.api_verification_flag = self.api_verification_flag and True
         self.logger.info("Verifications in API Server for VN %s passed" %
                          (self.vn_name))
         return True
     # end verify_vn_in_api_server
+
+    def verify_network_id(self):
+        ''' Verify basic VN network id allocation
+            Currently just checks if it is not 0
+        '''
+        self.api_vn_obj = self.vnc_lib_h.virtual_network_read(id=self.uuid)
+        self.vn_network_id = getattr(self.api_vn_obj, 'virtual_network_network_id', None)
+        if not self.vn_network_id:
+            self.logger.warn('VN id not seen in api-server for Vn %s' %(
+                self.vn_id))
+            return False
+        if int(self.vn_network_id) == int(0):
+            self.logger.warn('VN id for Vn %s is set to 0. This is incorrect' %(
+                self.vn_network_id))
+            return False
+        self.logger.info('Verified VN network id %s for VN %s' % (
+            self.vn_network_id, self.vn_id))
+        return True
+    # end verify_network_id
 
     @retry(delay=5, tries=10)
     def verify_vn_policy_in_vn_uve(self):
@@ -1263,7 +1290,7 @@ class VNFixture(fixtures.Fixture):
                     self.delete_port(port_id=each_port_id)
             if self.inputs.is_gui_based_config():
                 self.webui.delete_vn(self)
-            elif (self.option == 'api'):
+            elif (self.option == 'contrail'):
                 self.logger.debug("Deleting VN %s using Api server" %
                                  self.vn_name)
                 self.vnc_lib_h.virtual_network_delete(id=self.uuid)
@@ -1403,6 +1430,12 @@ class VNFixture(fixtures.Fixture):
         self.logger.info('Setting flood_unknown_unicast flag of VN %s to %s'
             '' % (self.vn_name, enable))
     # end set_unknown_unicast_forwarding
+
+    def get_an_ip(self, cidr=None, index=2):
+        if not cidr:
+            cidr = self.vn_subnet_objs[0]['cidr']
+        return get_an_ip(cidr, index)
+    # end get_an_ip
 
 # end VNFixture
 

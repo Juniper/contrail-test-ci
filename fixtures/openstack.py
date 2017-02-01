@@ -28,6 +28,12 @@ class OpenstackOrchestrator(Orchestrator):
        #for vcenter as compute
        self.vcntr_handle = self.get_vcenter_handle()
 
+   def is_feature_supported(self, feature):
+        if self.inputs.vcenter_compute:
+            unsupported_features = ['ipv6', 'trans_svc', 'lbaasv1', 'ceilometer']
+            return feature not in unsupported_features
+        return True
+
    def get_vcenter_handle(self):
        if self.inputs and self.inputs.vcenter_dc:
            vcntr = VcenterOrchestrator(user=self.inputs.vcenter_username,
@@ -329,19 +335,27 @@ class OpenstackOrchestrator(Orchestrator):
 class OpenstackAuth(OrchestratorAuth):
 
    def __init__(self, user, passwd, project_name,
-                inputs=None, logger=None, auth_url=None, region_name=None):
+                inputs=None, logger=None, auth_url=None, region_name=None,
+                certfile=None, keyfile=None, cacert=None, insecure=True):
        self.inputs = inputs
        self.user = user
        self.passwd = passwd
        self.project = project_name
        self.logger = logger or contrail_logging.getLogger(__name__)
-       self.insecure = bool(os.getenv('OS_INSECURE',True))
        if inputs:
            self.auth_url = inputs.auth_url
            self.region_name = inputs.region_name
+           self.keystone_certfile = self.inputs.keystonecertfile
+           self.keystone_keyfile = self.inputs.keystonekeyfile
+           self.keycertbundle = self.inputs.keycertbundle
+           self.insecure = self.inputs.insecure
        else:
            self.auth_url = auth_url or os.getenv('OS_AUTH_URL')
            self.region_name = region_name or os.getenv('OS_REGION_NAME')
+           self.keystone_certfile = certfile
+           self.keystone_keyfile = keyfile
+           self.insecure = insecure
+           self.keycertbundle = cacert
        self.reauth()
 
    def reauth(self):
@@ -351,6 +365,9 @@ class OpenstackAuth(OrchestratorAuth):
                                         auth_url=self.auth_url,
                                         insecure=self.insecure,
                                         region_name=self.region_name,
+                                        cert=self.keystone_certfile,
+                                        key=self.keystone_keyfile,
+                                        cacert=self.keycertbundle,
                                         logger=self.logger)
 
    def get_project_id(self, name=None):
@@ -374,11 +391,23 @@ class OpenstackAuth(OrchestratorAuth):
        except:
            self.logger.info("%s user already present"%(self.user))
 
+   def create_role(self, role):
+       self.keystone.create_role(role)
+
+   def delete_role(self, role):
+       self.keystone.delete_role(role)
+
    def add_user_to_project(self, user, project, role='admin'):
        try:
            self.keystone.add_user_to_tenant(project, user, role)
        except Exception as e:
            self.logger.info("%s user already added to project"%(user))
+
+   def remove_user_from_project(self, user, role, project):
+       try:
+           self.keystone.remove_user_role(user, role, project)
+       except Exception as e:
+           self.logger.exception("%s user already removed from project"%(user))
 
    def verify_service_enabled(self, service):
        try:

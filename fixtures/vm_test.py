@@ -143,7 +143,7 @@ class VMFixture(fixtures.Fixture):
             self.browser_openstack = self.connections.browser_openstack
             self.webui = WebuiTest(self.connections, self.inputs)
         self._vm_interface = {}
-        self.vrf_ids = {}
+        self._vrf_ids = {}
         self._interested_computes = []
         self.created = False
 
@@ -818,6 +818,10 @@ class VMFixture(fixtures.Fixture):
     def local_ip(self):
         return self.get_local_ip()
 
+    @property
+    def vrf_ids(self):
+        return self.get_vrf_ids()
+
     @retry(delay=2, tries=20)
     def verify_vm_in_agent(self):
         ''' Verifies whether VM has got created properly in agent.
@@ -1000,7 +1004,6 @@ class VMFixture(fixtures.Fixture):
                              (self.vm_name))
         self.vm_in_agent_flag = self.vm_in_agent_flag and True
 
-        self.vrf_ids = self.get_vrf_ids()
         if self.inputs.many_computes:
             self.get_interested_computes()
         return True
@@ -1044,7 +1047,7 @@ class VMFixture(fixtures.Fixture):
                 failure = ' 100% packet loss'
                 self.logger.debug(output)
             #   if expected_result not in output:
-                if failure in output:
+                if failure in output[1]:
                     self.logger.debug(
                     "Ping to Metadata IP %s of VM %s failed!" %
                     (self.local_ips[vn_fq_name], self.vm_name))
@@ -1422,35 +1425,30 @@ class VMFixture(fixtures.Fixture):
         finally:
             return bgp_ips
 
-    def get_ctrl_nodes_in_rt_group(self):
-        if getattr(self, 'bgp_ips', None):
-            return self.bgp_ips
+    def get_ctrl_nodes_in_rt_group(self,vn_fq_name):
         rt_list = []
         peer_list = []
-        for vn_fq_name in self.vn_fq_names:
-            vn_name = vn_fq_name.split(':')[-1]
-            ri_name = vn_fq_name + ':' + vn_name
-            ri = self.vnc_lib_h.routing_instance_read(fq_name=[ri_name])
-            rt_refs = ri.get_route_target_refs()
-            for rt_ref in rt_refs:
-                rt_obj = self.vnc_lib_h.route_target_read(id=rt_ref['uuid'])
-                rt_list.append(rt_obj.name)
-        for rt in rt_list:
-            ctrl_node = self.get_active_controller()
-            ctrl_node = self.inputs.host_data[ctrl_node]['host_ip']
-            peer_list.append(ctrl_node)
-            rt_group_entry = self.cn_inspect[
-                ctrl_node].get_cn_rtarget_group(rt)
-            if rt_group_entry['peers_interested'] is not None:
-                for peer in rt_group_entry['peers_interested']:
-                    if peer in self.inputs.host_names:
-                        peer = self.inputs.host_data[peer]['host_ip']
-                        peer_list.append(peer)
-                    else:
-                        self.logger.info(
-                            '%s is not defined as a control node in the topology' % peer)
-        self.bgp_ips = list(set(peer_list))
-        return self.bgp_ips
+        vn_name = vn_fq_name.split(':')[-1]
+        ri_name = vn_fq_name + ':' + vn_name
+        ri = self.vnc_lib_fixture.routing_instance_read(fq_name=[ri_name])
+        rt_refs = ri.get_route_target_refs()
+        for rt_ref in rt_refs:
+            rt_obj = self.vnc_lib_fixture.route_target_read(id=rt_ref['uuid'])
+            rt_list.append(rt_obj.name)
+        for ctrl_node in self.inputs.bgp_ips:
+            for rt in rt_list:
+                rt_group_entry = self.cn_inspect[
+                    ctrl_node].get_cn_rtarget_group(rt)
+                if rt_group_entry['peers_interested'] is not None:
+                    for peer in rt_group_entry['peers_interested']:
+                        if peer in self.inputs.host_names:
+                            peer_ip = self.inputs.host_data[peer]['host_ip']
+                            peer_list.append(peer_ip)
+                        else:
+                            self.logger.info(
+                                '%s is not defined as a control node in the topology' % peer)
+        bgp_ips = list(set(peer_list))
+        return bgp_ips
     # end get_ctrl_nodes_in_rt_group
 
     @retry(delay=5, tries=20)
@@ -1461,7 +1459,7 @@ class VMFixture(fixtures.Fixture):
         self.vm_in_cn_flag = True
         for vn_fq_name in self.vn_fq_names:
             if self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) != 'l2':
-                for cn in self.get_ctrl_nodes_in_rt_group():
+                for cn in self.get_ctrl_nodes_in_rt_group(vn_fq_name):
                     vn_name = vn_fq_name.split(':')[-1]
                     ri_name = vn_fq_name + ':' + vn_name
                     # Check for VM route in each control-node
@@ -1511,7 +1509,7 @@ class VMFixture(fixtures.Fixture):
             return True
         for vn_fq_name in self.vn_fq_names:
             if 'l2' in self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name):
-                for cn in self.get_ctrl_nodes_in_rt_group():
+                for cn in self.get_ctrl_nodes_in_rt_group(vn_fq_name):
                     ri_name = vn_fq_name + ':' + vn_fq_name.split(':')[-1]
                     self.logger.debug('Starting all layer2 verification'
                                       ' in %s Control Node' % (cn))
@@ -1616,7 +1614,7 @@ class VMFixture(fixtures.Fixture):
         for vn_fq_name in self.vn_fq_names:
             if self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) != 'l2':
                 ri_name = vn_fq_name + ':' + vn_fq_name.split(':')[-1]
-                for cn in self.get_ctrl_nodes_in_rt_group():
+                for cn in self.get_ctrl_nodes_in_rt_group(vn_fq_name):
                     # Check for VM route in each control-node
                     for vm_ip in self.vm_ip_dict[vn_fq_name]:
                         cn_routes = self.cn_inspect[cn].get_cn_route_table_entry(
@@ -1813,8 +1811,11 @@ class VMFixture(fixtures.Fixture):
         return True
     # end tcp_data_transfer
 
-    def get_vrf_ids(self):
-        vrfs = dict()
+    def get_vrf_ids(self, refresh=False):
+        if getattr(self, '_vrf_ids', None) and not refresh:
+            return self._vrf_ids
+
+        self._vrf_ids = dict()
         try:
             for ip in self.inputs.compute_ips:
                 inspect_h = self.agent_inspect[ip]
@@ -1824,11 +1825,11 @@ class VMFixture(fixtures.Fixture):
                     if vrf_id:
                         dct.update({vn_fq_name: vrf_id})
                 if dct:
-                    vrfs[ip] = dct
+                    self._vrf_ids[ip] = dct
         except Exception as e:
             self.logger.exception('Exception while getting VRF id')
         finally:
-            return vrfs
+            return self._vrf_ids
     # end get_vrf_ids
 
     def cleanUp(self):
@@ -2962,6 +2963,14 @@ class VMFixture(fixtures.Fixture):
         cmd = ['route add -%s %s dev %s' % (prefix_type, prefix, device)]
         self.run_cmd_on_vm(cmd, as_sudo=True)
     # end add_route_in_vm
+
+    def disable_interface_policy(self, value=True, vmi_ids=[]):
+        vmi_ids = vmi_ids or self.vmi_ids.values()
+        for vmi_id in vmi_ids:
+            vmi_obj = self.vnc_lib_h.virtual_machine_interface_read(id=vmi_id)
+            vmi_obj.set_virtual_machine_interface_disable_policy(bool(value))
+            self.vnc_lib_h.virtual_machine_interface_update(vmi_obj)
+    # end set_interface_policy
 
 # end VMFixture
 

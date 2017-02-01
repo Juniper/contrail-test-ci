@@ -128,12 +128,16 @@ class ContrailConnections():
             self.vnc_lib_fixture = VncLibFixture(
                 username=self.username, password=self.password,
                 domain=self.domain_name, project_name=self.project_name,
-                inputs = self.inputs,
+                inputs=self.inputs,
                 cfgm_ip=cfgm_ip,
                 api_server_port=self.inputs.api_server_port,
                 auth_server_ip=self.inputs.auth_ip,
                 orchestrator=self.inputs.orchestrator,
                 project_id=self.get_project_id(),
+                certfile = self.inputs.keystonecertfile,
+                keyfile = self.inputs.keystonekeyfile,
+                cacert = self.inputs.keycertbundle,
+                insecure = self.inputs.insecure,
                 logger=self.logger)
             self.vnc_lib_fixture.setUp()
             self.vnc_lib = self.vnc_lib_fixture.get_handle()
@@ -146,6 +150,7 @@ class ContrailConnections():
         if host not in self.api_server_inspects:
             self.api_server_inspects[host] = VNCApiInspect(host,
                                                            inputs=self.inputs,
+                                                           protocol=self.inputs.api_protocol,
                                                            logger=self.logger)
         return self.api_server_inspects[host]
 

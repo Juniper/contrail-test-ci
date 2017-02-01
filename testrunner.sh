@@ -105,6 +105,7 @@ clear_colors () {
 }
 
 add_contrail_env () {
+    EXTRA_RUN_TEST_ARGS=${testcase:-${EXTRA_RUN_TEST_ARGS:-''}}
     arg_env[0]=" -e TEST_RUN_CMD='$TEST_RUN_CMD' -e EXTRA_RUN_TEST_ARGS='$EXTRA_RUN_TEST_ARGS' "
     n=1
     for i in `env | grep '^CT_' | sed 's/ /\|/'`; do
@@ -134,6 +135,19 @@ select_image () {
     fi
 }
 
+make_entrypoint_tempest () {
+	#Function to generate a shell script, that will be used as an entry for tempest run
+cat <<EOF
+#!/bin/bash -x
+cd /tempest
+source testbed_env
+chmod +x tempest_run.sh
+/tempest/tempest_run.sh
+cp result*.xml ./logs
+cp build_id.txt ./logs
+EOF
+}
+
 docker_run () {
     # Volumes to be mounted to container
 
@@ -143,6 +157,12 @@ docker_run () {
         -v /etc/localtime:/etc/localtime:ro \
         -v /etc/hosts:/etc/hosts:ro"
 
+    #In case of tempest , mount the tempest directory
+    if [[ $tempest_dir ]]; then
+        arg_base_vol="$arg_base_vol -v $tempest_dir:/tempest"
+        mkdir -p $tempest_dir/logs
+        make_entrypoint_tempest > ${tempest_dir}/tempest_entrypoint.sh
+    fi
 
     if [[ -e $mount_local ]]; then
         mount_local=`readlink -f $mount_local`
@@ -193,7 +213,11 @@ docker_run () {
     if [[ $shell ]]; then
         arg_shell=" -it --entrypoint=/bin/bash "
     else
-        arg_shell=" --entrypoint=/entrypoint.sh "
+        if [[ $tempest_dir ]]; then
+            arg_shell=" --entrypoint=/tempest/tempest_entrypoint.sh "
+        else
+            arg_shell=" --entrypoint=/entrypoint.sh "
+        fi
     fi
 
     # Keep the container
@@ -249,7 +273,7 @@ run_docker_cmd () {
     else
         echo "$docker run ${arg_env[*]} $arg_base_vol $local_vol $key_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name $ci_image_arg -e FEATURE=$feature -e TEST_TAGS=$test_tags -e SCENARIOS=$scenarios $arg_bg $arg_rm $arg_shell -t $image_name" > $tempfile
     fi
-    bash $tempfile | tee $run_log; rv=$?
+    bash $tempfile | tee $run_log; rv=${PIPESTATUS[0]}
     return $rv
 }
 
@@ -295,6 +319,7 @@ $GREEN  -i, --use-ci-image              $NO_COLOR Use ci image, by default it wi
 $GREEN  -r, --rm	                    $NO_COLOR Remove the container on container exit, Default: Container will be kept.
 $GREEN  -b, --background                $NO_COLOR run the container in background
 $GREEN  -n, --no-color                  $NO_COLOR Disable output coloring
+$GREEN  -z, --tempest_dir TEMPEST DIR           $NO_COLOR Path to the tempest , where it is cloned
 $GREEN  -t, --testbed TESTBED           $NO_COLOR Path to testbed file in the host,
                                             Default: /opt/contrail/utils/fabfile/testbeds/testbed.py
 $GREEN  -j, --testbed-json TESTBED_JSON $NO_COLOR Optional testbed json file.
@@ -307,7 +332,7 @@ $GREEN  -f, --feature FEATURE           $NO_COLOR Features or Tags to test - val
                                             ci_webui_sanity, devstack_sanity, upgrade_only. Default: sanity
                                             NOTE: this is only valid for Full contrail-test suite.
 $GREEN -T, --test-tags TEST_TAGS        $NO_COLOR test tags to run specific tests
-
+$GREEN -c, --testcase TESTCASE          $NO_COLOR testcase to execute
 NOTE: Either testbed.py (-t) or both testbed-json and params-file required
 
 ${GREEN}Possitional Parameters:
@@ -318,9 +343,10 @@ ${GREEN}Possitional Parameters:
 EOF
     }
 
-    while getopts "ibhf:t:p:sS:k:K:nrT:P:m:j:" flag; do
+    while getopts "ibhf:t:p:sS:k:K:nrT:P:m:j:c:z:" flag; do
         case "$flag" in
             t) testbed=$OPTARG;;
+            z) tempest_dir=$OPTARG;;
             j) testbed_json=$OPTARG;;
             P) params_file=$OPTARG;;
             f) feature=$OPTARG;;
@@ -336,6 +362,7 @@ EOF
             n) clear_colors ;;
             T) test_tags=$OPTARG;;
             m) mount_local=$OPTARG;;
+            c) testcase=$OPTARG;;
         esac
     done
 
