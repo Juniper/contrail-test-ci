@@ -126,7 +126,8 @@ class ContrailConnections():
                 insecure = self.inputs.insecure,
                 logger=self.logger)
             self.vnc_lib_fixture.setUp()
-            self.vnc_lib = self.vnc_lib_fixture.get_handle()
+            env[attr] = self.vnc_lib_fixture.get_handle()
+        self.vnc_lib = env[attr]
         return self.vnc_lib
 
     def get_api_inspect_handle(self, host):
