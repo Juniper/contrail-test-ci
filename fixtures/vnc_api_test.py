@@ -7,7 +7,7 @@ from cfgm_common.exceptions import NoIdError
 
 from tcutils.util import get_dashed_uuid
 from openstack import OpenstackAuth, OpenstackOrchestrator
-from vcenter import VcenterAuth
+from vcenter import VcenterAuth, VcenterOrchestrator
 
 class VncLibFixture(fixtures.Fixture):
     ''' Wrapper for VncApi
