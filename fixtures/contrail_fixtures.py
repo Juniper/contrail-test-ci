@@ -52,11 +52,14 @@ class ContrailFixture (fixtures.Fixture):
        self._args_type = None
        self._vnc_obj = None
        self._obj = None
+       self._name = None
+       self._fq_name = None
        # ownership flag, set if fixture creates the resource and is
        # responsible cleanup
        self._owned = False if uuid else True
        self._args = self._handle_args(params)
        self._verify_on_cleanup = os.getenv('VERIFY_ON_CLEANUP') or False
+       self._minimal_read()
 
    def _setup_ref_fields (self):
        self.ref_fields = []
@@ -93,19 +96,30 @@ class ContrailFixture (fixtures.Fixture):
 
    @property
    def name (self):
-       return self.vnc_obj.name
+       return self._name
+       #if self._args:
+       #    return self._args['name']
+       #return self.vnc_obj.name
 
    @property
    def fq_name (self):
-       if not self._vnc_obj:
-           return self._vnc.id_to_fqn(self.uuid)
-       return self.vnc_obj.get_fq_name()
+       return self._fq_name
+       #if not self._vnc_obj:
+       #    return self._vnc.id_to_fqn(self.uuid)
+       #return self.vnc_obj.get_fq_name()
 
    @property
    def fq_name_str (self):
-       if not self._vnc_obj:
-           return ':'.join(self._vnc.id_to_fqn(self.uuid))
-       return self.vnc_obj.get_fq_name_str()
+       return self._fq_name_str
+       #if not self._vnc_obj:
+       #    return ':'.join(self.fq_name)
+       #return self.vnc_obj.get_fq_name_str()
+
+   def _minimal_read (self):
+       if self.uuid:
+           self._fq_name = self._vnc.id_to_fqn(self.uuid)
+           self._name = self._fq_name[-1]
+           self._fq_name_str = ':'.join(self._fq_name)
 
    def setUp (self):
        super(ContrailFixture, self).setUp()
@@ -113,6 +127,7 @@ class ContrailFixture (fixtures.Fixture):
            self._read()
        else:
            self._create()
+           self._minimal_read()
 
    def cleanUp (self):
        super(ContrailFixture, self).cleanUp()

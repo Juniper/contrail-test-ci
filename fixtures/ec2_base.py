@@ -3,6 +3,8 @@ from fabric.context_managers import shell_env, settings
 import time
 import os
 
+#TODO: update ref in vpc/test_vpc.py & vpc/sanity.py
+ec2_api_error_noPubNw = "InvalidRequest: public network not provisioned"
 
 class EC2Base(object):
     def __init__(self, tenant=None, logger=None, inputs=None):

@@ -1089,3 +1089,42 @@ def is_uuid(value):
     return True
 # end is_uuid
 
+# Code borrowed from http://wiki.python.org/moin/PythonDecoratorLibrary#Retry
+def retry_and_log(tries=5, delay=3):
+
+    '''Retries a method until it returns True, retry expires
+       tries - number of retry attempts. The method is called
+               atmost tries+1 times.
+       delay - time delay between retries in seconds.
+    '''
+
+    # Update test retry count.
+    retry_factor = get_os_env("TEST_RETRY_FACTOR") or "1.0"
+    tries = math.floor(tries * float(retry_factor))
+    if tries < 0:
+        raise ValueError("tries must be 0 or greater")
+
+    # Update test delay interval.
+    delay_factor = get_os_env("TEST_DELAY_FACTOR") or "1.0"
+    delay = math.floor(delay * float(delay_factor))
+    if delay < 0:
+        raise ValueError("delay must be 0 or greater")
+
+    def deco_retry(f):
+        def f_retry(self, *args, **kwargs):
+            mtries = tries + 1
+            mdelay = delay
+            while mtries:
+                result = f(self, *args, **kwargs)
+                if result[0]:
+                    self.logger.debug('%s success on %s' % (f.__name__, self))
+                    return result
+                else:
+                    self.logger.warn(result[1])
+                mtries -= 1      # consume an attempt
+                time.sleep(mdelay)  # wait...
+            return result
+
+        return f_retry  # true decorator -> decorated function
+    return deco_retry  # @retry(arg[, ...]) -> true decorator
+# end retry_and_log
