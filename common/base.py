@@ -393,3 +393,117 @@ class GenericTestBase(test_v1.BaseTestCase_v1):
         if obj and getattr(obj, 'created', False):
             return obj.cleanUp()
     # end cleanup
+
+    @classmethod
+    def create_bd(cls, bd_name=None, cleanup=True, *args, **kwargs):
+        '''
+            Creates a bridge domain
+        '''
+        if not bd_name:
+            bd_name = get_random_name('bd')
+        parent_obj = cls.connections.vnc_lib_fixture.get_project_obj()
+        mac_learning_enabled = kwargs.get('mac_learning_enabled', None)
+        mac_limit_control = kwargs.get('mac_limit_control', None)
+        mac_move_control = kwargs.get('mac_move_control', None)
+        mac_aging_time = kwargs.get('mac_aging_time', 300)
+        isid = kwargs.get('isid', None)
+
+        bd_obj = BridgeDomain(name=bd_name,
+                              parent_obj=parent_obj,
+                              mac_learning_enabled=mac_learning_enabled,
+                              mac_limit_control=mac_limit_control,
+                              mac_move_control=mac_move_control,
+                              mac_aging_time=mac_aging_time,
+                              isid=isid)
+        uuid = cls.vnc_lib.bridge_domain_create(bd_obj)
+        cls.logger.info('Created Bridge Domain%s, UUID: %s' % (
+                         cls.vnc_lib.id_to_fq_name(uuid), uuid))
+        return bd_obj
+    # end create_bd
+
+    def update_bd(self, uuid=None, *args, **kwargs):
+        '''
+            Updates bridge domain
+        '''
+        mac_learning_enabled = kwargs.get('mac_learning_enabled', None)
+        mac_limit_control = kwargs.get('mac_limit_control', None)
+        mac_move_control = kwargs.get('mac_move_control', None)
+        mac_aging_time = kwargs.get('mac_aging_time', None)
+        isid = kwargs.get('isid', None)
+        bd_obj = self.vnc_lib.bridge_domain_read(id=uuid)
+        if mac_learning_enabled:
+            bd_obj.set_mac_learning_enabled(mac_learning_enabled)
+        if mac_limit_control:
+            bd_obj.set_mac_limit_control(mac_limit_control)
+        if mac_move_control:
+            bd_obj.set_mac_move_control(mac_move_control)
+        if mac_aging_time:
+            bd_obj.set_mac_aging_time(mac_aging_time)
+        if isid:
+            bd_obj.set_isid(isid)
+
+        self.logger.info('Updated Bridge Domain%s, UUID: %s' % (
+                         self.vnc_lib.id_to_fq_name(uuid), uuid))
+        return uuid
+    # end update_bd
+
+
+    @classmethod
+    def delete_bd(cls, uuid=None):
+        '''
+        Delete Bridge Domain object
+
+        Args:
+            uuid : UUID of BridgeDomain object
+        '''
+        cls.vnc_lib.bridge_domain_delete(id=uuid)
+        cls.logger.info('Deleted Bridge Domain%s' % (uuid))
+    # end delete_bd
+
+    @classmethod
+    def read_bd(cls, uuid=None):
+        '''
+        Read Bridge Domain object
+
+        Args:
+            uuid : UUID of BridgeDomain object
+        '''
+        bd_obj = cls.vnc_lib.bridge_domain_read(id=uuid)
+        cls.logger.info('Bridge Domain%s info' % (uuid,bd_obj))
+    # end read_bd
+
+    @classmethod
+    def dump_bd(cls, uuid=None):
+        '''
+        Dump Bridge Domain object
+
+        Args:
+            uuid : UUID of BridgeDomain object
+        '''
+        bd_obj = cls.vnc_lib.bridge_domain_read(id=uuid)
+        cls.logger.info('Bridge Domain%s info' % (uuid,bd_obj))
+        bd_obj.dump()
+    # end dump_bd
+
+    @classmethod
+    def add_bd_to_vmi(cls, bd_id, vmi_id, vlan_tag):
+        cls.logger.info('Adding Bridge Domain%s to VMI%s' % (bd_id,vmi_id))
+        vmi = cls.vnc_lib.virtual_machine_interface_read(id=vmi_id)
+        bd_obj = cls.vnc_lib.bridge_domain_read(id=bd_id)
+        bmeb = BridgeDomainMembershipType()
+        bmeb.set_vlan_tag(vlan_tag)
+        vmi.add_bridge_domain(bd_obj, bmeb)
+        cls.vnc_lib.virtual_machine_interface_update(vmi)
+
+    @classmethod
+    def enable_vlan_tag_based_bridge_domain(cls, vmi_id, vlan_tag_based_bridge_domain):
+        cls.logger.info('Enabling vlan tag based bridge domain%s on  VMI%s' % (vlan_tag_based_bridge_domain, vmi_id))
+        vmi = cls.vnc_lib.virtual_machine_interface_read(id=vmi_id)
+        vmi.set_vlan_tag_based_bridge_domain(vlan_tag_based_bridge_domain)
+        cls.vnc_lib.virtual_machine_interface_update(vmi)
+
+
+
+
+
+
