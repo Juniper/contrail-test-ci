@@ -69,7 +69,6 @@ class SvcTemplateFixture (ContrailFixture):
 
    def verify_on_cleanup (self):
        self.assert_on_cleanup(*self._verify_not_in_api_server())
-
        #TODO: check if more verification is needed
 
    def _verify_in_api_server (self):

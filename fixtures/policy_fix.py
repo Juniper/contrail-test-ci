@@ -1,6 +1,6 @@
 #TODO: integrate with policy_test.py
 from contrail_fixtures import ContrailFixture
-from tcutils.util import retry
+from tcutils.util import retry, retry_and_log
 from vnc_api.vnc_api import NetworkPolicy
 
 class PolicyFixture (ContrailFixture):
@@ -30,12 +30,14 @@ class PolicyFixture (ContrailFixture):
            info = ''
        return '%s:%s' % (self.type_name, info)
 
-   @retry(delay=1, tries=5)
+   @retry_and_log(delay=1, tries=5)
    def _read_vnc_obj (self):
        obj = self._vnc.get_network_policy(self.uuid)
-       found = 'not' if not obj else ''
-       self.logger.debug('%s %s found in api-server' % (self, found))
-       return obj != None, obj
+       if not obj:
+           return False, '%s not found in api-server' % self
+       #found = 'not' if not obj else ''
+       #self.logger.debug('%s %s found in api-server' % (self, found))
+       return True, obj
 
    @retry(delay=1, tries=5)
    def _read_orch_obj (self):
@@ -85,10 +87,10 @@ class PolicyFixture (ContrailFixture):
    @retry(delay=5, tries=6)
    def _verify_not_in_api_server (self):
        if self._vnc.get_network_policy(self.uuid):
-           msg = '%s not removed from api-server' % self
-           self.logger.debug(msg)
-           return False, msg
-       self.logger.debug('%s removed from api-server' % self)
+           return False, '%s not removed from api-server' % self
+           #self.logger.debug(msg)
+           #return False, msg
+       #self.logger.debug('%s removed from api-server' % self)
        return True, None
 
    def _verify_in_orch (self):
@@ -99,8 +101,8 @@ class PolicyFixture (ContrailFixture):
    @retry(delay=5, tries=6)
    def _verify_not_in_orch (self):
        if self._ctrl.get_network_policy(self.uuid):
-           msg = '%s not removed from orchestrator' % self
-           self.logger.debug(msg)
-           return False, msg
-       self.logger.debug('%s removed from orchestrator' % self)
+           return False, '%s not removed from orchestrator' % self
+           #self.logger.debug(msg)
+           #return False, msg
+       #self.logger.debug('%s removed from orchestrator' % self)
        return True, None

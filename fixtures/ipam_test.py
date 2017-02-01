@@ -1,3 +1,4 @@
+#TODO: delete this module
 import fixtures
 from vn_test import *
 from project_test import *

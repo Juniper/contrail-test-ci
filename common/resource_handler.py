@@ -9,6 +9,12 @@ from instance_ip_fixture import InstanceIpFixture
 from svc_template_fixture import SvcTemplateFixture
 from svc_instance_fixture import SvcInstanceFixture
 from port_tuple_fixture import PortTupleFixture
+from bgp_router_fixture import BgpRouterFixture
+from interface_route_table_fixture import InterfaceRouteTableFixture
+from ipam_fixture import IPAMFixture
+from lif_fixture import LogicalInterfaceFixture_v2
+from floating_ip_pool_fixture import FloatingIpPoolFixture
+from floating_ip_fixture import FloatingIpFixture
 
 # Map: heat resource type -> fixture
 _HEAT_2_FIXTURE = {
