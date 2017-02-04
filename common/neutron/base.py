@@ -1,7 +1,7 @@
 import time
 import test_v1
 from netaddr import *
-
+from vnc_api.vnc_api import *
 from common.connections import ContrailConnections
 from common import isolated_creds
 from common import create_public_vn
@@ -18,6 +18,7 @@ from tcutils.commands import ssh, execute_cmd, execute_cmd_out
 import ConfigParser
 import re
 from tcutils.contrail_status_check import *
+from contrailapi import ContrailVncApi
 
 contrail_api_conf = '/etc/contrail/contrail-api.conf'
 
@@ -35,6 +36,7 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
         cls.cn_inspect = cls.connections.cn_inspect
         cls.analytics_obj = cls.connections.analytics_obj
         cls.api_s_inspect = cls.connections.api_server_inspect
+        cls.vnc_h = ContrailVncApi(cls.vnc_lib, cls.logger)
 
         if cls.inputs.admin_username:
             public_creds = cls.admin_isolated_creds
@@ -360,31 +362,36 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
             return next_hops['itf']
     # end get_active_snat_node
 
-    def config_aap(self, port1, port2, ip, vsrx=False, zero_mac=False):
-        self.logger.info('Configuring AAP on ports %s and %s' %
-                         (port1['id'], port2['id']))
-#        port1_dict = {'allowed_address_pairs': [
-#            {"ip_address": ip + '/32', "mac_address": port1['mac_address']}]}
-#        port2_dict = {'allowed_address_pairs': [
-#            {"ip_address": ip + '/32', "mac_address": port2['mac_address']}]}
-        if zero_mac:
-            port1_dict = {'allowed_address_pairs': [
-                {"ip_address": ip + '/32', "mac_address": '00:00:00:00:00:00'}]}
-            port2_dict = {'allowed_address_pairs': [
-                {"ip_address": ip + '/32', "mac_address": '00:00:00:00:00:00'}]}
+    def create_fip(self, fip_fixture):
+        self.logger.info('Creating FIP from %s' % fip_fixture.pool_name)
+        return self.vnc_h.create_floating_ip(fip_fixture.fip_pool_obj, fip_fixture.project_obj)
+
+    def assoc_fip(self, fip_id, vm_id, vmi_id=None):
+        if vmi_id:
+            return self.vnc_h.assoc_floating_ip(fip_id, vm_id, vmi_id=vmi_id)
         else:
-            if vsrx:
-                port1_dict = {'allowed_address_pairs': [
-                    {"ip_address": ip + '/32', "mac_address": '00:00:5e:00:01:01'}]}
-                port2_dict = {'allowed_address_pairs': [
-                    {"ip_address": ip + '/32', "mac_address": '00:00:5e:00:01:01'}]}
-            else:
-                port1_dict = {'allowed_address_pairs': [
-                    {"ip_address": ip + '/32'}]}
-                port2_dict = {'allowed_address_pairs': [
-                    {"ip_address": ip + '/32'}]}
-        port1_rsp = self.update_port(port1['id'], port1_dict)
-        port2_rsp = self.update_port(port2['id'], port2_dict)
+            return self.vnc_h.assoc_floating_ip(fip_id, vm_id)
+
+    def assoc_fixed_ip_to_fip(self, fip_id, fixed_ip):
+        return self.vnc_h.assoc_fixed_ip_to_floating_ip(fip_id, fixed_ip)
+
+    def disassoc_fip(self, fip_id):
+        self.vnc_h.disassoc_floating_ip(fip_id)
+
+    def del_fip(self, fip_id):
+        self.vnc_h.delete_floating_ip(fip_id)
+
+    def config_aap(self, port, prefix, prefix_len=32, mac='', aap_mode='active-standby', contrail_api=False):
+        self.logger.info('Configuring AAP on port %s' % port['id'])
+        if is_v6(prefix):
+            prefix_len = 128
+        if contrail_api:
+            self.vnc_h.add_allowed_pair(
+                port['id'], prefix, prefix_len, mac, aap_mode)
+        else:
+            port_dict = {'allowed_address_pairs': [
+                {"ip_address": prefix + '/' + str(prefix_len), "mac_address": mac}]}
+            port_rsp = self.update_port(port['id'], port_dict)
         return True
     # end config_aap
 
@@ -437,6 +444,13 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
     def vrrp_mas_chk(self, vm, vn, ip, vsrx=False):
         self.logger.info(
             'Will verify who the VRRP master is and the corresponding route entries in the Agent')
+        if is_v4(ip):
+            prefix = '32'
+            vrrp_mas_chk_cmd = 'ip -4 addr ls'
+        elif is_v6(ip):
+            prefix = '128'
+            vrrp_mas_chk_cmd = 'ip -6 addr ls'
+
         if vsrx:
             vrrp_mas_chk_cmd = 'show vrrp'
             result = vm.get_config_via_netconf(
@@ -449,7 +463,6 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
                 result = False
                 self.logger.error('VRRP Master not selected')
         else:
-            vrrp_mas_chk_cmd = 'ip -4 addr ls'
             vm.run_cmd_on_vm(cmds=[vrrp_mas_chk_cmd], as_sudo=True)
             output = vm.return_output_cmd_dict[vrrp_mas_chk_cmd]
             result = False
@@ -460,20 +473,41 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
             else:
                 result = False
                 self.logger.error('VRRP Master not selected')
+        result = result and self.check_master_in_agent(vm, vn, ip)
+        return result
+    # end vrrp_mas_chk
+
+    @retry(delay=3, tries=5)
+    def check_master_in_agent(self, vm, vn, ip, prefix_len='32', ecmp=False):
         inspect_h = self.agent_inspect[vm.vm_node_ip]
         (domain, project, vnw) = vn.vn_fq_name.split(':')
         agent_vrf_objs = inspect_h.get_vna_vrf_objs(domain, project, vnw)
         agent_vrf_obj = vm.get_matching_vrf(
             agent_vrf_objs['vrf_list'], vn.vrf_name)
         vn1_vrf_id = agent_vrf_obj['ucindex']
-        paths = inspect_h.get_vna_active_route(
-            vrf_id=vn1_vrf_id, ip=ip, prefix='32')['path_list']
+        result = False
+        paths = []
+        try:
+            paths = inspect_h.get_vna_active_route(
+                vrf_id=vn1_vrf_id, ip=ip, prefix=prefix_len)['path_list']
+        except TypeError:
+            self.logger.info('Unable to retreive path info')
         for path in paths:
             if path['peer'] == 'LocalVmPort' and path['path_preference_data']['wait_for_traffic'] == 'false':
                 result = True
-                break
+                if ecmp:
+                    if path['path_preference_data']['ecmp'] == 'true':
+                        result = True
+                        break
+                    else:
+                        result = False
+                        return result
+                else:
+                    break
             else:
                 result = False
+                self.logger.error(
+                    'Path to %s not found in %s' % (ip, vm.vm_node_ip))
         return result
     # end vrrp_mas_chk
 
@@ -490,18 +524,19 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
             vm_tapintf = dst_vm.tap_intf[dst_vm.vn_fq_names[1]]['name']
         else:
             vm_tapintf = dst_vm.tap_intf[dst_vm.vn_fq_name]['name']
-        cmd = 'tcpdump -nni %s -c 10 > /tmp/%s_out.log' % (
+        cmd = 'tcpdump -nni %s -c 2 icmp > /tmp/%s_out.log' % (
             vm_tapintf, vm_tapintf)
         execute_cmd(session, cmd, self.logger)
         assert src_vm.ping_with_certainty(ip), 'Ping to vIP failure'
         output_cmd = 'cat /tmp/%s_out.log' % vm_tapintf
         output, err = execute_cmd_out(session, output_cmd, self.logger)
-        if ip in output:
+        if src_vm.vm_ip in output:
             result = True
             self.logger.info(
                 '%s is seen responding to ICMP Requests' % dst_vm.vm_name)
         else:
-            self.logger.error('ICMP Requests not seen on the VRRP Master')
+            self.logger.error(
+                'ICMP Requests to %s not seen on the VRRP Master' % ip)
             result = False
         return result
     # end verify_vrrp_sction
