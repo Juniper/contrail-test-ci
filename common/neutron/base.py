@@ -231,6 +231,39 @@ class BaseNeutronTest(GenericTestBase):
             return next_hops['itf']
     # end get_active_snat_node
 
+    def create_fip(self, fip_fixture):
+        self.logger.info('Creating FIP from %s' % fip_fixture.pool_name)
+        return self.vnc_h.create_floating_ip(fip_fixture.fip_pool_obj, fip_fixture.project_obj)
+
+    def assoc_fip(self, fip_id, vm_id, vmi_id=None):
+        if vmi_id:
+            return self.vnc_h.assoc_floating_ip(fip_id, vm_id, vmi_id=vmi_id)
+        else:
+            return self.vnc_h.assoc_floating_ip(fip_id, vm_id)
+
+    def assoc_fixed_ip_to_fip(self, fip_id, fixed_ip):
+        return self.vnc_h.assoc_fixed_ip_to_floating_ip(fip_id, fixed_ip)
+
+    def disassoc_fip(self, fip_id):
+        self.vnc_h.disassoc_floating_ip(fip_id)
+
+    def del_fip(self, fip_id):
+        self.vnc_h.delete_floating_ip(fip_id)
+
+    def config_aap(self, port, prefix, prefix_len=32, mac='', aap_mode='active-standby', contrail_api=False):
+        self.logger.info('Configuring AAP on port %s' % port['id'])
+        if is_v6(prefix):
+            prefix_len = 128
+        if contrail_api:
+            self.vnc_h.add_allowed_pair(
+                port['id'], prefix, prefix_len, mac, aap_mode)
+        else:
+            port_dict = {'allowed_address_pairs': [
+                {"ip_address": prefix + '/' + str(prefix_len), "mac_address": mac}]}
+            port_rsp = self.update_port(port['id'], port_dict)
+        return True
+    # end config_aap
+
     def config_vrrp_on_vsrx(self, vm_fix, vip, priority):
         cmdList = []
         cmdList.append('deactivate security nat source rule-set TestNat')
@@ -309,20 +342,41 @@ class BaseNeutronTest(GenericTestBase):
             else:
                 result = False
                 self.logger.error('VRRP Master not selected')
+        result = result and self.check_master_in_agent(vm, vn, ip)
+        return result
+    # end vrrp_mas_chk
+
+    @retry(delay=3, tries=5)
+    def check_master_in_agent(self, vm, vn, ip, prefix_len='32', ecmp=False):
         inspect_h = self.agent_inspect[vm.vm_node_ip]
         (domain, project, vnw) = vn.vn_fq_name.split(':')
         agent_vrf_objs = inspect_h.get_vna_vrf_objs(domain, project, vnw)
         agent_vrf_obj = vm.get_matching_vrf(
             agent_vrf_objs['vrf_list'], vn.vrf_name)
         vn1_vrf_id = agent_vrf_obj['ucindex']
-        paths = inspect_h.get_vna_active_route(
-            vrf_id=vn1_vrf_id, ip=ip, prefix=prefix)['path_list']
+        result = False
+        paths = []
+        try:
+            paths = inspect_h.get_vna_active_route(
+                vrf_id=vn1_vrf_id, ip=ip, prefix=prefix_len)['path_list']
+        except TypeError:
+            self.logger.info('Unable to retreive path info')
         for path in paths:
             if path['peer'] == 'LocalVmPort' and path['path_preference_data']['wait_for_traffic'] == 'false':
                 result = True
-                break
+                if ecmp:
+                    if path['path_preference_data']['ecmp'] == 'true':
+                        result = True
+                        break
+                    else:
+                        result = False
+                        return result
+                else:
+                    break
             else:
                 result = False
+                self.logger.error(
+                    'Path to %s not found in %s' % (ip, vm.vm_node_ip))
         return result
     # end vrrp_mas_chk
 
