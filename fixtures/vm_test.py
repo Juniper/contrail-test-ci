@@ -2354,7 +2354,7 @@ class VMFixture(fixtures.Fixture):
             self.logger.exception(
                 'Exception occured while starting webservice on VM')
             return False
-    # end webserver
+    # end start_webserver
 
     def provision_static_route(
             self,
