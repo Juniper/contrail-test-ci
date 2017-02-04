@@ -2211,13 +2211,14 @@ class VMFixture(fixtures.Fixture):
     # end verify_vm_flows_removed
 
     def start_webserver(self, listen_port=8000, content=None):
-        '''Start Web server on the specified port.
+        '''Start Web server on the specified port.                                                                                                                                                                                          
         '''
+        self.wait_till_vm_is_up()
         host = self.inputs.host_data[self.vm_node_ip]
         fab_connections.clear()
         try:
-            vm_host_string = '%s@%s'%(self.vm_username, self.local_ip)
-            cmd = 'echo %s >& index.html'%(content or self.vm_name)
+            vm_host_string = '%s@%s' % (self.vm_username, self.local_ip)
+            cmd = 'echo %s >& index.html' % (content or self.vm_name)
             output = remote_cmd(
                 vm_host_string, cmd, gateway_password=host['password'],
                 gateway='%s@%s' % (host['username'], self.vm_node_ip),
@@ -2234,7 +2235,7 @@ class VMFixture(fixtures.Fixture):
             self.logger.exception(
                 'Exception occured while starting webservice on VM')
             return False
-    # end webserver
+    # end start_webserver
 
     def provision_static_route(
             self,

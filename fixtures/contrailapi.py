@@ -1,13 +1,14 @@
 from tcutils.util import *
 from vnc_api.vnc_api import *
 from orchestrator import Orchestrator
+import logging
 
-class ContrailApi(Orchestrator):
+class ContrailVncApi(Orchestrator):
 
-    def __init__(self, inputs, vnc, logger):
+    def __init__(self, inputs, vnc, logger=None):
         self._inputs = inputs
         self._vnc = vnc
-        self._log = logger
+        self._log = logger or logging.getLogger(__name__)
 
     def get_policy(self, fq_name, **kwargs):
         return self._vnc.network_policy_read(fq_name=fq_name)
@@ -26,12 +27,22 @@ class ContrailApi(Orchestrator):
     def delete_floating_ip(self, fip_id, **kwargs):
         self._vnc.floating_ip_delete(id=fip_id)
 
+    def assoc_fixed_ip_to_floating_ip(self, fip_id, fixed_ip):
+        fip_obj = self._vnc.floating_ip_read(id=fip_id)
+        self._log.debug('Associating fixed IP:%s to FIP:%s' %
+                        (fixed_ip, fip_id))
+        fip_obj.set_floating_ip_fixed_ip_address(fixed_ip)
+        self._vnc.floating_ip_update(fip_obj)
+        return fip_obj
+
     def assoc_floating_ip(self, fip_id, vm_id, **kwargs):
         fip_obj = self._vnc.floating_ip_read(id=fip_id)
         vm_obj = self._vnc.virtual_machine_read(id=vm_id)
         vmi = vm_obj.get_virtual_machine_interface_back_refs()[0]['uuid']
+        if kwargs['vmi_id']:
+            vmi = kwargs['vmi_id']
         vmintf = self._vnc.virtual_machine_interface_read(id=vmi)
-        fip_obj.set_virtual_machine_interface(vmintf)
+        fip_obj.add_virtual_machine_interface(vmintf)
         self._log.debug('Associating FIP:%s with VMI:%s' % (fip_id, vm_id))
         self._vnc.floating_ip_update(fip_obj)
         return fip_obj
@@ -39,9 +50,18 @@ class ContrailApi(Orchestrator):
     def disassoc_floating_ip(self, fip_id, **kwargs):
         self._log.debug('Disassociating FIP %s' % fip_id)
         fip_obj = self._vnc.floating_ip_read(id=fip_id)
-        fip_obj.virtual_machine_interface_refs=None
+        fip_obj.virtual_machine_interface_refs = None
         self._vnc.floating_ip_update(fip_obj)
         return fip_obj
+
+    def add_allowed_pair(self, vmi_id, prefix, prefix_len, mac, mode):
+        vmi = self._vnc.virtual_machine_interface_read(id=vmi_id)
+        ip = SubnetType(ip_prefix=prefix, ip_prefix_len=prefix_len)
+        aap = AllowedAddressPair(ip=ip, mac=mac)
+        aap.set_address_mode(mode)
+        aaps = AllowedAddressPairs(allowed_address_pair=[aap])
+        vmi.set_virtual_machine_interface_allowed_address_pairs(aaps)
+        self._vnc.virtual_machine_interface_update(vmi)
 
     def add_security_group(self, vm_id, sg_id, **kwargs):
         sg = self.get_security_group(sg_id)
