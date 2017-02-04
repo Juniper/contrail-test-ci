@@ -2291,6 +2291,7 @@ class VMFixture(fixtures.Fixture):
     def start_webserver(self, listen_port=8000, content=None):
         '''Start Web server on the specified port.
         '''
+        self.wait_till_vm_is_up()
         host = self.inputs.host_data[self.vm_node_ip]
         fab_connections.clear()
         try:
@@ -2312,7 +2313,7 @@ class VMFixture(fixtures.Fixture):
             self.logger.exception(
                 'Exception occured while starting webservice on VM')
             return False
-    # end webserver
+    # end start_webserver
 
     def provision_static_route(
             self,
