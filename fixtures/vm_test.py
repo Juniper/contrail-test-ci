@@ -2480,14 +2480,27 @@ class VMFixture(fixtures.Fixture):
     # end verify_vm_flows_removed
 
     def start_webserver(self, listen_port=8000, content=None):
-        '''Start Web server on the specified port.
+        '''Start Web server on the specified port.                                                                                                                                                                                          
         '''
         self.wait_till_vm_is_up()
-        cmd = []
+        host = self.inputs.host_data[self.vm_node_ip]
+        fab_connections.clear()
         try:
-            cmd.append('echo %s >& index.html'%(content or self.vm_name))
-            cmd.append('python -m SimpleHTTPServer %d &> /dev/null' % listen_port)
-            output = self.run_cmd_on_vm(cmds=cmd, as_sudo=True, timeout=10)
+            vm_host_string = '%s@%s' % (self.vm_username, self.local_ip)
+            cmd = 'echo %s >& index.html' % (content or self.vm_name)
+            output = remote_cmd(
+                vm_host_string, cmd, gateway_password=host['password'],
+                gateway='%s@%s' % (host['username'], self.vm_node_ip),
+                with_sudo=True, password=self.vm_password,
+                logger=self.logger
+            )
+            cmd = 'python -m SimpleHTTPServer %d &> /dev/null' % listen_port
+            output = remote_cmd(
+                vm_host_string, cmd, gateway_password=host['password'],
+                gateway='%s@%s' % (host['username'], self.vm_node_ip),
+                with_sudo=True, as_daemon=True, password=self.vm_password,
+                logger=self.logger
+            )
             self.logger.debug(output)
         except Exception, e:
             self.logger.exception(
