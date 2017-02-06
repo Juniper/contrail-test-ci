@@ -173,6 +173,11 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
         return True
     # end create_bgp_aas
 
+    def create_link_local_service(self):
+        assert ui_topo_steps.createLinkLocalService(self)
+        return True
+    # end create_link_local_service
+
     def cleanUp(self):
         if self.inputs.fixture_cleanup == 'yes':
             super(sdnUiTopoSetupFixture, self).cleanUp()
