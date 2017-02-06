@@ -1,7 +1,9 @@
 import os
-from common.openstack_libs import ks_client as keystone_client
+import re
+from common.openstack_libs import ks_identity
+from common.openstack_libs import ks_session
+from common.openstack_libs import ks_client
 from common.openstack_libs import ks_exceptions
-from common.openstack_libs import keystoneclient
 from common import log_orig as contrail_logging
 from tcutils.util import retry, get_dashed_uuid
 
@@ -9,20 +11,65 @@ class KeystoneCommands():
 
     '''Handle all tenant managements'''
 
-    def __init__(self, username=None, password=None, tenant=None,
-                 auth_url=None, token=None, endpoint=None,
-                 insecure=True, region_name=None, cert=None, key=None, cacert=None,
-                 logger=None):
-
+    def __init__(self, username=None, password=None, tenant=None, auth_url=None,
+                 domain=None, insecure=True, region_name=None, cert=None,
+                 key=None, cacert=None, version=None, logger=None):
+        self.sessions = dict()
         self.logger = logger or contrail_logging.getLogger(__name__)
-        if token:
-            self.keystone = keystoneclient.Client(
-                token=token, endpoint=endpoint)
-        else:
-            self.keystone = keystone_client.Client(
-                username=username, password=password, tenant_name=tenant, auth_url=auth_url,
-                insecure=insecure, region_name=region_name or 'RegionOne',
-                cert=cert, key=key, cacert=cacert)
+        self.auth_url = auth_url
+        self.username = username
+        self.password = password
+        self.project = tenant
+        self.domain = domain or 'default'
+        self.cert = cert
+        self.key = key
+        self.cacert = cacert
+        self.region_name = region_name
+        self.insecure = insecure
+        self.version = self.get_version(version)
+        self.keystone = self.get_client()
+
+    def get_version(self, version):
+        if not version:
+            pattern = 'http[s]?://(?P<ip>\S+):(?P<port>\d+)/*(?P<version>\S*)'
+            version = re.match(pattern, self.auth_url).group('version')
+        if 'v2' in version:
+            version = 2
+        elif 'v3' in version:
+            version = 3
+        return str(version or 2)
+
+    @property
+    def session(self):
+        return self.get_session(scope='project')
+
+    def get_session(self, scope='project'):
+        if scope in self.sessions:
+            return self.sessions[scope]
+        if self.version == '2':
+            auth = ks_identity.v2.Password(auth_url=self.auth_url,
+                                           username=self.username,
+                                           password=self.password,
+                                           tenant_name=self.project)
+        elif self.version == '3':
+            project_id = None if scope == 'domain' else self.project
+            project_domain_id = None if scope == 'domain' else self.domain
+            domain_name = self.domain if scope == 'domain' else None
+            auth = ks_identity.v3.Password(auth_url=self.auth_url,
+                                           username=self.username,
+                                           password=self.password,
+                                           project_id=project_id,
+                                           domain_name=domain_name,
+                                           user_domain_id=self.domain,
+                                           project_domain_id=project_domain_id)
+        self.sessions[scope] = ks_session.Session(auth=auth,
+            verify=not self.insecure if self.insecure else self.cacert,
+            cert=(self.cert, self.key))
+        return self.sessions[scope]
+
+    def get_client(self, scope='domain'):
+        return ks_client.Client(self.version, session=self.get_session(scope='domain'),
+                                auth_url=self.auth_url, region_name=self.region_name)
 
     def get_handle(self):
         return self.keystone
@@ -168,7 +215,9 @@ class KeystoneCommands():
         return self.keystone.services.list()
 
     def get_id(self):
-        return get_dashed_uuid(self.keystone.auth_tenant_id)
+        if not getattr(self, 'uuid', None):
+            self.uuid = self.get_project_id(self.project)
+        return self.uuid
 
     def get_project_id(self, name):
        try:
@@ -177,6 +226,11 @@ class KeystoneCommands():
        except ks_exceptions.NotFound:
            return None
 
-    def get_endpoint(self, service):
-       ''' Given the service-name return the endpoint ip '''
-       return self.keystone.service_catalog.get_urls(service_type=service)
+    def get_endpoint(self, service, interface='public'):
+        ''' Given the service-name return the endpoint ip '''
+        return self.session.get_endpoint(auth=self.session.auth,
+                                         service_type=service,
+                                         interface=interface)
+
+    def get_token(self):
+        return self.session.get_token()
