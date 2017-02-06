@@ -3976,12 +3976,17 @@ class WebuiTest:
     def cleanup(self):
         self.detach_ipam_from_dns_server()
         self.delete_bgp_aas()
+        self.delete_link_local_service()
         return True
     # end cleanup
 
     def delete_bgp_aas(self):
         self.ui.delete_element(element_type='bgp_aas_delete')
     # end delete_bgpaas
+
+    def delete_link_local_service(self):
+        self.ui.delete_element(element_type='link_local_service_delete')
+    # end delete_link_local_service
 
     def delete_dns_server_and_record(self):
         self.detach_ipam_from_dns_server()
@@ -6524,3 +6529,42 @@ class WebuiTest:
             result = result and False
         return result
     # def edit_and_verify_global_config
+
+    def create_link_local_service(self, service_name, service_ip, service_port,
+                                 add_type, fabric_ip, fabric_port):
+        result = True
+        try:
+            if not self.ui.click_on_create(
+                    'Link Local Service',
+                    'link_local_service',
+                    service_name,
+                    select_project=False):
+                result = result and False
+            self.ui.send_keys(service_name, 'custom-combobox-input', 'class', clear=True)
+            self.ui.send_keys(service_ip, 'linklocal_service_ip', 'name', clear=True)
+            self.ui.send_keys(service_port, 'linklocal_service_port', 'name', clear=True)
+            self.ui.click_element('s2id_lls_fab_address_ip_dropdown')
+            if not self.ui.select_from_dropdown(add_type, grep=False):
+                result = result and False
+            if add_type == 'IP':
+                for index, ip in enumerate(fabric_ip):
+                    self.ui.click_element('editable-grid-add-link', 'class')
+                    data_row = self.ui.find_element('data-row', 'class',
+                                                   elements=True)[index]
+                    self.ui.send_keys(ip, 'ip_fabric_service_ip', 'name',
+                                      browser=data_row, clear=True)
+            else:
+                self.ui.send_keys(fabric_ip, 'ip_fabric_DNS_service_name', 'name',
+                             clear=True)
+            self.ui.send_keys(fabric_port, 'ip_fabric_service_port', 'name',
+                             clear=True)
+            self.ui.click_on_create('Link Local Service', 'link_local_services', save=True)
+        except WebDriverException:
+            self.logger.error(
+                "Error while creating link local service %s" %
+                (service_name))
+            self.ui.screenshot("LinkLocalService")
+            result = result and False
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end create_link_local_service
