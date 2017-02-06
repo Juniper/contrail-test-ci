@@ -9,22 +9,15 @@ from vcenter import VcenterAuth, VcenterOrchestrator
 
 class OpenstackOrchestrator(Orchestrator):
 
-   def __init__(self, inputs, username, password, project_name, project_id,
-                 vnclib=None, logger=None, auth_server_ip=None):
+   def __init__(self, inputs, auth_h, region_name=None, vnclib=None, logger=None):
        self.logger = logger or contrail_logging.getLogger(__name__)
        super(OpenstackOrchestrator, self).__init__(inputs, vnclib, self.logger)
+       self.auth_h = auth_h
        self.inputs = inputs
        self.quantum_h = None
        self.nova_h = None
-       self.username = username
-       self.password = password
-       self.project_name = project_name
-       self.project_id = project_id 
        self.vnc_lib = vnclib
-       self.auth_server_ip = auth_server_ip
-       self.region_name = inputs.region_name if inputs else None
-       if not auth_server_ip:
-           self.auth_server_ip = self.inputs.auth_ip
+       self.region_name = region_name or inputs.region_name if inputs else None
        #for vcenter as compute
        self.vcntr_handle = self.get_vcenter_handle()
 
@@ -50,20 +43,17 @@ class OpenstackOrchestrator(Orchestrator):
 
    def get_network_handler(self):
        if not self.quantum_h: 
-           self.quantum_h = QuantumHelper(username=self.username,
-                                          password=self.password,
-                                          project_id=self.project_id,
-                                          inputs=self.inputs,
-                                          auth_server_ip=self.auth_server_ip)
+           self.quantum_h = QuantumHelper(auth_h=self.auth_h,
+                                          region_name=self.region_name,
+                                          inputs=self.inputs)
            self.quantum_h.setUp()
        return self.quantum_h
 
    def get_compute_handler(self):
        if not self.nova_h:
           self.nova_h = NovaHelper(inputs=self.inputs,
-                                   project_name=self.project_name,
-                                   username=self.username,
-                                   password=self.password)
+                                   auth_h=self.auth_h,
+                                   region_name=self.region_name)
        return self.nova_h
 
    def get_image_account(self, image_name):
@@ -374,6 +364,9 @@ class OpenstackAuth(OrchestratorAuth):
        if not name or name == self.project:
            return self.keystone.get_id()
        return self.keystone.get_project_id(name)
+
+   def get_session(self):
+       return self.keystone.get_session()
 
    def create_project(self, name):
        return self.keystone.create_project(name)
