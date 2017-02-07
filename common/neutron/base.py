@@ -930,7 +930,7 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
         cmdList.append("printf '\n }' >> /etc/keepalived/keepalived.conf")
         cmdList.append("printf '\n}' >> /etc/keepalived/keepalived.conf")
         vm_fix.run_cmd_on_vm(cmds=cmdList, as_sudo=True)
-        service_restart= "service keepalived start"
+        service_restart= "service keepalived start; sleep 2s"
         vm_fix.run_cmd_on_vm(cmds=[service_restart], as_sudo=True)
         result = self.keepalive_chk(vm_fix)
         return result
