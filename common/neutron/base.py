@@ -398,8 +398,14 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
         self.logger.info('Creating FIP from %s' % fip_fixture.pool_name)
         return self.vnc_h.create_floating_ip(fip_fixture.fip_pool_obj, fip_fixture.project_obj)
 
-    def assoc_fip(self, fip_id, vm_id):
-        return self.vnc_h.assoc_floating_ip(fip_id, vm_id)
+    def assoc_fip(self, fip_id, vm_id, vmi_id=None):
+        if vmi_id:
+            return self.vnc_h.assoc_floating_ip(fip_id, vm_id, vmi_id=vmi_id)
+        else:
+            return self.vnc_h.assoc_floating_ip(fip_id, vm_id)
+
+    def assoc_fixed_ip_to_fip(self, fip_id, fixed_ip):
+        return self.vnc_h.assoc_fixed_ip_to_floating_ip(fip_id, fixed_ip)
 
     def disassoc_fip(self, fip_id):
         self.vnc_h.disassoc_floating_ip(fip_id)
@@ -532,6 +538,8 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
                     break
             else:
                 result = False
+                self.logger.error(
+                    'Path to %s not found in %s' % (ip, vm.vm_node_ip))
         return result
     # end vrrp_mas_chk
 
@@ -548,18 +556,19 @@ class BaseNeutronTest(test_v1.BaseTestCase_v1):
             vm_tapintf = dst_vm.tap_intf[dst_vm.vn_fq_names[1]]['name']
         else:
             vm_tapintf = dst_vm.tap_intf[dst_vm.vn_fq_name]['name']
-        cmd = 'tcpdump -nni %s -c 10 > /tmp/%s_out.log' % (
+        cmd = 'tcpdump -nni %s -c 2 icmp > /tmp/%s_out.log' % (
             vm_tapintf, vm_tapintf)
         execute_cmd(session, cmd, self.logger)
         assert src_vm.ping_with_certainty(ip), 'Ping to vIP failure'
         output_cmd = 'cat /tmp/%s_out.log' % vm_tapintf
         output, err = execute_cmd_out(session, output_cmd, self.logger)
-        if ip in output:
+        if src_vm.vm_ip in output:
             result = True
             self.logger.info(
                 '%s is seen responding to ICMP Requests' % dst_vm.vm_name)
         else:
-            self.logger.error('ICMP Requests not seen on the VRRP Master')
+            self.logger.error(
+                'ICMP Requests to %s not seen on the VRRP Master' % ip)
             result = False
         return result
     # end verify_vrrp_sction
