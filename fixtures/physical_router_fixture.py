@@ -41,9 +41,12 @@ class PhysicalRouterFixture(PhysicalDeviceFixture):
         self.asn = kwargs.get('asn','64512')
         self.tunnel_ip = kwargs.get('tunnel_ip', self.mgmt_ip)
         self.ports = kwargs.get('ports', [])
-
         self.bgp_router = None
         self.bgp_router_already_present = False
+        if self.inputs.verify_thru_gui():
+            from webui_test import WebuiTest
+            self.webui = WebuiTest(self.connections, self.inputs)
+            self.kwargs = kwargs
 
      # end __init__
 
@@ -69,9 +72,10 @@ class PhysicalRouterFixture(PhysicalDeviceFixture):
         self.logger.info('Deleted BGP router : %s' % (self.bgp_router.uuid))
 
     def add_bgp_router(self, bgp_router):
-        self.phy_device = self.vnc_api_h.physical_router_read(id=self.phy_device.uuid)
-        self.phy_device.add_bgp_router(bgp_router)
-        self.vnc_api_h.physical_router_update(self.phy_device)
+        if not self.inputs.is_gui_based_config():
+            self.phy_device = self.vnc_api_h.physical_router_read(id=self.phy_device.uuid)
+            self.phy_device.add_bgp_router(bgp_router)
+            self.vnc_api_h.physical_router_update(self.phy_device)
 
     def unbind_bgp_router(self, bgp_router):
         self.phy_device = self.vnc_api_h.physical_router_read(id=self.phy_device.uuid)
@@ -87,7 +91,6 @@ class PhysicalRouterFixture(PhysicalDeviceFixture):
 
     def setUp(self):
         super(PhysicalRouterFixture, self).setUp()
-
         bgp_fq_name = ['default-domain', 'default-project',
                        'ip-fabric', '__default__', self.name]
         try:
@@ -98,8 +101,10 @@ class PhysicalRouterFixture(PhysicalDeviceFixture):
                 bgp_fq_name))
             self.bgp_router_already_present = True
         except vnc_api_test.NoIdError:
-            self.bgp_router = self.create_bgp_router()
-
+            if self.inputs.is_gui_based_config():
+                self.bgp_router = self.webui.create_bgp_router(self)
+            else:
+                self.bgp_router = self.create_bgp_router()
         self.add_bgp_router(self.bgp_router)
         self.router_session = self.get_connection_obj(self.vendor,
             host=self.mgmt_ip,
@@ -113,7 +118,10 @@ class PhysicalRouterFixture(PhysicalDeviceFixture):
         if self.bgp_router_already_present:
             do_cleanup = False
         if do_cleanup:
-            self.delete_bgp_router()
+            if self.inputs.is_gui_based_config():
+                self.webui.delete_bgp_router(self)
+            else:
+                self.delete_bgp_router()
 
     def get_irb_mac(self):
         return self.router_session.get_mac_address('irb')
