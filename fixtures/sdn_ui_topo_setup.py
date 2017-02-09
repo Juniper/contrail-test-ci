@@ -172,6 +172,12 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
         assert topo_steps.createPhysicalRouter(self)
         return True
     # end create_physical_router
+    
+    def create_physical_interface(self):
+        self.config_topo.update({'pr': self.pr_fixture})
+        assert topo_steps.createPhysicalInterface(self, self.config_topo)
+        return True
+    # end create_physical_interface
 
     def create_bgp_aas(self):
         assert ui_topo_steps.createBgpaas(self)

@@ -1,4 +1,8 @@
 import vnc_api_test
+try:
+    from webui_test import *
+except ImportError:
+    pass
 
 class PhysicalInterfaceFixture(vnc_api_test.VncLibFixture):
 
@@ -36,6 +40,12 @@ class PhysicalInterfaceFixture(vnc_api_test.VncLibFixture):
         self.already_present = False
 
         self.vn_obj = None
+        
+        if self.inputs.verify_thru_gui():
+            self.int_type = kwargs.get('int_type', None)
+            connections = kwargs.get('connections', None)
+            self.webui = WebuiTest(connections, self.inputs)
+            
      # end __init__
 
     def setUp(self):
@@ -63,11 +73,14 @@ class PhysicalInterfaceFixture(vnc_api_test.VncLibFixture):
     def create_pif(self):
         self.logger.info('Creating physical port %s:' % (
             self.fq_name))
-        pif_obj = vnc_api_test.PhysicalInterface(name=self.name.replace(':', '__'),
+        if self.inputs.is_gui_based_config():
+            self.webui.create_physical_interface(self)
+        else:
+            pif_obj = vnc_api_test.PhysicalInterface(name=self.name.replace(':', '__'),
                                     parent_obj=self.device_obj,
                                     display_name=self.name)
-        self.uuid = self.vnc_api_h.physical_interface_create(pif_obj)
-        self.obj = self.vnc_api_h.physical_interface_read(id=self.uuid)
+            self.uuid = self.vnc_api_h.physical_interface_create(pif_obj)
+            self.obj = self.vnc_api_h.physical_interface_read(id=self.uuid)
     # end create_pif
     
 
@@ -79,7 +92,10 @@ class PhysicalInterfaceFixture(vnc_api_test.VncLibFixture):
             self.logger.debug('Skipping deletion of physical port %s :' % (
                  self.fq_name))
         if do_cleanup:
-            self.delete_pif()
+            if self.inputs.is_gui_based_config():
+                self.webui.delete_physical_interface(self)
+            else:
+                self.delete_pif()
     # end cleanUp
 
     def delete_pif(self):
