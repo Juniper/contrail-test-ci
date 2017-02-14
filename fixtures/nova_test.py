@@ -69,10 +69,22 @@ class NovaHelper():
     def get_auth_h(self, **kwargs):
         return openstack.OpenstackAuth(**kwargs)
 
+    def hack_for_liberty_novaclient(self):
+        try:
+           sku = self.inputs.get_build_sku()
+        except:
+           sku = 'liberty'
+        try:
+           if sku[0] == 'l':
+               self.obj.client.last_request_id = None
+        except:
+           pass
+
     def _connect_to_openstack(self):
         self.obj = mynovaclient.Client('2', session=self.auth_h.get_session(),
                                        region_name=self.region_name
                                       )
+        self.hack_for_liberty_novaclient()
         if 'keypair' not in env:
             env.keypair = dict()
         if not env.keypair.get(self.key, False):
