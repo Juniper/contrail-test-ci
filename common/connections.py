@@ -33,6 +33,7 @@ class ContrailConnections():
         self.logger = logger or self.inputs.logger
         self.nova_h = None
         self.quantum_h = None
+        self.orch = None
         self.api_server_inspects = custom_dict(self.get_api_inspect_handle,
                         'api_inspect:'+self.project_name+':'+self.username)
         self.dnsagent_inspect = custom_dict(self.get_dns_agent_inspect_handle,
