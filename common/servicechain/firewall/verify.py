@@ -444,9 +444,16 @@ class VerifySvcFirewall(VerifySvcMirror):
             left_vm_name=None,
             left_vm_fixture=None,
             right_vm_name=None,
-            right_vm_fixture=None):
+            right_vm_fixture=None,
+            image_name=None,
+            ci=False):
         """Validate in-line multi service chaining in network  datapath"""
 
+        if not image_name:
+            if ci and self.inputs.get_af() == 'v4':
+                image_name = 'cirros-0.3.0-x86_64-uec'
+            else:
+                image_name = 'ubuntu-traffic'
         mgmt_vn_name = mgmt_vn_name or get_random_name("mgmt_vn")
         mgmt_vn_subnets = mgmt_vn_subnets or \
                               [get_random_cidr(af=self.inputs.get_af())]
@@ -472,9 +479,9 @@ class VerifySvcFirewall(VerifySvcMirror):
         right_vm_name = right_vm_name or get_random_name('in_network_vm2')
 
         left_vm_fixture = left_vm_fixture or self.config_and_verify_vm(
-            left_vm_name, vn_fix=left_vn_fixture)
+            left_vm_name, vn_fix=left_vn_fixture, image_name=image_name)
         right_vm_fixture = right_vm_fixture or self.config_and_verify_vm(
-            right_vm_name, vn_fix=right_vn_fixture)
+            right_vm_name, vn_fix=right_vn_fixture, image_name=image_name)
 
         action_list = []
         policy_name = get_random_name("policy_in_network")
@@ -538,11 +545,6 @@ class VerifySvcFirewall(VerifySvcMirror):
             policy_fixture, left_vn_fixture)
         right_vn_policy_fix = self.attach_policy_to_vn(
             policy_fixture, right_vn_fixture)
-
-        left_vm_fixture = left_vm_fixture or self.config_and_verify_vm(
-            left_vm_name, vn_fix=left_vn_fixture)
-        right_vm_fixture = right_vm_fixture or self.config_and_verify_vm(
-            right_vm_name, vn_fix=right_vn_fixture)
 
         result, msg = self.validate_vn(
             left_vn_fixture.vn_name, project_name=left_vn_fixture.project_name)
