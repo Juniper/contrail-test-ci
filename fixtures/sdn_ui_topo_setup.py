@@ -191,6 +191,11 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
         assert ui_topo_steps.createLinkLocalService(self)
         return True
     # end create_link_local_service
+    
+    def create_forwarding_class(self):
+        assert topo_steps.createForwardingClass(self)
+        return True
+    # end create_forwarding_class
 
     def cleanUp(self):
         if self.inputs.fixture_cleanup == 'yes':
