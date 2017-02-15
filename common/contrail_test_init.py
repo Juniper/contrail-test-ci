@@ -999,7 +999,7 @@ class ContrailTestInit(object):
             else:
                 issue_cmd = 'service %s restart' % (service_name)
             self.run_cmd_on_server(
-                host, issue_cmd, username, password, pty=False)
+                host, issue_cmd, username, password)
             assert self.confirm_service_active(service_name, host), \
                 "Service Restart failed for %s" % (service_name)
     # end restart_service
@@ -1018,7 +1018,7 @@ class ContrailTestInit(object):
             else:
                 issue_cmd = 'service %s stop' % (service_name)
             self.run_cmd_on_server(
-                host, issue_cmd, username, password, pty=False)
+                host, issue_cmd, username, password)
     # end stop_service
 
     def start_service(self, service_name, host_ips=[], contrail_service=True):
@@ -1035,7 +1035,7 @@ class ContrailTestInit(object):
             else:
                 issue_cmd = 'service %s start' % (service_name)
             self.run_cmd_on_server(
-                host, issue_cmd, username, password, pty=False)
+                host, issue_cmd, username, password)
     # end start_service
 
     def _compare_service_state(
