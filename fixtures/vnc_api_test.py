@@ -7,7 +7,7 @@ from cfgm_common.exceptions import NoIdError
 
 from tcutils.util import get_dashed_uuid
 from openstack import OpenstackAuth, OpenstackOrchestrator
-from vcenter import VcenterAuth
+from vcenter import VcenterAuth, VcenterOrchestrator
 from common import log_orig as contrail_logging
 
 class VncLibFixture(fixtures.Fixture):
@@ -64,6 +64,7 @@ class VncLibFixture(fixtures.Fixture):
             self.password = self.connections.password
             self.cfgm_ip = self.inputs.cfgm_ip
             self.auth_server_ip = self.inputs.auth_ip
+            self.auth_client = self.connections.auth
             self.project_id = self.connections.project_id
             self.auth_url = self.inputs.auth_url
         else:
@@ -80,9 +81,8 @@ class VncLibFixture(fixtures.Fixture):
                               api_server_port=self.api_server_port,
                               auth_host=self.auth_server_ip,
                               api_server_use_ssl=use_ssl)
-            if not self.project_id:
-                if self.orchestrator == 'openstack':
-                    self.auth_client = OpenstackAuth(
+            if self.orchestrator == 'openstack':
+                self.auth_client = OpenstackAuth(
                                     self.username,
                                     self.password,
                                     self.project_name,
@@ -92,14 +92,14 @@ class VncLibFixture(fixtures.Fixture):
                                     cacert=self.cacert,
                                     insecure=self.insecure,
                                     logger=self.logger)
-                    self.project_id = self.auth_client.get_project_id()
-                elif self.orchestrator == 'vcenter':
-                    self.auth_client = VcenterAuth(self.username,
-                                                    self.password,
-                                                    self.project_name,
-                                                    self.inputs
-                                                    )
-                    self.project_id = self.auth_client.get_project_id()
+            elif self.orchestrator == 'vcenter':
+                self.auth_client = VcenterAuth(self.username,
+                                                self.password,
+                                                self.project_name,
+                                                self.inputs
+                                                )
+            if not self.project_id:
+                self.project_id = self.auth_client.get_project_id()
         self.vnc_h = self.orch.vnc_h
     # end setUp
 
@@ -159,13 +159,11 @@ class VncLibFixture(fixtures.Fixture):
             return self.connections.orch
         else:
             if self.orchestrator == 'openstack':
-                return OpenstackOrchestrator(username=self.username,
-                    password=self.password,
-                    project_id=self.project_id,
-                    project_name=self.project_name,
-                    auth_server_ip=self.auth_server_ip,
+                return OpenstackOrchestrator(
                     vnclib=self.vnc_api_h,
-                    logger=self.logger, inputs=self.inputs)
+                    logger=self.logger,
+                    auth_h=self.auth_client,
+                    inputs=self.inputs)
             elif self.orchestrator == 'vcenter':
                 vcenter_dc = self.inputs.vcenter_dc if self.inputs else \
                              os.getenv('VCENTER_DC', None)
@@ -347,4 +345,44 @@ class VncLibFixture(fixtures.Fixture):
         self.logger.info('Setting flow export rate: %s' % (value))
         return True
     # end set_flow_export_rate
+
+    def get_global_mac_limit_control(self):
+        gsc_id = self.vnc_api_h.get_default_global_system_config_id()
+        gsc_obj = self.vnc_api_h.global_system_config_read(id=gsc_id)
+        return gsc_obj.get_mac_limit_control()
+    # end get_global_mac_limit_control
+
+    def set_global_mac_limit_control(self, mac_limit_control=None):
+        gsc_id = self.vnc_api_h.get_default_global_system_config_id()
+        gsc_obj = self.vnc_api_h.global_system_config_read(id=gsc_id)
+        gsc_obj.set_mac_limit_control(mac_limit_control)
+        self.vnc_api_h.global_system_config_update(gsc_obj)
+    # end set_global_mac_limit_control
+
+    def get_global_mac_move_control(self):
+        gsc_id = self.vnc_api_h.get_default_global_system_config_id()
+        gsc_obj = self.vnc_api_h.global_system_config_read(id=gsc_id)
+        return gsc_obj.get_mac_move_control()
+    # end get_global_mac_move_control
+
+    def set_global_mac_move_control(self, mac_move_control=None):
+        gsc_id = self.vnc_api_h.get_default_global_system_config_id()
+        gsc_obj = self.vnc_api_h.global_system_config_read(id=gsc_id)
+        gsc_obj.set_mac_move_control(mac_move_control)
+        self.vnc_api_h.global_system_config_update(gsc_obj)
+    # end set_global_mac_move_control
+
+    def get_global_mac_aging_time(self):
+        gsc_id = self.vnc_api_h.get_default_global_system_config_id()
+        gsc_obj = self.vnc_api_h.global_system_config_read(id=gsc_id)
+        return gsc_obj.get_mac_aging_time()
+    # end get_global_mac_aging_time
+
+    def set_global_mac_aging_time(self, mac_aging_time=None):
+        gsc_id = self.vnc_api_h.get_default_global_system_config_id()
+        gsc_obj = self.vnc_api_h.global_system_config_read(id=gsc_id)
+        gsc_obj.set_mac_aging_time(mac_aging_time)
+        self.vnc_api_h.global_system_config_update(gsc_obj)
+    # end set_global_mac_aging_time
+
 # end VncLibFixture

@@ -372,6 +372,22 @@ class TestInputs(object):
             'contrail-snmp-collector', 'contrail-topology']
         self.correct_states = ['active', 'backup']
 
+        self.gc_host_mgmt = read_config_option(self.config,
+                                             'global-controller', 'gc_host_mgmt', 'None')
+
+        self.gc_host_control_data = read_config_option(self.config,
+                                             'global-controller', 'gc_host_control_data', 'None')
+
+        self.gc_user_name = read_config_option(self.config,
+                                             'global-controller', 'gc_user_name', 'None')
+
+        self.gc_user_pwd = read_config_option(self.config,
+                                             'global-controller', 'gc_user_pwd', 'None')
+
+        self.keystone_password = read_config_option(self.config,
+                                             'global-controller', 'keystone_password', 'None')
+
+
     def get_os_env(self, var, default=''):
         if var in os.environ:
             return os.environ.get(var)
@@ -724,14 +740,14 @@ class TestInputs(object):
                                         key=self.keystonekeyfile,
                                         cacert=self.keycertbundle,
                                         logger=self.logger)
-            match = re.match(pattern, keystone.get_endpoint('identity')[0])
+            match = re.match(pattern, keystone.get_endpoint('identity'))
             self.auth_ip = match.group('ip')
             self.auth_port = match.group('port')
 
         # Assume contrail-config runs in the same node as neutron-server
         discovery = os.getenv('DISCOVERY_IP', None) or \
                     (keystone and re.match(pattern,
-                    keystone.get_endpoint('network')[0]).group('ip'))
+                    keystone.get_endpoint('network')).group('ip'))
         ds_client = VerificationDsSrv(discovery)
         services = ds_client.get_ds_services().info
         cfgm = database = services['config']

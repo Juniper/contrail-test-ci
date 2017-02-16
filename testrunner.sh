@@ -23,7 +23,7 @@ run_path="${HOME}/contrail-test-runs"
 arg_shell=''
 declare -a arg_env
 SCRIPT_TIMESTAMP=${SCRIPT_TIMESTAMP:-`date +"%Y_%m_%d_%H_%M_%S"`}
-DEFAULT_CI_IMAGE='cirros-0.3.0-x86_64-uec'
+DEFAULT_CI_IMAGE='cirros'
 CI_IMAGE_ORIG=${CI_IMAGE:-$DEFAULT_CI_IMAGE}
 # ansi colors for formatting heredoc
 ESC=$(printf "\e")
@@ -162,6 +162,7 @@ docker_run () {
         arg_base_vol="$arg_base_vol -v $tempest_dir:/tempest"
         mkdir -p $tempest_dir/logs
         make_entrypoint_tempest > ${tempest_dir}/tempest_entrypoint.sh
+        chmod +x ${tempest_dir}/tempest_entrypoint.sh
     fi
 
     if [[ -e $mount_local ]]; then

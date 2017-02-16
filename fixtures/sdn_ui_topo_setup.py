@@ -1,7 +1,5 @@
 import os
 import copy
-from common.openstack_libs import nova_client as mynovaclient
-from common.openstack_libs import nova_exception as novaException
 import fixtures
 import testtools
 from tcutils.topo import topo_steps
@@ -168,10 +166,36 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
         return True
     # end create_svc_health_check
 
+    def create_physical_router(self):
+        assert topo_steps.createPhysicalRouter(self)
+        return True
+    # end create_physical_router
+
+    def create_physical_interface(self):
+        self.config_topo.update({'pr': self.pr_fixture})
+        assert topo_steps.createPhysicalInterface(self, self.config_topo)
+        return True
+    # end create_physical_interface
+
     def create_bgp_aas(self):
         assert ui_topo_steps.createBgpaas(self)
         return True
     # end create_bgp_aas
+
+    def create_bgp_router(self):
+        assert topo_steps.createBGPRouter(self)
+        return True
+    # end create_bgp_router
+
+    def create_link_local_service(self):
+        assert ui_topo_steps.createLinkLocalService(self)
+        return True
+    # end create_link_local_service
+
+    def create_virtual_router(self):
+        assert topo_steps.createVirtualRouter(self)
+        return True
+    # end create_virtual_router
 
     def cleanUp(self):
         if self.inputs.fixture_cleanup == 'yes':

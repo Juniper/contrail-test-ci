@@ -217,44 +217,74 @@ class WebuiTest:
         return result
     # end create_router
 
-    def create_physical_router(
-            self,
-            router_name,
-            model,
-            mgmt_ip,
-            tunnel_ip,
-            vendor='Juniper'):
+    def create_physical_router(self, fixture):
         result = True
         try:
-            project_name = 'admin'
             if not self.ui.click_on_create(
                     'PhysicalRouter',
-                    'physical_routers',
-                    router_name,
-                    prj_name=project_name):
+                    'physical_router',
+                    fixture.name,
+                    select_project=False):
                 result = result and False
-            self.ui.send_keys(router_name, 'txtPhysicalRouterName')
-            self.ui.send_keys(vendor, 'txtVendor')
-            self.ui.send_keys(model, 'txtModel')
-            self.ui.send_keys(mgmt_ip, 'txtMgmtIPAddress')
-            self.ui.send_keys(tunnel_ip, 'txtDataIPAddress')
-            icon_carets = self.ui.find_element(
-                'grey icon-caret-right',
-                'class',
-                elements=True)
-            icon_caret[1].click()
-            # To be implemented
-            if not self.ui.click_on_create('PhysicalRouter', save=True):
+            self.ui.click_element(
+                "//a[@data-original-title='Physical Router']", 'xpath')
+            fields_dict = {fixture.name: 'name',
+                           fixture.vendor: 'physical_router_vendor_name',
+                           fixture.model: 'physical_router_product_name',
+                           fixture.mgmt_ip: 'physical_router_management_ip',
+                           fixture.tunnel_ip: 'physical_router_dataplane_ip'}
+            for field_val, text_box in fields_dict.iteritems():
+                self.ui.send_keys(field_val, text_box, 'name')
+            self.ui.click_element('ui-id-3')
+            self.ui.click_element('physical_router_vnc_managed', 'name')
+            self.ui.send_keys(fixture.ssh_username, 'netConfUserName', 'name')
+            self.ui.send_keys(fixture.ssh_password, 'netConfPasswd', 'name')
+            if not self.ui.click_on_create(
+                'PhysicalRouter', 'physical_router',
+                save=True):
                 result = result and False
+            rows_detail = self.ui.click_basic_and_get_row_details(
+                'physical_router', 0)[1]
+            fixture.uuid = self.ui.get_value_of_key(rows_detail, 'UUID')
         except WebDriverException:
             self.logger.error(
                 "Error while creating %s physical router" %
-                (router_name))
+                (fixture.name))
             self.ui.screenshot("physical_router_error")
+            self.ui.click_on_cancel_if_failure('cancelBtn')
             result = result and False
             raise
+        self.ui.click_on_cancel_if_failure('cancelBtn')
         return result
     # end create_physical_router
+
+    def create_physical_interface(self, fixture):
+        result = True
+        try:
+            if not self.ui.click_on_create(
+                    'Interface',
+                    'interfaces',
+                    fixture.name,
+                    prj_name=fixture.device_name):
+                result = result and False
+            self.ui.click_element([
+                's2id_type_dropdown', 'select2-choice'], [
+                    'id', 'class'])
+            self.ui.select_from_dropdown(fixture.int_type)
+            self.ui.send_keys(fixture.name, 'name', 'name')
+            if not self.ui.click_on_create('Interface',
+                    'interface', save=True):
+                result = result and False
+        except WebDriverException:
+            self.logger.error(
+                "Error while creating physical interface %s" %
+                (fixture.name))
+            self.ui.screenshot("physical interface creation failed")
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            result = result and False
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end create_physical_interface
 
     def create_dns_server(
             self,
@@ -3954,6 +3984,14 @@ class WebuiTest:
         self.ui.delete_element(fixture, 'svc_template_delete')
     # end svc_template_delete
 
+    def delete_physical_router(self, fixture):
+        self.ui.delete_element(fixture, 'phy_router_delete')
+    # end delete_physical_router
+
+    def delete_physical_interface(self, fixture):
+        self.ui.delete_element(fixture, 'phy_interface_delete')
+    # end delete_physical_interface
+
     def delete_vn(self, fixture):
         self._delete_port(fixture)
         self._delete_router(fixture)
@@ -3962,6 +4000,36 @@ class WebuiTest:
             return False
         return True
     # end vn_delete
+
+    def delete_bgp_router(self, fixture):
+        if self.disassoc_phy_router_under_bgp_router(fixture):
+            self.ui.delete_element(fixture, 'bgp_router_delete')
+            result = True
+        else:
+            self.logger.error('Deleting the bgp router is failed')
+            result = False
+        return result
+    # end delete_bgp_router
+
+    def disassoc_prouter_from_bgp_router(self, fixture):
+        result = True
+        try:
+            bgp_router = self.ui.edit_remove_option('bgp_router', 'edit',
+                                                   display_name=fixture.name)
+            self.ui.click_element('advance_options_accordion')
+            self.ui.click_element('s2id_user_created_physical_router_dropdown')
+            if not self.ui.select_from_dropdown('None', grep=False):
+                result = result and False
+            self.ui.click_on_create('BGP Router', 'bgp_router', save=True)
+        except WebDriverException:
+            self.logger.error(
+                "Error while disassociate physical router %s" %
+                (fixture.name))
+            self.ui.screenshot("Disassociate Physical Router")
+            result = result and False
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end disassoc_prouter_from_bgp_router
 
     def _delete_router(self, fixture):
         self.ui.delete_element(fixture, 'router_delete')
@@ -3976,12 +4044,22 @@ class WebuiTest:
     def cleanup(self):
         self.detach_ipam_from_dns_server()
         self.delete_bgp_aas()
+        self.delete_link_local_service()
+        self.delete_virtual_router()
         return True
     # end cleanup
 
     def delete_bgp_aas(self):
         self.ui.delete_element(element_type='bgp_aas_delete')
     # end delete_bgpaas
+
+    def delete_link_local_service(self):
+        self.ui.delete_element(element_type='link_local_service_delete')
+    # end delete_link_local_service
+
+    def delete_virtual_router(self):
+        self.ui.delete_element(element_type='vrouter_delete')
+    # end delete_virtual_router
 
     def delete_dns_server_and_record(self):
         self.detach_ipam_from_dns_server()
@@ -6376,7 +6454,7 @@ class WebuiTest:
         return result
     # edit_port
 
-    def add_subinterface_ports(self, option, port_name, params_list, tc='positive'):
+    def add_subinterface_ports(self, option, port_name, params_list):
         result = True
         try:
             self.sub_interface = self.ui.edit_remove_option(option, 'subinterface',
@@ -6390,8 +6468,7 @@ class WebuiTest:
                 self.ui.send_keys(params_list[2], 'sub_interface_vlan_tag', 'name')
                 self.ui.click_on_create(option.strip('s'),
                                     option.strip('s').lower(), save=True)
-                if tc != 'positive':
-                    result = self.ui.negative_test_proc(option)
+                result = self.ui.negative_test_proc(option)
                 self.ui.wait_till_ajax_done(self.browser)
             else:
                 self.logger.error("Clicking the Edit Button is not working")
@@ -6515,9 +6592,133 @@ class WebuiTest:
         return result
     # end verify_global_api_data
 
-
-    def edit_global_config(self, option, paramater_list, **kwargs):
+    def edit_and_verify_global_config(self, option, paramater_list, **kwargs):
+        result = True
+        self.logger.info('Edit the global config %s option' %(option))
         option = 'self.webui_edit.edit_global_config_' + option + '_option'
         result = eval(option)(paramater_list, **kwargs)
+        self.logger.info('Verify the global config option after editing')
+        if not self.verify_global_api_data():
+            result = result and False
         return result
-    # def edit_global_config
+    # def edit_and_verify_global_config
+
+    def create_bgp_router(self, fixture):
+        result = True
+        try:
+            router_type = fixture.kwargs.get('router_type', 'BGP Router')
+            auth_type = fixture.kwargs.get('auth_type', None)
+            auth_key = fixture.kwargs.get('auth_key', None)
+            hold_time = fixture.kwargs.get('hold_time', '90')
+            if not self.ui.click_on_create(
+                    'BGP Router',
+                    'bgp_router',
+                    fixture.name,
+                    select_project=False):
+                result = result and False
+            self.ui.click_element('s2id_user_created_router_type_dropdown')
+            if not self.ui.select_from_dropdown(router_type, grep=False):
+                    result = result and False
+            self.ui.send_keys(fixture.name, 'display_name', 'name', clear=True)
+            self.ui.send_keys(fixture.vendor, 'user_created_vendor', 'name', clear=True)
+            self.ui.send_keys(fixture.mgmt_ip, 'user_created_address', 'name',
+                             clear=True)
+            self.ui.send_keys(fixture.asn, 'user_created_autonomous_system', 'name',
+                             clear=True)
+            self.ui.click_element('advance_options_accordion')
+            self.ui.click_element('s2id_user_created_auth_key_type_dropdown')
+            if not self.ui.select_from_dropdown(auth_type, grep=False):
+                result = result and False
+            if auth_type == 'md5':
+                self.ui.send_keys(auth_key, 'user_created_auth_key', 'name', clear=True)
+            self.ui.click_element('s2id_user_created_physical_router_dropdown')
+            if not self.ui.select_from_dropdown(fixture.name, grep=False):
+                result = result and False
+            self.ui.click_element('peer_selection_accordian')
+            self.ui.click_element('editable-grid-add-link', 'class')
+            self.ui.click_element('s2id_peerName_dropdown')
+            self.ui.click_element('select2-highlighted', 'class')
+            self.ui.send_keys(hold_time, 'hold_time', 'name', clear=True)
+            self.ui.click_on_create('BGP Router', 'bgp_router', save=True)
+        except WebDriverException:
+            self.logger.error(
+                "Error while creating bgp router %s" %
+                (fixture.name))
+            self.ui.screenshot("BGP Router creation failed")
+            result = result and False
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end create_bgp_router
+
+    def create_link_local_service(self, service_list, service_list_params):
+        result = True
+        try:
+            for service in service_list:
+                service_name = service_list_params[service]['service_name']
+                service_ip = service_list_params[service]['service_ip']
+                service_port = service_list_params[service]['service_port']
+                address_type = service_list_params[service]['address_type']
+                fabric_ip = service_list_params[service]['fabric_ip']
+                fabric_port = service_list_params[service]['fabric_port']
+                if not self.ui.click_on_create(
+                        'Link Local Service',
+                        'link_local_service',
+                        service_name,
+                        select_project=False):
+                    result = result and False
+                self.ui.send_keys(service_name, 'custom-combobox-input',
+                                 'class', clear=True)
+                self.ui.send_keys(service_ip, 'linklocal_service_ip',
+                                 'name', clear=True)
+                self.ui.send_keys(service_port, 'linklocal_service_port',
+                                 'name', clear=True)
+                self.ui.click_element('s2id_lls_fab_address_ip_dropdown')
+                if not self.ui.select_from_dropdown(address_type, grep=False):
+                    result = result and False
+                if address_type == 'IP':
+                    for index, ip in enumerate(fabric_ip):
+                        self.ui.click_element('editable-grid-add-link', 'class')
+                        data_row = self.ui.find_element('data-row', 'class',
+                                                       elements=True)[index]
+                        self.ui.send_keys(ip, 'ip_fabric_service_ip', 'name',
+                                          browser=data_row, clear=True)
+                else:
+                    self.ui.send_keys(fabric_ip, 'ip_fabric_DNS_service_name', 'name',
+                                 clear=True)
+                self.ui.send_keys(fabric_port, 'ip_fabric_service_port', 'name',
+                                 clear=True)
+                self.ui.click_on_create('Link Local Service',
+                                       'link_local_services', save=True)
+        except WebDriverException:
+            self.logger.error(
+                "Error while creating link local service %s" %
+                (service_name))
+            self.ui.screenshot("LinkLocalService")
+            result = result and False
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end create_link_local_service
+
+    def create_virtual_router(self, fixture):
+        result = True
+        try:
+            if not self.ui.click_on_create(
+                    'Virtual Router',
+                    'vrouter',
+                    fixture.name,
+                    select_project=False):
+                result = result and False
+            self.ui.send_keys(fixture.name, 'name', 'name', clear=True)
+            self.ui.click_element('s2id_virtual_router_type_dropdown')
+            if not self.ui.select_from_dropdown(fixture.virtual_router_type, grep=False):
+                    result = result and False
+            self.ui.send_keys(fixture.ip, 'virtual_router_ip_address', 'name', clear=True)
+            self.ui.click_on_create('Virtual Router', 'config_vrouter', save=True)
+        except WebDriverException:
+            self.logger.error(
+                "Error while creating virtual router %s" % (fixture.name))
+            self.ui.screenshot("Virtual Router creation failed")
+            result = result and False
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end create_virtual_router

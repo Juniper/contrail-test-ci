@@ -1,8 +1,6 @@
 ''' This module provides utils for setting up sdn topology given the topo inputs'''
 import os
 import copy
-from common.openstack_libs import nova_client as mynovaclient
-from common.openstack_libs import nova_exception as novaException
 import fixtures
 import topo_steps
 from common.contrail_test_init import ContrailTestInit
@@ -26,6 +24,10 @@ from common.policy import policy_test_helper
 from svc_template_fixture import SvcTemplateFixture
 from svc_instance_fixture import SvcInstanceFixture
 from security_group import SecurityGroupFixture
+from physical_device_fixture import PhysicalDeviceFixture
+from pif_fixture import PhysicalInterfaceFixture
+from physical_router_fixture import PhysicalRouterFixture
+from virtual_router_fixture import VirtualRouterFixture
 try:
     from webui_test import *
 except ImportError:
@@ -801,6 +803,38 @@ def createServiceInstance(self):
     return self
 # end createServiceInstance
 
+def createPhysicalRouter(self):
+    self.pr_fixture = {}
+    if not hasattr(self.topo, 'pr_list'):
+        return self
+    for self.pr_name in self.topo.pr_list:
+        self.pr_fixture[self.pr_name] = self.useFixture(
+            PhysicalDeviceFixture(
+                self.pr_name,
+                self.topo.pr_params[self.pr_name]['mgmt_ip'],
+                vendor=self.topo.pr_params[self.pr_name]['vendor'],
+                model=self.topo.pr_params[self.pr_name]['model'],
+                ssh_username=self.topo.pr_params[self.pr_name]['ssh_username'],
+                ssh_password=self.topo.pr_params[self.pr_name]['ssh_password'],
+                tunnel_ip=self.topo.pr_params[self.pr_name]['tunnel_ip'],
+                connections=self.project_connections))
+    return self
+# end createPhysicalRouter
+
+def createPhysicalInterface(self, config_topo):
+    self.pif_fixture = {}
+    if not hasattr(self.topo, 'pif_list'):
+        return self
+    for pif_name in self.topo.pif_list:
+        self.pif_fixture[pif_name] = self.useFixture(
+            PhysicalInterfaceFixture(
+                pif_name,
+                device_id=config_topo['pr'][self.pr_name].uuid,
+                int_type=self.topo.pif_params[pif_name]['int_type'],
+                connections=self.project_connections))
+    return self
+# end createPhysicalInterface
+
 
 def allocNassocFIP(self, config_topo=None, assoc=True):
     # Need Floating VN fixture in current project and destination VM fixtures from all projects
@@ -892,6 +926,40 @@ def createAllocateAssociateVnFIPPools(self, config_topo=None, alloc=True):
             allocNassocFIP(self, config_topo)
     return self
 # end createAllocateAssociateVnFIPPools
+
+def createBGPRouter(self):
+    self.bgp_router_fixture = {}
+    if not hasattr(self.topo, 'pr_params'):
+        return self
+    for bgp_router in self.topo.pr_list:
+        self.bgp_router_fixture[bgp_router] = self.useFixture(
+            PhysicalRouterFixture(bgp_router,
+                self.topo.pr_params[bgp_router]['tunnel_ip'],
+                connections=self.project_connections,
+                inputs=self.project_inputs,
+                vendor=self.topo.pr_params[bgp_router]['vendor'],
+                router_type=self.topo.pr_params[bgp_router]['router_type'],
+                source_port=self.topo.pr_params[bgp_router]['source_port'],
+                auth_type=self.topo.pr_params[bgp_router]['auth_type'],
+                auth_key=self.topo.pr_params[bgp_router]['auth_key'],
+                hold_time=self.topo.pr_params[bgp_router]['hold_time']
+                ))
+    return self
+# end createBGPRouter
+
+def createVirtualRouter(self):
+    self.vrouter_fixture = {}
+    if not hasattr(self.topo, 'vrouter_params'):
+        return self
+    for vrouter in self.topo.vrouter_list:
+        self.vrouter_fixture[vrouter] = self.useFixture(
+            VirtualRouterFixture(vrouter,
+                self.topo.vrouter_params[vrouter]['type'],
+                self.topo.vrouter_params[vrouter]['ip'],
+                connections=self.project_connections,
+                inputs=self.project_inputs))
+    return self
+# end createVirtualRouter
 
 if __name__ == '__main__':
     ''' Unit test to invoke sdn topo setup utils.. '''

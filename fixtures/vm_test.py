@@ -49,7 +49,7 @@ class VMFixture(fixtures.Fixture):
 
     '''
     Fixture to handle creation, verification and deletion of VM.
-    image_name : One of cirros-0.3.0-x86_64-uec, redmine-fe, redmine-be, ubuntu
+    image_name : One of cirros, redmine-fe, redmine-be, ubuntu
 
     Deletion of the VM upon exit can be disabled by setting fixtureCleanup= 'no' in params file.
     If a VM with the vm_name is already present, it is not deleted upon exit. To forcefully clean them up, set fixtureCleanup= 'force'
@@ -150,6 +150,9 @@ class VMFixture(fixtures.Fixture):
     # end __init__
 
     def read(self):
+        if not self.vm_id:
+            self.fq_name = [self.domain_name, self.project_name, self.vm_name]
+            self.vm_id = self.vnc_lib_h.fq_name_to_id('virtual-machine', self.fq_name)
         if self.vm_id:
             self.vm_obj = self.orch.get_vm_by_id(vm_id=self.vm_id)
             if not self.vm_obj:
@@ -767,6 +770,11 @@ class VMFixture(fixtures.Fixture):
         tap_intfs = inspect_h.get_vna_tap_interface_by_vm(vm_id=self.vm_id)
         return tap_intfs
 
+    def get_vmi_id(self, vn_fq_name):
+        vmi_ids = self.get_vmi_ids()
+        if vmi_ids and vn_fq_name in vmi_ids:
+            return vmi_ids[vn_fq_name]
+
     def get_vmi_ids(self, refresh=False):
         if not getattr(self, 'vmi_ids', None) or refresh:
             self.vmi_ids = dict()
@@ -803,7 +811,6 @@ class VMFixture(fixtures.Fixture):
                 if self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) == 'l2':
                     self.logger.debug(
                         "skipping ping to one of the 169.254.x.x IPs")
-                    return True
                 if vn_fq_name in local_ips and local_ips[vn_fq_name] != '0.0.0.0':
                     if self.ping_vm_from_host(vn_fq_name):
                         self._local_ip = self.local_ips[vn_fq_name]
@@ -2491,7 +2498,7 @@ class VMFixture(fixtures.Fixture):
     # end verify_vm_flows_removed
 
     def start_webserver(self, listen_port=8000, content=None):
-        '''Start Web server on the specified port.
+        '''Start Web server on the specified port.                                                                                                                                                                                          
         '''
         self.wait_till_vm_is_up()
         host = self.inputs.host_data[self.vm_node_ip]
@@ -2667,11 +2674,15 @@ class VMFixture(fixtures.Fixture):
 
     def get_arp_entry(self, ip_address=None, mac_address=None):
         out_dict = self.run_cmd_on_vm(["arp -an"])
+        if ip_address and not search_arp_entry(out_dict.values()[0], ip_address, mac_address)[0]:
+            cmd = 'ping %s -c 2' %ip_address
+            self.run_cmd_on_vm([cmd])
+            out_dict = self.run_cmd_on_vm(["arp -an"])
         return search_arp_entry(out_dict.values()[0], ip_address, mac_address)
     # end get_arp_entry
 
     def get_gateway_ip(self):
-        cmd = '''netstat -anr  |grep ^0.0.0.0 | awk '{ print \\\\$2 }' '''
+        cmd = '''netstat -anr  |grep ^0.0.0.0 | awk '{ print $2 }' '''
         out_dict = self.run_cmd_on_vm([cmd])
         return out_dict.values()[0].rstrip('\r')
     # end get_gateway_ip
