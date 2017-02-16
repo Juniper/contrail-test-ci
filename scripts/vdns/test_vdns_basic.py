@@ -92,10 +92,16 @@ class TestvDNSBasic0(BasevDNSTest):
             ipam_dns_method='virtual-dns-server', ipam_dns_server=dns_server)
         # Associate VDNS with IPAM.
         ipam_fixt1 = self.useFixture(IPAMFixture(ipam_name, vdns_obj= vdns_fixt1.obj, connections=proj_connections, ipamtype=ipam_mgmt_obj))
-        vn_fixt = self.useFixture(
-            VNFixture(
-                self.connections, self.inputs,
-                vn_name=vn_name, subnets=[vn1_ip], ipam_fq_name=ipam_fixt1.fq_name, option='contrail'))
+        if self.inputs.orchestrator == 'vcenter':
+            vn_fixt = self.useFixture(
+                VNFixture(
+                    self.connections, self.inputs,
+                    vn_name=vn_name, subnets=[vn1_ip], ipam_fq_name=ipam_fixt1.fq_name))
+        else:
+            vn_fixt = self.useFixture(
+                VNFixture(
+                    self.connections, self.inputs,
+                    vn_name=vn_name, subnets=[vn1_ip], ipam_fq_name=ipam_fixt1.fq_name, option='contrail'))
         vm_fixture = {}
         # Launch  VM with VN Created above. This test verifies on launch of VM agent should updated DNS 'A' and 'PTR' records
         # The following code will verify the same. Also, we should be able ping
