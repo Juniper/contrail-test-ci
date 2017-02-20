@@ -148,8 +148,6 @@ class TestInputs(object):
                                             'Basic', 'auth_protocol', 'http')
         self.api_protocol = read_config_option(self.config,
                                           'cfgm', 'api_protocol', 'http')
-        self.api_insecure = read_config_option(self.config,
-                                          'cfgm', 'api_insecure_flag', True)
         self.ds_port = read_config_option(self.config, 'services',
                                           'discovery_port', '5998')
         self.api_server_port = read_config_option(self.config, 'services',
@@ -282,12 +280,40 @@ class TestInputs(object):
         self.public_host = read_config_option(self.config, 'Basic',
                                               'public_host', '10.204.216.50')
 
-        self.prov_file = self.prov_file or self._create_prov_file()
-        self.prov_data = self.read_prov_file()
         self.auth_url = os.getenv('OS_AUTH_URL') or \
                         '%s://%s:%s/v2.0'%(self.auth_protocol,
                                            self.auth_ip,
                                            self.auth_port)
+        self.apicertfile = read_config_option(self.config,
+                                             'cfgm', 'api_certfile', None)
+        self.apikeyfile = read_config_option(self.config,
+                                            'cfgm', 'api_keyfile', None)
+        self.apicafile = read_config_option(self.config,
+                                           'cfgm', 'api_cafile', None)
+        self.api_insecure = read_config_option(self.config,
+                                          'cfgm', 'api_insecure_flag', True)
+        self.keystonecertfile = read_config_option(self.config,
+                                                  'Basic', 'keystone_certfile', None)
+        self.keystonekeyfile = read_config_option(self.config,
+                                                 'Basic', 'keystone_keyfile', None)
+        self.keystonecafile = read_config_option(self.config,
+                                                'Basic', 'keystone_cafile', None)
+        self.insecure = read_config_option(self.config,
+                                          'Basic', 'keystone_insecure_flag', True)
+        insecure = os.getenv('OS_INSECURE')
+        if insecure:
+            self.api_insecure = self.insecure = bool(insecure)
+        self.keycertbundle = None
+        if self.auth_url.startswith('https') and not self.insecure:
+           self.keystone_bundle = '/tmp/' + get_random_string() + '.pem'
+           if self.keystonecertfile and self.keystonekeyfile and \
+                  self.keystonecafile:
+               self.certs = [self.keystonecertfile, self.keystonekeyfile,
+                            self.keystonecafile]
+               self.keycertbundle = utils.getCertKeyCaBundle(self.keystone_bundle,
+                                        self.certs)
+        self.prov_file = self.prov_file or self._create_prov_file()
+        self.prov_data = self.read_prov_file()
         #vcenter server
         self.vcenter_dc = read_config_option(
            self.config, 'vcenter', 'vcenter_dc', None)
@@ -338,34 +364,6 @@ class TestInputs(object):
             'supervisor-analytics',
             'contrail-snmp-collector', 'contrail-topology']
         self.correct_states = ['active', 'backup']
-        self.apicertfile = read_config_option(self.config,
-                                             'cfgm', 'api_certfile', None)
-        self.apikeyfile = read_config_option(self.config,
-                                            'cfgm', 'api_keyfile', None)
-        self.apicafile = read_config_option(self.config,
-                                           'cfgm', 'api_cafile', None)
-        self.keystonecertfile = read_config_option(self.config,
-                                                  'Basic', 'keystone_certfile', None)
-        self.keystonekeyfile = read_config_option(self.config,
-                                                 'Basic', 'keystone_keyfile', None)
-        self.keystonecafile = read_config_option(self.config,
-                                                'Basic', 'keystone_cafile', None)
-        self.insecure = os.getenv('OS_INSECURE')
-        if self.insecure:
-            self.insecure = bool(self.insecure)
-        else:
-            self.insecure = read_config_option(self.config,
-                                              'Basic', 'keystone_insecure_flag', True)
-        if self.auth_url.startswith('https') and not self.insecure:
-           self.keystone_bundle = '/tmp/' + get_random_string() + '.pem'
-           if self.keystonecertfile and self.keystonekeyfile and \
-                  self.keystonecafile:
-               self.certs = [self.keystonecertfile, self.keystonekeyfile,
-                            self.keystonecafile]
-               self.keycertbundle = utils.getCertKeyCaBundle(self.keystone_bundle,
-                                        self.certs)
-        else:
-            self.keycertbundle = None
 
     def get_os_env(self, var, default=''):
         if var in os.environ:
@@ -676,6 +674,8 @@ class TestInputs(object):
                   'auth_port': self.auth_port,
                   'auth_protocol': self.auth_protocol,
                   'api_server_port': self.api_server_port,
+                  'api_protocol': self.api_protocol,
+                  'insecure': self.insecure,
                  }
         api_h = VNCApiInspect(cfgm_ip, inputs=type('', (), kwargs))
         return api_h.get_computes()
@@ -701,16 +701,16 @@ class TestInputs(object):
             raise Exception('Please specify testbed info in $PARAMS_FILE '
                             'under "Basic" section, keyword "provFile"')
         if self.orchestrator.lower() == 'openstack':
-            auth_url = os.getenv('OS_AUTH_URL', None) or \
+            self.auth_url = os.getenv('OS_AUTH_URL', None) or \
                        'http://127.0.0.1:5000/v2.0'
             keystone = KeystoneCommands(self.stack_user,
                                         self.stack_password,
                                         self.stack_tenant,
-                                        auth_url,
+                                        self.auth_url,
                                         region_name=self.region_name,
                                         insecure=self.insecure,
-                                        cert=self.keystone_certfile,
-                                        key=self.keystone_keyfile,
+                                        cert=self.keystonecertfile,
+                                        key=self.keystonekeyfile,
                                         cacert=self.keycertbundle,
                                         logger=self.logger)
             match = re.match(pattern, keystone.get_endpoint('identity'))
