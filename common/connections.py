@@ -10,7 +10,7 @@ from tcutils.vdns.dns_introspect_utils import DnsAgentInspect
 from tcutils.config.ds_introspect_utils import *
 from tcutils.config.discovery_tests import *
 from tcutils.kubernetes.api_client import Client as Kubernetes_client
-from tcutils.util import custom_dict
+from tcutils.util import custom_dict, get_plain_uuid
 import os
 from openstack import OpenstackAuth, OpenstackOrchestrator
 from vcenter import VcenterAuth, VcenterOrchestrator
@@ -24,7 +24,7 @@ except ImportError:
 
 class ContrailConnections():
     def __init__(self, inputs=None, logger=None, project_name=None,
-                 username=None, password=None, domain_name=None, ini_file=None):
+                 username=None, password=None, domain_name=None, ini_file=None, domain_obj=None):
         self.inputs = inputs or ContrailTestInit(ini_file,
                                 stack_tenant=project_name)
         self.project_name = project_name or self.inputs.project_name
@@ -49,6 +49,9 @@ class ContrailConnections():
         self.k8s_client = self.get_k8s_api_client_handle()
 
         # ToDo: msenthil/sandipd rest of init needs to be better handled
+        self.domain_id = None        
+        if domain_obj:        
+            self.domain_id = get_plain_uuid(domain_obj.uuid)        
         self.auth = self.get_auth_h()
         self.vnc_lib = self.get_vnc_lib_h()
         if self.inputs.orchestrator == 'openstack':
@@ -88,7 +91,7 @@ class ContrailConnections():
     def get_project_id(self, project_name=None):
         project_name = project_name or self.project_name
         auth = self.get_auth_h(project_name)
-        return auth.get_project_id(project_name or self.project_name)
+        return auth.get_project_id(project_name or self.project_name, self.domain_id)
 
     def get_auth_h(self, refresh=False, project_name=None,
                    username=None, password=None):
@@ -99,7 +102,8 @@ class ContrailConnections():
         if not getattr(env, attr, None) or refresh:
             if self.inputs.orchestrator == 'openstack':
                 env[attr] = OpenstackAuth(username, password,
-                           project_name, self.inputs, self.logger)
+                           project_name, self.inputs, self.logger,
+                           domain_name=self.domain_name)
             else:
                 env[attr] = VcenterAuth(username, password,
                                        project_name, self.inputs)
@@ -110,9 +114,13 @@ class ContrailConnections():
         cfgm_ip = self.inputs.api_server_ip or \
                   self.inputs.contrail_external_vip or self.inputs.cfgm_ip
         if not getattr(env, attr, None) or refresh:
+            if self.domain_name == 'default-domain' :
+                self.domain = 'Default'        
+            else:        
+                self.domain = self.domain_name
             env[attr] = VncLibFixture(
                 username=self.username, password=self.password,
-                domain=self.domain_name, project_name=self.project_name,
+                domain=self.domain, project_name=self.project_name,
                 inputs=self.inputs,
                 cfgm_ip=cfgm_ip,
                 api_server_port=self.inputs.api_server_port,
