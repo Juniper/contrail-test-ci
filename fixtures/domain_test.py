@@ -3,6 +3,11 @@ import fixtures
 from vnc_api.vnc_api import *
 import uuid
 import fixtures
+<<<<<<< HEAD
+=======
+
+from quantum_test import *
+>>>>>>> fb0cc33... Infra changes to support keystone_v3 and backward compatability
 from vnc_api_test import *
 from contrail_fixtures import *
 from common.connections import ContrailConnections
@@ -255,4 +260,4 @@ class DomainFixture(fixtures.Fixture):
         self.domain_username = username
         self.domain_user_password = password
     # end set_user_creds
-# end ProjectFixture
+# end DomainFixture

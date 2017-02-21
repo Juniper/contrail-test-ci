@@ -41,7 +41,7 @@ class OpenstackOrchestrator(Orchestrator):
            vcntr = None
        return vcntr
 
-   def get_network_handler(self):
+   def get_network_handler(self, domain_name=None):
        if not self.quantum_h: 
            self.quantum_h = quantum_test.QuantumHelper(auth_h=self.auth_h,
                                           region_name=self.region_name,
@@ -49,7 +49,7 @@ class OpenstackOrchestrator(Orchestrator):
            self.quantum_h.setUp()
        return self.quantum_h
 
-   def get_compute_handler(self):
+   def get_compute_handler(self, domain_name=None):
        if not self.nova_h:
           self.nova_h = nova_test.NovaHelper(inputs=self.inputs,
                                    auth_h=self.auth_h,

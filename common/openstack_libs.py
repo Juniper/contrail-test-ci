@@ -28,6 +28,16 @@ except:
     ks_client = None
     ks_exceptions = None
 
+# import handling for keystone_v3
+try:
+    from keystoneclient.v3 import client as ks_v3_client
+    from keystoneauth1.identity import v3 as ks_auth_identity_v3
+    from keystoneauth1 import session as ks_v3_session
+except:
+    ks_v3_client = None
+    ks_auth_identity_v3 = None
+    ks_v3_session = None
+
 # import handling for nova
 try:
     from novaclient import client as nova_client

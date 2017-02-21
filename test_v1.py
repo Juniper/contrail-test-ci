@@ -19,6 +19,7 @@ class BaseTestCase_v1(BaseTestCase):
                 cls.domain_name = cls.inputs.stack_domain
             else:
                 cls.domain_name = cls.inputs.admin_domain
+        
         if cls.inputs.domain_isolation:
             domain_name = cls.__name__
         else:

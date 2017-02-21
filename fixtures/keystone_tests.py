@@ -1,8 +1,13 @@
 import os
+<<<<<<< HEAD
 import re
 from common.openstack_libs import ks_identity
 from common.openstack_libs import ks_session
 from common.openstack_libs import ks_client
+=======
+from common.openstack_libs import ks_client as keystone_client
+from common.openstack_libs import ks_v3_client as keystone_v3_client
+>>>>>>> fb0cc33... Infra changes to support keystone_v3 and backward compatability
 from common.openstack_libs import ks_exceptions
 from common import log_orig as contrail_logging
 from tcutils.util import retry, get_dashed_uuid
@@ -15,7 +20,6 @@ class KeystoneCommands():
                  domain_name=None, auth_url=None, token=None, endpoint=None,
                  insecure=True, region_name=None, cert=None, key=None, cacert=None,
                  version=None, logger=None):
-
         self.sessions = dict()
         self.logger = logger or contrail_logging.getLogger(__name__)
         self.auth_url = auth_url
@@ -30,7 +34,6 @@ class KeystoneCommands():
         self.insecure = insecure
         self.version = self.get_version(version)
         self.keystone = self.get_client()
-        #import pdb;pdb.set_trace()
         
     def get_version(self, version):
         if not version:
@@ -74,9 +77,6 @@ class KeystoneCommands():
     def get_client(self, scope='domain'):
         return ks_client.Client(version=self.version, session=self.get_session(scope='domain'),
                                       region_name=self.region_name)
-
-    def get_handle(self):
-        return self.keystone
 
     def get_role_dct(self, role_name):
         all_roles = self.roles_list()

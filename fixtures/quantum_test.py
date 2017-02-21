@@ -5,7 +5,12 @@ from common.openstack_libs import neutron_client as client
 from common.openstack_libs import neutron_http_client as HTTPClient
 from common.openstack_libs import neutron_client_exception as CommonNetworkClientException
 from netaddr import IPNetwork
+<<<<<<< HEAD
 import openstack
+=======
+from common.openstack_libs import ks_auth_identity_v3 as v3
+from common.openstack_libs import ks_v3_session as session
+>>>>>>> fb0cc33... Infra changes to support keystone_v3 and backward compatability
 
 class NetworkClientException(CommonNetworkClientException):
 
@@ -24,6 +29,7 @@ class QuantumHelper():
 
     def __init__(
             self,
+<<<<<<< HEAD
             auth_h=None,
             **kwargs):
         self.obj = None
@@ -36,6 +42,30 @@ class QuantumHelper():
             auth_h = self.get_auth_h(**kwargs)
         self.auth_h = auth_h
         self.project_id = get_plain_uuid(auth_h.get_project_id())
+=======
+            username,
+            password,
+            project_id,
+            inputs,
+            auth_server_ip=None,
+            domain_name=None,
+            project_name=None):
+        self.username = username
+        self.password = password
+        self.project_id = get_plain_uuid(project_id)
+        self.obj = None
+        self.auth_server_ip = inputs.auth_ip if inputs else auth_server_ip or \
+                                  '127.0.0.1'
+        self.logger = inputs.logger if inputs else \
+                          contrail_logging.getLogger(__name__)
+        self.auth_url = inputs.auth_url if inputs else \
+                        os.getenv('OS_AUTH_URL') or \
+                        'http://%s:5000/v2.0' % self.auth_server_ip
+        self.region_name = inputs.region_name if inputs else None
+        self.auth=auth
+        self.project_name = project_name
+        self.domain_name = domain_name
+>>>>>>> fb0cc33... Infra changes to support keystone_v3 and backward compatability
         
     # end __init__
     
@@ -43,9 +73,31 @@ class QuantumHelper():
         return openstack.OpenstackAuth(**kwargs)
     
     def setUp(self):
+<<<<<<< HEAD
         self.obj = client.Client('2.0', session=self.auth_h.get_session(),
                                  region_name=self.region_name)
     # end setUp
+=======
+        insecure = bool(os.getenv('OS_INSECURE', True))
+        #need to move to keystone to get session
+        if 'v3' in self.auth_url:
+            auth = v3.Password(auth_url=self.auth_url,
+                   username=self.username,
+                    password=self.password,
+                    project_name=self.project_name,
+                    user_domain_name=self.domain_name,
+                    project_domain_name=self.domain_name)
+            sess = session.Session(auth=auth)
+            self.obj = client.Client('2', session=sess)
+        else:
+            self.obj = client.Client('2.0', username=self.username,
+                                 password=self.password,
+                                 tenant_id=self.project_id,
+                                 auth_url=self.auth_url,
+                                 region_name=self.region_name,
+                                 insecure=insecure)
+    # end __init__
+>>>>>>> fb0cc33... Infra changes to support keystone_v3 and backward compatability
 
     def get_handle(self):
         return self.obj

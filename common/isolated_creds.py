@@ -23,7 +23,7 @@ class IsolatedCreds(fixtures.Fixture):
             self.domain_name = get_random_name(domain_name)
         else :
             self.domain_name = domain_name
-
+        
         if inputs.tenant_isolation:
             self.project_name = get_random_name(project_name)
         else :
@@ -154,6 +154,10 @@ class AdminIsolatedCreds(fixtures.Fixture):
             username, password):
         project_fixture.set_user_creds(username, password)
         project_name = project_fixture.project_name
+        if self.inputs.domain_isolation:
+            domain_name = project_fixture.domain_name
+        else:
+            domain_name = None
         if self.inputs.orchestrator == 'vcenter'  or \
            not self.inputs.tenant_isolation:
             return

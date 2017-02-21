@@ -300,7 +300,6 @@ class TestInputs(object):
 
         self.prov_file = self.prov_file or self._create_prov_file()
         self.prov_data = self.read_prov_file()
-
         if self.keystone_version == 'v3':
             #Set to run testecases in V2 mode
             self.v2_in_v3 = os.getenv('KSV2_IN_KSV3',None)
@@ -319,6 +318,11 @@ class TestInputs(object):
                         '%s://%s:%s/v2.0'%(self.auth_protocol,
                                            self.auth_ip,
                                            self.auth_port)
+        else:
+            self.auth_url = os.getenv('OS_AUTH_URL') or \
+                            '%s://%s:%s/v2.0'%(self.auth_protocol,
+                                               self.auth_ip,
+                                               self.auth_port)
         #vcenter server
         self.vcenter_dc = read_config_option(
            self.config, 'vcenter', 'vcenter_dc', None)
