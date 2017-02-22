@@ -9,6 +9,16 @@ from common.ecmp.ecmp_traffic import ECMPTraffic
 from common.ecmp.ecmp_verify import ECMPVerify
 
 
+SVC_TYPE_PROPS = {
+    'firewall': {'in-network-nat': 'tiny_nat_fw',
+                 'in-network': 'tiny_in_net',
+                 'transparent': 'tiny_trans_fw',
+                 },
+    'analyzer': {'transparent': 'analyzer',
+                 'in-network' : 'analyzer',
+                 }
+}
+
 class VerifySvcFirewall(VerifySvcMirror):
 
     def verify_svc_span(self, in_net=False):
@@ -514,10 +524,12 @@ class VerifySvcFirewall(VerifySvcMirror):
                 (mgmt_vn, left_vn, right_vn) = (mgmt_vn_fixture,
                                                 left_vn_fixture,
                                                 right_vn_fixture)
+            if not svc_img_name:
+                svc_img_name = SVC_TYPE_PROPS['firewall']['svc_mode']
             st_fixture, si_fixtures = self.config_st_si(
-                self.st_name, si_prefix, si_count, svc_scaling, max_inst,
-                mgmt_vn_fixture=mgmt_vn, left_vn_fixture=left_vn,
-                right_vn_fixture=right_vn, svc_mode=svc_mode, flavor=flavor,
+                st_name, si_prefix, si_count, svc_scaling, max_inst,
+                mgmt_vn_fixture=mgmt_vn_fixture, left_vn_fixture=left_vn_fixture,
+                right_vn_fixture=right_vn_fixture, svc_mode=svc_mode, flavor=flavor,
                 ordered_interfaces=ordered_interfaces,
                 project=self.inputs.project_name,
                 svc_img_name=svc_img_name, st_version=st_version)
@@ -526,7 +538,7 @@ class VerifySvcFirewall(VerifySvcMirror):
             action_list += action_step
             si_fixture_list.append(si_fixtures)
             st_fixture_list.append(st_fixture)
-            index += 1
+            ##index += 1
         rules = [
             {
                 'direction': '<>',
@@ -555,7 +567,7 @@ class VerifySvcFirewall(VerifySvcMirror):
         assert result, msg
 
         # Ping from left VM to right VM
-        errmsg = "Ping to right VM ip %s from left VM failed" % self.vm2_fixture.vm_ip
+        errmsg = "Ping to right VM ip %s from left VM failed" %  right_vm_fixture.vm_ip
         assert left_vm_fixture.ping_with_certainty(
             right_vm_fixture.vm_ip), errmsg
         ret_dict = {
