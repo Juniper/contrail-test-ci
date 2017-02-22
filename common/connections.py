@@ -9,6 +9,7 @@ from vnc_api.vnc_api import *
 from tcutils.vdns.dns_introspect_utils import DnsAgentInspect
 from tcutils.config.ds_introspect_utils import *
 from tcutils.config.discovery_tests import *
+from tcutils.kubernetes.api_client import Client as Kubernetes_client
 from tcutils.util import custom_dict
 import os
 from openstack import OpenstackAuth, OpenstackOrchestrator
@@ -47,6 +48,7 @@ class ContrailConnections():
                                       'cn_inspect')
         self.ds_inspect = custom_dict(self.get_discovery_service_inspect_handle,
                                       'ds_inspect')
+        self.k8s_client = self.get_k8s_api_client_handle()
 
         # ToDo: msenthil/sandipd rest of init needs to be better handled
         self.auth = self.get_auth_h()
@@ -197,12 +199,20 @@ class ContrailConnections():
                                                       logger=self.logger)
         return self.ds_inspect[host]
 
+    def get_k8s_api_client_handle(self):
+        if self.inputs.orchestrator != 'kubernetes':
+            return None
+        if not getattr(self, 'k8s_client', None):
+            self.k8s_client = Kubernetes_client(self.inputs.kube_config_file)
+        return self.k8s_client
+    # end get_k8s_api_client_handle
+
     def get_svc_mon_h(self, refresh=False):
         if not getattr(self, '_svc_mon_inspect', None) or refresh:
             for cfgm_ip in self.inputs.cfgm_ips:
                 #contrail-status would increase run time hence netstat approach
                 cmd = 'netstat -antp | grep 8088 | grep LISTEN'
-                if self.inputs.run_cmd_on_server(cfgm_ip, cmd) is not None:
+                if self.inputs.run_cmd_on_server(cfgm_ip, cmd, container='controller') is not None:
                     self._svc_mon_inspect = SvcMonInspect(cfgm_ip,
                                            logger=self.logger)
                     break
