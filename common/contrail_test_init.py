@@ -56,8 +56,8 @@ class TestInputs(object):
     '''
        Class that would populate testbedinfo from parsing the
        .ini and .json input files if provided (or)
-       check the keystone and discovery servers to populate
-       the same with the certain default value assumptions
+       check the keystone servers to populate the same with
+       the certain default value assumptions
     '''
     __metaclass__ = Singleton
     def __init__(self, ini_file=None, logger=None):
@@ -150,8 +150,6 @@ class TestInputs(object):
                                           'cfgm', 'api_protocol', 'http')
         self.api_insecure = read_config_option(self.config,
                                           'cfgm', 'api_insecure_flag', True)
-        self.ds_port = read_config_option(self.config, 'services',
-                                          'discovery_port', '5998')
         self.api_server_port = read_config_option(self.config, 'services',
                                           'config_api_port', '8082')
         self.analytics_api_port = read_config_option(self.config, 'services',
@@ -162,8 +160,6 @@ class TestInputs(object):
                                           'dns_port', '8092')
         self.agent_port = read_config_option(self.config, 'services',
                                           'agent_port', '8085')
-        self.discovery_ip = read_config_option(self.config, 'services',
-                                          'discovery_ip', None)
         self.api_server_ip = read_config_option(self.config, 'services',
                                           'config_api_ip', None)
         self.analytics_api_ip = read_config_option(self.config, 'services',
@@ -208,7 +204,7 @@ class TestInputs(object):
                                                'ui', 'webui', False)
         self.verify_horizon = read_config_option(self.config,
                                                  'ui', 'horizon', False)
-        self.kube_config_file = read_config_option(self.config, 
+        self.kube_config_file = read_config_option(self.config,
                                                    'kubernetes', 'config_file',
                                                    '/etc/kubernetes/admin.conf')
         if not self.ui_browser and (self.verify_webui or self.verify_horizon):
@@ -357,7 +353,6 @@ class TestInputs(object):
         self.cfgm_services = [
             'contrail-api',
             'contrail-schema',
-            'contrail-discovery',
             'supervisor-config',
             'contrail-config-nodemgr',
             'contrail-device-manager']
@@ -443,7 +438,7 @@ class TestInputs(object):
 
     def _check_containers(self, host_dict):
         '''
-        Find out which components have containers and set 
+        Find out which components have containers and set
         corresponding attributes in host_dict to True if present
         '''
         host_dict['containers'] = {}
@@ -782,45 +777,6 @@ class TestInputs(object):
             self.auth_port = match.group('port')
 
         # Assume contrail-config runs in the same node as neutron-server
-        discovery = os.getenv('DISCOVERY_IP', None) or \
-                    (keystone and re.match(pattern,
-                    keystone.get_endpoint('network')).group('ip'))
-        ds_client = VerificationDsSrv(discovery)
-        services = ds_client.get_ds_services().info
-        cfgm = database = services['config']
-        collector = services['analytics']
-        bgp = services['control-node']
-        openstack = [self.auth_ip] if self.auth_ip else []
-        computes = self.get_computes(cfgm[0])
-        data = {'hosts': list()}
-        hosts = cfgm + database + collector + bgp + computes + openstack
-        username = os.getenv('USERNAME', 'root')
-        password = os.getenv('PASSWORD', 'c0ntrail123')
-        for host in set(hosts):
-            with settings(host_string='%s@%s' % (username, host),
-                          password=password, warn_only=True):
-                hname = run('hostname')
-            hdict = {'ip': host,
-                     'data-ip': host,
-                     'control-ip': host,
-                     'username': username,
-                     'password': password,
-                     'name': hname,
-                     'roles': [],
-                    }
-            if host in cfgm:
-                hdict['roles'].append({'type': 'cfgm'})
-            if host in collector:
-                hdict['roles'].append({'type': 'collector'})
-            if host in database:
-                hdict['roles'].append({'type': 'database'})
-            if host in bgp:
-                hdict['roles'].append({'type': 'bgp'})
-            if host in computes:
-                hdict['roles'].append({'type': 'compute'})
-            if host in openstack:
-                hdict['roles'].append({'type': 'openstack'})
-            data['hosts'].append(hdict)
         tempfile = NamedTemporaryFile(delete=False)
         with open(tempfile.name, 'w') as fd:
             json.dump(data, fd)
@@ -847,8 +803,8 @@ class TestInputs(object):
             self.openstack_ip,
             cmd,
             username,
-            password,
             container='openstack')
+            password)
         return self.mysql_token
     # end get_mysql_token
 
@@ -869,8 +825,8 @@ class TestInputs(object):
             if not password:
                 password = self.host_data[server_ip]['password']
         if container:
-            # If the container does not exist on this host, log it and 
-            # run the cmd on the host itself 
+            # If the container does not exist on this host, log it and
+            # run the cmd on the host itself
             # This helps backward compatibility
             if not self.host_data[server_ip].get('containers', {}).get(container):
                 container = None
@@ -1333,3 +1289,6 @@ class ContrailTestInit(object):
         host['username'] = self.host_data[ip]['username']
         host['password'] = self.host_data[ip]['password']
         copy_file_to_server(host, src, dstdir, dst, force, container=container)
+       
+    #end copy_file_to_server
+
