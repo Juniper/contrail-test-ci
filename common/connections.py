@@ -44,8 +44,6 @@ class ContrailConnections():
                                         'ops_inspect:'+self.project_name+':'+self.username)
         self.cn_inspect = custom_dict(self.get_control_node_inspect_handle,
                                       'cn_inspect')
-        self.ds_inspect = custom_dict(self.get_discovery_service_inspect_handle,
-                                      'ds_inspect')
         self.k8s_client = self.get_k8s_api_client_handle()
 
         # ToDo: msenthil/sandipd rest of init needs to be better handled
