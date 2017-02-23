@@ -75,6 +75,12 @@ class Client():
         return self.v1_h.read_namespaced_pod(name, namespace, exact=exact,\
                                       export=export)
 
+    def read_pod_status (self, name, namespace='default', exact=True, export=True):
+        '''
+        Get the POD status
+        '''
+        return self.v1_h.read_namespaced_pod_status(name, namespace) 
+
     def create_container (self, name,  image): 
         '''
         return container object 
@@ -93,6 +99,19 @@ class Client():
         spec.containers = container_obj_list
         return spec
     # end create_spec
+ 
+
+
+    def exec_cmd_on_pod (self, name, cmd, namespace='default', stderr=True,  \
+                         stdin=True, stdout=True, tty=True):
+    
+        output  = self.v1_h.connect_get_namespaced_pod_exec(name, namespace,  \
+                                                        command=cmd,   \
+                                                        stderr=stderr, \
+                                                        stdin=stdin,   \
+                                                        stdout=stdout, \
+                                                        tty=tty)
+        return output 
 
         
     def get_pods(self, namespace='default', **kwargs):
