@@ -75,6 +75,12 @@ class Client():
         return self.v1_h.read_namespaced_pod(name, namespace, exact=exact,\
                                       export=export)
 
+    def read_pod_status (self, name, namespace='default', exact=True, export=True):
+        '''
+        Get the POD status
+        '''
+        return self.v1_h.read_namespaced_pod_status(name, namespace) 
+
     def create_container (self, name,  image): 
         '''
         return container object 

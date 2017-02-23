@@ -16,11 +16,22 @@ class TestPod(BaseK8sTest):
     @preposttest_wrapper
     def test_add_delete_pod(self):
         ''' 
-        Test add and delete of  POD 
+        Test POD add delete
         '''
         pod  = self.useFixture(PodFixture(self.connections))
         assert pod.verify_on_setup()
+    # end test_add_delete_pod
 
+    @preposttest_wrapper
+    def test_ping_between_two_pod(self):
+        '''
+        Test ping between 2 POD
+        '''
+        pod1  = self.useFixture(PodFixture(self.connections))
+        assert pod1.verify_on_setup()
+        pod2  = self.useFixture(PodFixture(self.connections))
+        assert pod2.verify_on_setup()
+        assert pod1.ping_to_ip(pod2.pod_ip)
     # end test_add_delete_pod
         
 
