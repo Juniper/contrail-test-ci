@@ -30,6 +30,7 @@ from physical_router_fixture import PhysicalRouterFixture
 from virtual_router_fixture import VirtualRouterFixture
 from qos_fixture import QosForwardingClassFixture
 from qos_fixture import QosConfigFixture
+from rbac_test import RbacFixture
 try:
     from webui_test import *
 except ImportError:
@@ -1006,6 +1007,19 @@ def createVirtualRouter(self):
                 inputs=self.project_inputs))
     return self
 # end createVirtualRouter
+
+def createRBAC(self):
+    self.rbac_fixture = {}
+    if not hasattr(self.topo, 'rbac_params'):
+        return self
+    for rbac in self.topo.rbac_list:
+        self.rbac_fixture[rbac] = self.useFixture(
+            RbacFixture(rbac,
+                parent_type=self.topo.rbac_params[rbac]['parent_type'],
+                rules=self.topo.rbac_params[rbac]['rules'],
+                connections=self.project_connections))
+    return self
+# end createRBAC
 
 if __name__ == '__main__':
     ''' Unit test to invoke sdn topo setup utils.. '''
