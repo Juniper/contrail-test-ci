@@ -551,7 +551,7 @@ class ComputeNodeFixture(fixtures.Fixture):
             start_cmd = 'service supervisor-vrouter start'
         self.execute_cmd('%s; '
             'modprobe -r vrouter || rmmod vrouter; '
-            '%s ' % (stop_cmd, start_cmd), container=None)
+            '%s ' % (stop_cmd, start_cmd), container='agent')
         if wait:
             status = ContrailStatusChecker(self.inputs)
             status.wait_till_contrail_cluster_stable([self.ip])
