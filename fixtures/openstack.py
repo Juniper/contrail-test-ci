@@ -16,6 +16,7 @@ class OpenstackOrchestrator(Orchestrator):
        self.inputs = inputs
        self.quantum_h = None
        self.nova_h = None
+       self.auth_h = auth_h
        self.vnc_lib = vnclib
        self.region_name = region_name or inputs.region_name if inputs else None
        #for vcenter as compute
@@ -341,7 +342,7 @@ class OpenstackAuth(OrchestratorAuth):
 
    def __init__(self, username, password, project_name,
                 inputs=None, logger=None, auth_url=None, region_name=None,
-                certfile=None, keyfile=None, cacert=None, insecure=True):
+                certfile=None, keyfile=None, cacert=None, insecure=True, domain_name=None):
        self.inputs = inputs
        self.user = username
        self.passwd = password
@@ -350,13 +351,18 @@ class OpenstackAuth(OrchestratorAuth):
        if inputs:
            self.auth_url = inputs.auth_url
            self.region_name = inputs.region_name
-           self.keystone_certfile = self.inputs.keystonecertfile
+           if self.inputs.domain_isolation:
+               self.domain_name = domain_name or self.inputs.domain_name
+           else:
+               self.domain_name = domain_name or self.inputs.admin_domain
+	   self.keystone_certfile = self.inputs.keystonecertfile
            self.keystone_keyfile = self.inputs.keystonekeyfile
            self.keycertbundle = self.inputs.keycertbundle
            self.insecure = self.inputs.insecure
        else:
            self.auth_url = auth_url or os.getenv('OS_AUTH_URL')
            self.region_name = region_name or os.getenv('OS_REGION_NAME')
+           self.domain_name = domain_name or os.getenv('OS_DOMAIN_NAME')
            self.keystone_certfile = certfile
            self.keystone_keyfile = keyfile
            self.insecure = insecure
@@ -367,6 +373,7 @@ class OpenstackAuth(OrchestratorAuth):
        self.keystone = KeystoneCommands(username=self.user,
                                         password=self.passwd,
                                         tenant=self.project,
+                                        domain_name=self.domain_name,
                                         auth_url=self.auth_url,
                                         insecure=self.insecure,
                                         region_name=self.region_name,
@@ -374,11 +381,13 @@ class OpenstackAuth(OrchestratorAuth):
                                         key=self.keystone_keyfile,
                                         cacert=self.keycertbundle,
                                         logger=self.logger)
+   def get_domain_id(self, name='Default'):
+        return self.keystone.get_domain_id(name)
 
-   def get_project_id(self, name=None):
-       if not name or name == self.project:
+   def get_project_id(self, name=None, domain_id=None):
+       if not name:
            return self.keystone.get_id()
-       return self.keystone.get_project_id(name)
+       return self.keystone.get_project_id(name,domain_id)
 
    def get_session(self):
        return self.keystone.get_session()
@@ -389,8 +398,22 @@ class OpenstackAuth(OrchestratorAuth):
    def get_token(self):
        return self.keystone.get_token()
 
-   def create_project(self, name):
-       return self.keystone.create_project(name)
+   
+   def create_domain(self,domain_name):
+       return self.keystone.create_domain(domain_name)
+        
+   def delete_domain(self, domain_name):
+       self.keystone.delete_domain(domain_name)
+   
+   def update_domain(self,domain_obj, domain_name, description, enabled):
+       return self.keystone.update_domain(domain_obj=domain_obj, domain_name=domain_name,
+                                    description=description,enabled=enabled)
+   
+   def get_domain(self,domain_obj):
+       return self.keystone.get_domain(domain_obj=domain_obj) 
+
+   def create_project(self, name, domain_name=None):
+       return self.keystone.create_project(name, domain_name)
 
    def delete_project(self, name):
        self.keystone.delete_project(name)
@@ -398,10 +421,11 @@ class OpenstackAuth(OrchestratorAuth):
    def delete_user(self, user):
        self.keystone.delete_user(user)
 
-   def create_user(self, user, password):
+   def create_user(self, user, password, project_name=None, domain_name=None):
        try:
            self.keystone.create_user(user,password,email='',
-                          tenant_name=self.inputs.stack_tenant,enabled=True)
+                          tenant_name=self.inputs.stack_tenant,enabled=True,
+                          project_name=project_name, domain_name=domain_name)
        except:
            self.logger.info("%s user already present"%(self.user))
 
@@ -411,9 +435,9 @@ class OpenstackAuth(OrchestratorAuth):
    def delete_role(self, role):
        self.keystone.delete_role(role)
 
-   def add_user_to_project(self, user, project, role='admin'):
+   def add_user_to_project(self, user, project, role='admin', domain=None):
        try:
-           self.keystone.add_user_to_tenant(project, user, role)
+           self.keystone.add_user_to_tenant(project, user, role, domain)
        except Exception as e:
            self.logger.info("%s user already added to project"%(user))
 
@@ -436,3 +460,26 @@ class OpenstackAuth(OrchestratorAuth):
 
    def get_auth_h(self):
        return self.keystone
+   
+   def create_user_group(self,group,domain_name):
+       try:
+           self.keystone.create_group(group,domain_name)
+       except Exception as e:
+           self.logger.info("%s user already present"%(group))
+    
+   def delete_group(self,name):
+        return self.keystone.delete_group(name=name)
+    
+   def add_user_to_group(self,user,group):
+       try:
+           self.keystone.add_user_to_group(user, group)
+       except Exception as e:
+           self.logger.info("%s user already added to group %s"%(user, group))
+        
+   def add_user_group_to_tenant(self, project, group, role='admin', domain=None):
+       try:
+           self.keystone.add_group_to_tenant(project, group, role='admin', domain=domain)
+       except Exception as e:
+           self.logger.info("%s group already added to project"%(group,project))
+
+
