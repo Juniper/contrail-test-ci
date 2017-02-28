@@ -515,7 +515,7 @@ class VerifySvcFirewall(VerifySvcMirror):
                                                 left_vn_fixture,
                                                 right_vn_fixture)
             st_fixture, si_fixtures = self.config_st_si(
-                self.st_name, si_prefix, si_count, svc_scaling, max_inst,
+                st_name, si_prefix, si_count, svc_scaling, max_inst,
                 mgmt_vn_fixture=mgmt_vn, left_vn_fixture=left_vn,
                 right_vn_fixture=right_vn, svc_mode=svc_mode, flavor=flavor,
                 ordered_interfaces=ordered_interfaces,
