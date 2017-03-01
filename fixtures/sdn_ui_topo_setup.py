@@ -237,6 +237,11 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
         assert ui_topo_steps.createNetworkRouteTable(self)
         return True
     # end create_network_route_table
+    
+    def attach_network_route_table(self):
+        assert ui_topo_steps.attachNrtToVN(self)
+        return True
+    # end attach_network_route_table
 
     def cleanUp(self):
         if self.inputs.fixture_cleanup == 'yes':
