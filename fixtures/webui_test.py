@@ -220,6 +220,14 @@ class WebuiTest:
     def create_physical_router(self, fixture):
         result = True
         try:
+            if fixture.kwargs.get('set_tor'):
+                add_element = 'OVSDB Managed ToR'
+            elif fixture.kwargs.get('set_netconf'):
+                add_element = 'Netconf Managed Physical Router'
+            elif fixture.kwargs.get('set_vcpe'):
+                add_element = 'vCPE Router'
+            else:
+                add_element = 'Physical Router'
             if not self.ui.click_on_create(
                     'PhysicalRouter',
                     'physical_router',
@@ -227,18 +235,37 @@ class WebuiTest:
                     select_project=False):
                 result = result and False
             self.ui.click_element(
-                "//a[@data-original-title='Physical Router']", 'xpath')
-            fields_dict = {fixture.name: 'name',
-                           fixture.vendor: 'physical_router_vendor_name',
-                           fixture.model: 'physical_router_product_name',
-                           fixture.mgmt_ip: 'physical_router_management_ip',
-                           fixture.tunnel_ip: 'physical_router_dataplane_ip'}
+                "//a[@data-original-title='" + add_element + "']", 'xpath')
+            if fixture.kwargs.get('set_tor'):
+                tor_list = [fixture.kwargs.get('tor_agent'),
+                           fixture.kwargs.get('tor_agent_opt'),
+                           fixture.kwargs.get('tsn'), fixture.kwargs.get('tsn_opt')]
+                for index, tor in enumerate(tor_list):
+                    br = self.ui.find_element('custom-combobox', 'class', elements=True)
+                    self.ui.send_keys(tor, 'custom-combobox-input', 'class',
+                                     browser=br[index])
+            if fixture.kwargs.get('set_vcpe'):
+                    fields_dict = {fixture.name: 'name',
+                                  fixture.mgmt_ip: 'physical_router_management_ip',
+                                  fixture.tunnel_ip: 'physical_router_dataplane_ip'}
+            else:
+                if not fixture.kwargs.get('set_netconf'):
+                    self.ui.click_element('ui-accordion-header-icon', 'class',
+                                         elements=True, index=1)
+                    self.ui.click_element('physical_router_vnc_managed', 'name')
+                fields_dict = {fixture.name: 'name',
+                              fixture.vendor: 'physical_router_vendor_name',
+                              fixture.model: 'physical_router_product_name',
+                              fixture.mgmt_ip: 'physical_router_management_ip',
+                              fixture.tunnel_ip: 'physical_router_dataplane_ip',
+                              fixture.ssh_username: 'netConfUserName',
+                              fixture.ssh_password: 'netConfPasswd'}
             for field_val, text_box in fields_dict.iteritems():
-                self.ui.send_keys(field_val, text_box, 'name')
-            self.ui.click_element('ui-id-3')
-            self.ui.click_element('physical_router_vnc_managed', 'name')
-            self.ui.send_keys(fixture.ssh_username, 'netConfUserName', 'name')
-            self.ui.send_keys(fixture.ssh_password, 'netConfPasswd', 'name')
+                if fixture.kwargs.get('set_netconf') and \
+                    field_val == fixture.tunnel_ip:
+                        continue
+                else:
+                    self.ui.send_keys(field_val, text_box, 'name')
             if not self.ui.click_on_create(
                 'PhysicalRouter', 'physical_router',
                 save=True):
@@ -4175,7 +4202,7 @@ class WebuiTest:
     # end vn_delete
 
     def delete_bgp_router(self, fixture):
-        if self.disassoc_phy_router_under_bgp_router(fixture):
+        if self.disassoc_prouter_from_bgp_router(fixture):
             self.ui.delete_element(fixture, 'bgp_router_delete')
             result = True
         else:
@@ -4218,7 +4245,6 @@ class WebuiTest:
         self.detach_ipam_from_dns_server()
         self.delete_bgp_aas()
         self.delete_link_local_service()
-        self.delete_virtual_router()
         self.delete_svc_appliance_set()
         return True
     # end cleanup
@@ -4231,8 +4257,8 @@ class WebuiTest:
         self.ui.delete_element(element_type='link_local_service_delete')
     # end delete_link_local_service
 
-    def delete_virtual_router(self):
-        self.ui.delete_element(element_type='vrouter_delete')
+    def delete_virtual_router(self, fixture):
+        self.ui.delete_element(fixture, element_type='vrouter_delete')
     # end delete_virtual_router
 
     def delete_svc_appliance(self):
