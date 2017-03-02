@@ -250,6 +250,11 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
         return True
     # end create_vcpe_router
 
+    def create_log_statistic(self):
+        assert ui_topo_steps.createLogStatistic(self)
+        return True
+    # end create_log_statistic
+
     def cleanUp(self):
         if self.inputs.fixture_cleanup == 'yes':
             super(sdnUiTopoSetupFixture, self).cleanUp()

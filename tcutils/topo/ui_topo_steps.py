@@ -195,3 +195,16 @@ def attachQosToVN(self):
                 self.webui.detach_qos_from_vn(qos_name, vn))
     return result
 # end attachQosToVN
+
+def createLogStatistic(self):
+    result = True
+    if not hasattr(self.topo, 'log_stat_list'):
+        self.logger.warn("No log stat config found in topo file")
+        return result
+    self.logger.info("Create Log Statistic")
+    if not self.webui.create_log_statistic(
+               self.topo.log_stat_list,
+               self.topo.log_stat_params):
+        result = False
+    return result
+# end createLogStatistic

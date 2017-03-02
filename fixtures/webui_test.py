@@ -4245,6 +4245,7 @@ class WebuiTest:
         self.delete_bgp_aas()
         self.delete_link_local_service()
         self.delete_svc_appliance_set()
+        self.delete_log_statistic()
         return True
     # end cleanup
 
@@ -4281,6 +4282,10 @@ class WebuiTest:
     def delete_alarms(self, fixture):
         self.ui.delete_element(fixture, 'alarm_delete')
     # end delete_alarms
+
+    def delete_log_statistic(self):
+        self.ui.delete_element(element_type='log_statistic_delete')
+    # end delete_log_statistic
 
     def delete_dns_server_and_record(self):
         self.detach_ipam_from_dns_server()
@@ -7114,3 +7119,31 @@ class WebuiTest:
         self.ui.click_on_cancel_if_failure('cancelBtn')
         return result
     # end create_alarms
+
+    def create_log_statistic(self, log_stat_list, log_stat_params):
+        result = True
+        try:
+            for log in log_stat_list:
+                regexp = log_stat_params[log]['regexp']
+                if not self.ui.click_on_create(
+                        'Log Statistic',
+                        'log_stat_in_global',
+                        log,
+                        select_project=False):
+                    result = result and False
+                send_key_values = {
+                    'name': {
+                        'name': log,
+                        'pattern': regexp}}
+                if not self.ui.send_keys_values(send_key_values):
+                    result = result and False
+                self.ui.click_on_create('Log Statistic',
+                                       'user_defined_counters', save=True)
+        except WebDriverException:
+            self.logger.error(
+                "Error while creating Log statistics")
+            self.ui.screenshot("Log Stat")
+            result = result and False
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end create_log_statistic
