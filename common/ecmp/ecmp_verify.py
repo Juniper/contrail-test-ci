@@ -172,5 +172,6 @@ class ECMPVerify():
         svm_list= []
         for svm_id in svm_ids:
             svm_list.append(self.nova_h.get_vm_by_id(svm_id))
+        svm_list = [x for x in svm_list if x is not None]
         return svm_list
     #end get_svms_in_si
