@@ -1587,23 +1587,6 @@ class VNFixture(fixtures.Fixture):
         return mac_aging_time
     # end get_mac_aging_time
 
-    def add_bridge_domain(self, bd_obj=None):
-        ''' Adding bridge doamin to VN '''
-        self.logger.info('Adding bridge domain %s to VN %s' % (bd_obj,self.uuid))
-        vn_obj = self.vnc_lib_h.virtual_network_read(id = self.uuid)
-        vn_obj.add_bridge_domain(bd_obj)
-        self.vnc_lib_h.virtual_network_update(vn_obj)
-    # end add_bridge_domain
-
-    def del_bridge_domain(self, bd_obj=None):
-        ''' Deleting bridge doamin from  VN '''
-        self.logger.info('Deleting bridge domain %s from VN %s' % (bd_obj,self.uuid))
-        vn_obj = self.vnc_lib_h.virtual_network_read(id = self.uuid)
-        vn_obj.del_bridge_domain(bd_obj)
-        self.vnc_lib_h.virtual_network_update(vn_obj)
-    # end del_bridge_domain
-
-
 # end VNFixture
 
 

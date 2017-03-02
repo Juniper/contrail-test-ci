@@ -542,6 +542,13 @@ l[0]={'protocol': '1', 'stats_bytes': '222180', 'stats_packets': '2645', 'setup_
                         for ee in fip:
                             pp[ee.tag] = ee.text
                         p[e.tag].append(pp)
+                if e.tag == 'bridge_domain_list':
+                    p[e.tag] = []                                    
+                    for bd in e.xpath('./list/VmIntfBridgeDomainUuid'):         
+                        pp = {}                                                 
+                        for ee in bd:                                           
+                            pp[ee.tag] = ee.text                                
+                        p[e.tag].append(pp)
                 else:
                     p[e.tag] = e.text
             ret_list.append(p)
@@ -1118,6 +1125,59 @@ l[0]={'protocol': '1', 'stats_bytes': '222180', 'stats_packets': '2645', 'setup_
         if hc_obj is None:
            return None
         return VnaHealthCheckResult(hc_obj)
+
+    def get_bd(self, bd_uuid):  
+        '''                                                                     
+            method: get_bd get bd bd_uuid from agent                            
+            returns None if not found, a dict w/ attrib. eg:                    
+                                                                                
+        '''                                                                     
+        query = 'Snh_BridgeDomainSandeshReq?uuid=' + str(bd_uuid)               
+        l = []                                                                  
+                                                                                
+        bd = self.dict_get(query)                                               
+        abd = bd.xpath('./BridgeDomainSandeshResp/bd_list/list/BridgeDomainSandeshData') or \
+                bd.xpath('./bd_list/list/BridgeDomainSandeshData')              
+                                                                                
+        for s in abd:                                                           
+            p = {}                                                              
+            for e in s:                                                         
+                p[e.tag] = e.text                                               
+            #Temporary fix for bug 1665253
+            if p['uuid'] == bd_uuid:
+                l.append(p)                                                         
+                return l                                                                
+                                                                                
+    def _kitf_fltr(self, x, _type, value):                                      
+        if _type == 'name':                                                     
+            path = './name'                                                     
+        elif _type == 'ip':                                                     
+            path = './ip'                                                       
+        e = x.xpath(path)                                                       
+        if e:                                                                   
+            return value == e[0].text                                           
+        return False 
+
+    def get_vrouter_interface_list(self, _type, value):                         
+        '''                                                                     
+            Returns the interface list matching _type and value                 
+        '''                                                                     
+        ret_list = []                                                           
+        rsp_list = self.dict_get('Snh_KInterfaceReq?if_id=')                    
+        for rsp in rsp_list:                                                    
+            intf_list = rsp.xpath('./KInterfaceResp/if_list/list/KInterfaceInfo') or \
+                    rsp.xpath('./if_list/list/KInterfaceInfo')                  
+            avn = filter(lambda x:  self._kitf_fltr(x, _type, value), intf_list)
+                                                                                
+            for intf in avn:                                                    
+                p = {}                                                          
+                for e in intf:                                                  
+                    p[e.tag] = e.text                                           
+                ret_list.append(p)                                              
+        return ret_list                                                         
+                                                                                
+    def get_vrouter_interface_by_name(self, itf_name):                          
+        return self.get_vrouter_interface_list('name', itf_name)
 
 if __name__ == '__main__':
     v = AgentInspect('10.204.216.221')

@@ -1043,7 +1043,7 @@ class ContrailVncApi(object):
         bd_obj = self._vnc.bridge_domain_read(id=uuid)
         self._log.info('Bridge Domain%s info' % (uuid,bd_obj))
         bd_obj.dump()
-    # end dump_bd
+    # end get_bd 
 
     def add_bd_to_vmi(self, bd_id, vmi_id, vlan_tag):
         '''
@@ -1054,7 +1054,7 @@ class ContrailVncApi(object):
             vmi_id: ID of VMI
             vlan_tag: vlan tag
         '''
-        self._log.info('Adding Bridge Domain%s to VMI%s' % (bd_id,vmi_id))
+        self._log.info('Adding Bridge Domain %s to VMI %s' % (bd_id,vmi_id))
         vmi = self._vnc.virtual_machine_interface_read(id=vmi_id)
         bd_obj = self._vnc.bridge_domain_read(id=bd_id)
         bmeb = BridgeDomainMembershipType()
@@ -1075,4 +1075,24 @@ class ContrailVncApi(object):
         vmi.set_vlan_tag_based_bridge_domain(vlan_tag_based_bridge_domain)
         self._vnc.virtual_machine_interface_update(vmi)
 
+    def get_vmi_host_name(self, vmi_id):
+        '''
+        Gets VMIs compute node name
+        '''
 
+        vmi_host = None
+        vmi_obj = self._vnc.virtual_machine_interface_read(id=vmi_id)
+        vmi_bindings = vmi_obj.get_virtual_machine_interface_bindings()
+        #Sub-interface case, get the host of parent VMI
+        if not vmi_bindings:
+            parent_vmi_id = vmi_obj.get_virtual_machine_interface_refs()[0]['uuid']
+            vmi_obj = self._vnc.virtual_machine_interface_read(id=parent_vmi_id)
+            vmi_bindings = vmi_obj.get_virtual_machine_interface_bindings()
+        if not vmi_bindings:
+            self._log.error('Could not get VMI bindings for VMI%s' % (vmi_id))
+            return False
+        kv_list = vmi_bindings.key_value_pair
+        for kv in kv_list:
+            if kv.key == 'host_id':
+                vmi_host = kv.value
+                return vmi_host
