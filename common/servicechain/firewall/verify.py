@@ -7,6 +7,7 @@ from tcutils.util import get_random_cidr
 from tcutils.util import get_random_name
 from common.ecmp.ecmp_traffic import ECMPTraffic
 from common.ecmp.ecmp_verify import ECMPVerify
+import re
 
 
 class VerifySvcFirewall(VerifySvcMirror):
@@ -217,20 +218,23 @@ class VerifySvcFirewall(VerifySvcMirror):
         left_vn_fixture = left_vn_fixture or \
                               self.config_vn(left_vn_name, left_vn_subnets)
 
-        # Right 
+        # Right
         right_vn_name = right_vn_name or get_random_name('bridge_vn2')
         rght_vn_subnets = right_vn_subnets or \
                               [get_random_cidr(af=self.inputs.get_af())]
         right_vn_fixture = right_vn_fixture or \
                                self.config_vn(right_vn_name, right_vn_subnets)
 
+
         # End VMs
         left_vm_name = left_vm_name or get_random_name('bridge_vm1')
         right_vm_name = right_vm_name or get_random_name('bridge_vm2')
         left_vm_fixture = left_vm_fixture or self.config_and_verify_vm(
-            left_vm_name, vn_fix=left_vn_fixture, image_name=image_name)
+            left_vm_name, vn_fix=left_vn_fixture, image_name=image_name,
+            node_name=left_vm_node_name)
         right_vm_fixture = right_vm_fixture or self.config_and_verify_vm(
-            right_vm_name, vn_fix=right_vn_fixture, image_name=image_name)
+            right_vm_name, vn_fix=right_vn_fixture, image_name=image_name,
+            node_name=right_vm_node_name)
 
         # SI
         if_list = []
@@ -343,12 +347,13 @@ class VerifySvcFirewall(VerifySvcMirror):
         left_vn_fixture = left_vn_fixture or \
                               self.config_vn(left_vn_name, left_vn_subnets,orch=self.orchestrator)
 
-        # Right 
+        # Right
         right_vn_name = right_vn_name or get_random_name('in_network_vn2')
         rght_vn_subnets = right_vn_subnets or \
                               [get_random_cidr(af=self.inputs.get_af())]
         right_vn_fixture = right_vn_fixture or \
                                self.config_vn(right_vn_name, right_vn_subnets)
+
 
         # VMs
         #self.orchestrator is sent to left_vm_fixture to launch vm in vcenter
@@ -357,9 +362,11 @@ class VerifySvcFirewall(VerifySvcMirror):
         right_vm_name = right_vm_name or get_random_name('in_network_vm2')
 
         left_vm_fixture = left_vm_fixture or self.config_and_verify_vm(
-            left_vm_name, vn_fix=left_vn_fixture, image_name=image_name,orch=self.orchestrator)
+            left_vm_name, vn_fix=left_vn_fixture, image_name=image_name,orch=self.orchestrator,
+            node_name=left_vm_node_name)
         right_vm_fixture = right_vm_fixture or self.config_and_verify_vm(
-            right_vm_name, vn_fix=right_vn_fixture, image_name=image_name)
+            right_vm_name, vn_fix=right_vn_fixture, image_name=image_name,
+            node_name=right_vm_node_name)
 
         # SIs
         if_list = [['management', False, False],
@@ -467,7 +474,7 @@ class VerifySvcFirewall(VerifySvcMirror):
         left_vn_fixture = left_vn_fixture or \
                               self.config_vn(left_vn_name, left_vn_subnets)
 
-        # Right 
+        # Right
         right_vn_name = right_vn_name or get_random_name('in_network_vn2')
         rght_vn_subnets = right_vn_subnets or \
                               [get_random_cidr(af=self.inputs.get_af())]
@@ -1109,3 +1116,185 @@ class VerifySvcFirewall(VerifySvcMirror):
                     count = 20
             self.verify_icmp_mirror(svm_name, session, pcap, count)
     # end verify_firewall_with_mirroring
+
+    def setup_ecmp_config_hash_svc(self, si_count=1, svc_scaling=False,
+                                   max_inst=1, svc_mode='in-network-nat',
+                                   flavor='m1.medium',
+                                   static_route=[None, None, None],
+                                   ordered_interfaces=True, ci=False,
+                                   svc_img_name='ubuntu-in-net', st_version=1,
+                                   ecmp_hash='default',config_level='global'):
+
+        """Validate the ECMP configuration hash with service chaining in network  datapath"""
+
+        # Default ECMP hash with 5 tuple
+        if ecmp_hash == 'default':
+            ecmp_hash = {"source_ip": True, "destination_ip": True,
+                         "source_port": True, "destination_port": True,
+                         "ip_protocol": True}
+
+        if ecmp_hash == 'None':
+            ecmp_hash_config = {}
+            ecmp_hash_config['hashing_configured'] = False
+        else:
+            ecmp_hash_config = ecmp_hash.copy()
+            ecmp_hash_config['hashing_configured'] = True
+
+        # Bringing up base setup. i.e 2 VNs (vn1 and vn2), 2 VMs, 3 service
+        # instances, policy for service instance and applying policy on 2 VNs
+        if svc_mode == 'in-network-nat' or svc_mode == 'in-network':
+            ret_dict = self.verify_svc_in_network_datapath(si_count=1,
+                                            svc_scaling=True,
+                                            max_inst=max_inst,
+                                            svc_mode=svc_mode,
+                                            flavor=flavor,
+                                            svc_img_name=svc_img_name,
+                                            st_version=st_version,
+                                            **self.common_args)
+        elif svc_mode == 'transparent':
+            ret_dict = self.verify_svc_transparent_datapath(si_count=1,
+                                                svc_scaling=True,
+                                                max_inst=max_inst,
+                                                flavor=flavor,
+                                                svc_img_name=svc_img_name,
+                                                st_version=st_version,
+                                                **self.common_args)
+
+        # ECMP Hash at VMI interface of right_vm (right side)
+        right_vm_fixture = ret_dict['right_vm_fixture']
+        right_vn_fixture = ret_dict['right_vn_fixture']
+        svm_list = [right_vm_fixture]
+
+        if config_level == 'global' or config_level == 'all':
+            self.config_ecmp_hash_global(ecmp_hash_config)
+        elif config_level == 'vn' or config_level == 'all':
+            right_vn_fixture.set_ecmp_hash(ecmp_hash_config)
+        elif config_level ==  'vmi' or config_level == 'all':
+            self.config_ecmp_hash_vmi(svm_list, ecmp_hash_config)
+        return ret_dict
+
+    def modify_ecmp_config_hash(self, ecmp_hash='default',config_level='global',right_vm_fixture=None,right_vn_fixture=None):
+        """Modify the ECMP configuration hash """
+
+        # Default ECMP hash with 5 tuple
+        if ecmp_hash == 'default':
+            ecmp_hash = {"source_ip": True, "destination_ip": True,
+                         "source_port": True, "destination_port": True,
+                         "ip_protocol": True}
+
+
+        if ecmp_hash == 'None':
+            ecmp_hash_config = {}
+            ecmp_hash_config['hashing_configured'] = False
+        else:
+            # Explicitly set "False" to individual tuple, incase not set
+            ecmp_hash_config = ecmp_hash.copy()
+            if not 'source_ip' in ecmp_hash_config:
+                ecmp_hash_config['source_ip'] = False
+            if not 'destination_ip' in ecmp_hash_config:
+                ecmp_hash_config['destination_ip'] = False
+            if not 'source_port' in ecmp_hash_config:
+                ecmp_hash_config['source_port'] = False
+            if not 'destination_port' in ecmp_hash_config:
+                ecmp_hash_config['destination_port'] = False
+            if not 'ip_protocol' in ecmp_hash_config:
+                ecmp_hash_config['ip_protocol'] = False
+            ecmp_hash_config['hashing_configured'] = True
+
+        right_vm_fixture = right_vm_fixture or self.right_vm_fixture
+        right_vn_fixture = right_vn_fixture or self.right_vn_fixture
+        # ECMP Hash at VMI interface of VM2 (right side)
+        svm_list = [right_vm_fixture]
+
+        if config_level == 'global' or config_level == 'all':
+            self.config_ecmp_hash_global(ecmp_hash_config)
+        if config_level == 'vn' or config_level == 'all':
+            right_vn_fixture.set_ecmp_hash(ecmp_hash_config)
+        if config_level ==  'vmi' or config_level == 'all':
+            self.config_ecmp_hash_vmi(svm_list, ecmp_hash_config)
+
+
+    def config_ecmp_hash_vmi(self, svm_list, ecmp_hash=None):
+        """Configure ecmp hash at vmi"""
+        for svm in svm_list:
+            for (vn_fq_name, vmi_uuid) in svm.get_vmi_ids().iteritems():
+                if re.match(r".*in_network_vn2.*|.*bridge_vn2.*|.*right_.*", vn_fq_name):
+                    self.logger.info('Updating ECMP Hash:%s at vmi:%s' % (ecmp_hash, vmi_uuid))
+                    vmi_config = self.vnc_lib.virtual_machine_interface_read(id = str(vmi_uuid))
+                    vmi_config.set_ecmp_hashing_include_fields(ecmp_hash)
+                    self.vnc_lib.virtual_machine_interface_update(vmi_config)
+
+    def config_ecmp_hash_global(self, ecmp_hash=None):
+        """Configure ecmp hash at global"""
+        self.logger.info('Updating ECMP Hash:%s at Global Config Level' % ecmp_hash)
+        global_vrouter_id = self.vnc_lib.get_default_global_vrouter_config_id()
+        global_config = self.vnc_lib.global_vrouter_config_read(id = global_vrouter_id)
+        global_config.set_ecmp_hashing_include_fields(ecmp_hash)
+        self.vnc_lib.global_vrouter_config_update(global_config)
+
+
+    def del_ecmp_hash_config(self, vn_fixture=None, svm_list=None):
+        """Delete ecmp hash at global, vn and vmi"""
+        self.logger.info('Explicitly deleting ECMP Hash:%s at Global, VN and VMI Level')
+        ecmp_hash = {"hashing_configured": False}
+        self.config_ecmp_hash_global(ecmp_hash)
+        self.config_ecmp_hash_vmi(svm_list, ecmp_hash)
+        vn_fixture.set_ecmp_hash(ecmp_hash)
+
+    def verify_ecmp_hash(self, vn_fixture=None, left_vm_fixture=None, right_vm_fixture=None, ecmp_hash='default'):
+        """Verify ECMP configuration hash at Agent and control node """
+        # Sleeping for 10 secs for route update to takes place for ecmp_hash
+        # config fileds
+        self.logger.info('Sleeping for 10 seconds')
+        sleep(10)
+        self.verify_ecmp_hash_at_agent(ecmp_hash=ecmp_hash,vn_fixture=vn_fixture,
+                                       left_vm_fixture=left_vm_fixture,
+                                       right_vm_fixture=right_vm_fixture)
+
+    def verify_ecmp_hash_at_agent(self, vn_fixture=None, left_vm_fixture=None, right_vm_fixture=None, ecmp_hash='default'):
+        """Verify ECMP configuration hash """
+         # Default ECMP hash with 5 tuple
+        if ecmp_hash == 'default':
+            ecmp_hash = {"source_ip": True, "destination_ip": True,
+                         "source_port": True, "destination_port": True,
+                         "ip_protocol": True}
+
+        ecmp_hash_config=[]
+        # ECMP Hash fileds displayed at agent is different from configured
+        # values. Mapping is: source_ip : l3-source-address, destination_ip:
+        # l3-destination-address etc..
+        if 'source_ip' in ecmp_hash:
+            ecmp_hash_config.append('l3-source-address')
+        if 'destination_ip' in ecmp_hash:
+            ecmp_hash_config.append('l3-destination-address')
+        if 'source_port' in ecmp_hash:
+            ecmp_hash_config.append('l4-source-port')
+        if 'destination_port' in ecmp_hash:
+            ecmp_hash_config.append('l4-destination-port')
+        if 'ip_protocol' in ecmp_hash:
+            ecmp_hash_config.append('l4-protocol')
+
+        # Get the ECMP hash next hops at agent
+        (domain, project, vn) = vn_fixture.vn_fq_name.split(':')
+        inspect_h = self.agent_inspect[left_vm_fixture.vm_node_ip]
+        agent_vrf_objs = inspect_h.get_vna_vrf_objs(domain, project, vn)
+        agent_vrf_obj = left_vm_fixture.get_matching_vrf( agent_vrf_objs['vrf_list'], vn_fixture.vrf_name)
+        vn_vrf_id = agent_vrf_obj['ucindex']
+
+        # Get the ECMP Hashing fields at agent
+        ecmp_hashing_fileds = inspect_h.get_vna_active_route(vrf_id=vn_vrf_id, ip=right_vm_fixture.vm_ip, prefix='32')['path_list'][0]['ecmp_hashing_fields']
+        ecmp_hash_at_agent = ecmp_hashing_fileds.split(',')
+
+        # Removing the empty elements
+        ecmp_hash_at_agent = filter(None, ecmp_hash_at_agent)
+
+        # Compare ECMP hash configured value with value programmed at agent
+        if set(ecmp_hash_at_agent) == set(ecmp_hash_config):
+            result =True
+            self.logger.info('ECMP Hash is configured properly at Agent: {%s}' % ecmp_hashing_fileds)
+        else:
+            result = False
+            assert result, 'ECMP Hash is incorrect at Agent. Configured ECMP Hash is: %s, ECMP Hash present at Agent is:%s' % (ecmp_hash_config, ecmp_hash_at_agent)
+        return result
+
+
