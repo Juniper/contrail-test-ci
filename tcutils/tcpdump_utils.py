@@ -84,3 +84,32 @@ def search_in_pcap(session, pcap, search_string):
 
 def delete_pcap(session, pcap):
     execute_cmd_out(session, 'rm -f %s' % (pcap))
+
+def get_tcpdump_ping_pkt_cap_output_from_vm(
+        src_vm_fix, dst_vm_fix, ip_to_ping, intf='eth0 ',
+        filt='icmp', expectation=False, c=2, log_file='/tmp/tcpdump_cap.log', mirror=False):
+    size = 56
+    grep_filt = ''
+    ip = ip_to_ping
+    count_output = []
+    output = []
+    if mirror:
+        size = '1400'
+        grep_filt = '| grep \"length [1-9][4-9][0-9][0-9][0-9]*\"'
+        ip = src_vm_fix.get_vm_ips()[0]
+    cmd_to_tcpdump = [ 'tcpdump -ni ' + intf + ' ' + filt + ' -vvvv ' + ' -w ' + log_file + ' 1>/dev/null 2>/dev/null']
+    cmd_to_output  = 'tcpdump -nr ' + log_file + grep_filt
+    pidfile=log_file+'.pid'
+    count = 'tcpdump -nr ' + log_file + ' | grep ' + ip + grep_filt + ' | wc -l'
+    for vm_fix in dst_vm_fix:
+        vm_fix.run_cmd_on_vm(cmds=cmd_to_tcpdump, as_daemon=True, pidfile=pidfile, as_sudo=True)
+    src_vm_fix.ping_with_certainty(ip_to_ping, expectation=expectation, size=size)
+    cmd_to_kill = 'cat %s | xargs kill ' % (pidfile)
+    for vm_fix in dst_vm_fix:
+        vm_fix.run_cmd_on_vm(cmds=[cmd_to_kill], as_sudo=True)
+        vm_fix.run_cmd_on_vm(cmds=[cmd_to_output], as_sudo=True)
+        output.append(vm_fix.return_output_cmd_dict[cmd_to_output])
+        vm_fix.run_cmd_on_vm(cmds=[count], as_sudo=True)
+        count_output.append(vm_fix.return_output_cmd_dict[count].split('\n')[2])
+    return output, count_output
+# end get_tcpdump_ping_pkt_cap_output_from_vm
