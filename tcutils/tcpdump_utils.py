@@ -84,3 +84,17 @@ def search_in_pcap(session, pcap, search_string):
 
 def delete_pcap(session, pcap):
     execute_cmd_out(session, 'rm -f %s' % (pcap))
+
+def get_tcpdump_ping_pkt_cap_output_from_vm(src_vm_fix, dst_vm_fix,
+                                   ip_to_ping, intf='eth0 ', filt='icmp', expectation=False, c=2, log_file='/tmp/tcpdump_cap.log'):
+    cmd_to_tcpdump = [ 'tcpdump -i ' + intf + ' ' + filt + ' -vvvv -c ' + str(c) + ' -w ' + log_file + ' 1>/dev/null 2>/dev/null']
+    cmd_to_output  = 'tcpdump -r ' + log_file
+    count = 'tcpdump -r ' + log_file + ' | grep ' + ip_to_ping + ' | wc -l'
+    dst_vm_fix.run_cmd_on_vm(cmds=cmd_to_tcpdump, as_daemon=True, pidfile=log_file+'.pid', as_sudo=True)
+    src_vm_fix.ping_with_certainty(ip_to_ping, expectation=expectation)
+    dst_vm_fix.run_cmd_on_vm(cmds=[cmd_to_output], as_sudo=True)
+    output = dst_vm_fix.return_output_cmd_dict[cmd_to_output]
+    dst_vm_fix.run_cmd_on_vm(cmds=[count], as_sudo=True)
+    count_output = dst_vm_fix.return_output_cmd_dict[count].split('\n')[2]
+    return output, count_output
+# end get_tcpdump_ping_pkt_cap_output_from_vm
