@@ -15,7 +15,8 @@ except ImportError:
 class IPAMFixture(fixtures.Fixture):
 
     def __init__(self, name=None, connections=None,
-                 ipamtype=IpamType("dhcp"), vdns_obj=None, uuid=None):
+                 ipamtype=IpamType("dhcp"), vdns_obj=None, uuid=None,
+                 subnet_method='user-defined-subnet-preferred',subnets=[]):):
         self.name = name
         self.connections = connections
         self.inputs = self.connections.inputs
@@ -32,6 +33,9 @@ class IPAMFixture(fixtures.Fixture):
         self.verify_is_run = False
         self.ri_name = None
         self.fq_name = [self.connections.domain_name, self.project_name, self.name]
+        self.subnet_method = subnet_method
+        self.subnets=subnets
+
         if self.inputs.verify_thru_gui():
             self.browser = self.connections.browser
             self.browser_openstack = self.connections.browser_openstack
@@ -56,6 +60,12 @@ class IPAMFixture(fixtures.Fixture):
         self.create()
     # end setup
 
+    def add_nw(self):
+         self.obj = self.vnc.network_ipam_read(fq_name=self.fq_name)
+         self.obj.set_ipam_subnets(IpamSubnets(self.subnets))
+         assert self.vnc.network_ipam_update(self.obj)
+
+
     def create(self):
         if self.ipam_id:
             return self.read()
@@ -77,7 +87,8 @@ class IPAMFixture(fixtures.Fixture):
         if not self.already_present:
             self.obj = NetworkIpam(name=self.name, parent_type='project',
                                    fq_name=self.fq_name,
-                                   network_ipam_mgmt=self.ipamtype)
+                                   network_ipam_mgmt=self.ipamtype,
+                                   ipam_subnet_method=self.subnet_method)
             if self.inputs.is_gui_based_config():
                 self.webui.create_ipam(self)
             else:
