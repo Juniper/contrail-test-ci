@@ -15,7 +15,12 @@ except ImportError:
 class IPAMFixture(fixtures.Fixture):
 
     def __init__(self, name=None, connections=None,
+<<<<<<< HEAD
                  ipamtype=IpamType("dhcp"), vdns_obj=None, uuid=None):
+=======
+                 ipamtype=IpamType("dhcp"), vdns_obj=None, uuid=None,
+                 subnet_method='user-defined-subnet',subnets=[]):
+>>>>>>> 4ae5984... fixed syntax error in ipam_test.py", line 19
         self.name = name
         self.connections = connections
         self.inputs = self.connections.inputs

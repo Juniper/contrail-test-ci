@@ -49,7 +49,7 @@ class VNFixture(fixtures.Fixture):
                  af=None, empty_vn=False, enable_dhcp=True,
                  dhcp_option_list=None, disable_gateway=False,
                  uuid=None, sriov_enable=False, sriov_vlan=None,
-                 sriov_provider_network=None,ecmp_hash=None,*args,**kwargs):
+                 sriov_provider_network=None,ecmp_hash=None,address_allocation_mode=None,*args,**kwargs):
         self.connections = connections
         self.inputs = inputs or connections.inputs
         self.logger = self.connections.logger
@@ -128,6 +128,7 @@ class VNFixture(fixtures.Fixture):
         self._vrf_ids = {}
         self._interested_computes = []
         self.vn_network_id = None
+        self.address_allocation_mode = address_allocation_mode
         self.mac_learning_enabled = kwargs.get('mac_learning_enabled', None)
         self.mac_limit_control = kwargs.get('mac_limit_control', None)
         self.mac_move_control = kwargs.get('mac_move_control', None)
@@ -361,6 +362,10 @@ class VNFixture(fixtures.Fixture):
             if not self.verify_if_vn_already_present(self.api_vn_obj, project_obj):
                 if self.shared:
                     self.api_vn_obj.is_shared = self.shared
+                if self.address_allocation_mode != None:
+                   self.api_vn_obj.address_allocation_mode = self.address_allocation_mode
+                if self.forwarding_mode != None:
+                   self.api_vn_obj.set_virtual_network_properties(VirtualNetworkType(forwarding_mode=self.forwarding_mode))
                 self.uuid = self.vnc_lib_h.virtual_network_create(
                     self.api_vn_obj)
                 with self.lock:
@@ -373,22 +378,25 @@ class VNFixture(fixtures.Fixture):
                 self.uuid = self.get_vn_uid(
                     self.api_vn_obj, project_obj.uuid)
                 self.created = False
-            ipam = self.vnc_lib_h.network_ipam_read(
-                fq_name=self.ipam_fq_name)
-            ipam_sn_lst = []
+            for fqname in self.ipam_fq_name:
+                ipam = self.vnc_lib_h.network_ipam_read(fq_name=fqname)
+                ipam_sn_lst = []
             # The dhcp_option_list and enable_dhcp flags will be modified for all subnets in an ipam
-            for net in self.vn_subnets:
-                network, prefix = net['cidr'].split('/')
-                ipam_sn = IpamSubnetType(
-                    subnet=SubnetType(network, int(prefix)))
-                if self.dhcp_option_list:
-                   ipam_sn.set_dhcp_option_list(DhcpOptionsListType(params_dict=self.dhcp_option_list))
-                if not self.enable_dhcp:
-                   ipam_sn.set_enable_dhcp(self.enable_dhcp)
-                ipam_sn_lst.append(ipam_sn)
-            self.api_vn_obj.add_network_ipam(ipam, VnSubnetsType(ipam_sn_lst))
-            self.vnc_lib_h.virtual_network_update(self.api_vn_obj)
-            self.vn_fq_name = self.api_vn_obj.get_fq_name_str()
+                for net in self.vn_subnets:
+                    network, prefix = net['cidr'].split('/')
+                    ipam_sn = IpamSubnetType(
+                        subnet=SubnetType(network, int(prefix)))
+                    if self.dhcp_option_list:
+                       ipam_sn.set_dhcp_option_list(DhcpOptionsListType(params_dict=self.dhcp_option_list))
+                    if not self.enable_dhcp:
+                       ipam_sn.set_enable_dhcp(self.enable_dhcp)
+                    ipam_sn_lst.append(ipam_sn)
+                if ipam.ipam_subnet_method != "flat-subnet":
+                   self.api_vn_obj.add_network_ipam(ipam, VnSubnetsType(ipam_sn_lst))
+                else:
+                    self.api_vn_obj.add_network_ipam(ipam, VnSubnetsType([]))
+                self.vnc_lib_h.virtual_network_update(self.api_vn_obj)
+                self.vn_fq_name = self.api_vn_obj.get_fq_name_str()
         except PermissionDenied:
             self.logger.info('Permission denied to create VirtualNetwork')
             raise
@@ -594,22 +602,33 @@ class VNFixture(fixtures.Fixture):
                 "VN Object ID %s in API-Server is not what was created" % (self.uuid))
             self.api_verification_flag = self.api_verification_flag and False
             return False
-
-        subnets = self.api_s_vn_obj[
-            'virtual-network']['network_ipam_refs'][0]['attr']['ipam_subnets']
-        for vn_subnet in self.vn_subnets:
-            subnet_found = False
-            vn_subnet_cidr = str(IPNetwork(vn_subnet['cidr']).ip)
-            for subnet in subnets:
-                if subnet['subnet']['ip_prefix'] == vn_subnet_cidr:
-                    subnet_found = True
-            if not subnet_found:
-                self.logger.warn(
-                    "VN Subnet IP %s not found in API-Server for VN %s" %
-                    (vn_subnet_cidr, self.vn_name))
-                self.api_verification_flag = self.api_verification_flag and False
-                return False
+##
+        for fqname in self.ipam_fq_name:
+             ipam = self.vnc_lib_h.network_ipam_read(fq_name=fqname)
+             if ipam.ipam_subnet_method != "flat-subnet":
+                list_len = len (self.api_s_vn_obj['virtual-network']['network_ipam_refs'])
+                for iter in range(0, list_len):
+                    if (self.api_s_vn_obj['virtual-network']['network_ipam_refs'][iter]['to'] == fqname):
+                       subnets = self.api_s_vn_obj[
+                                     'virtual-network']['network_ipam_refs'][iter]['attr']['ipam_subnets']
+                for vn_subnet in self.vn_subnets:
+                    subnet_found = False
+                    vn_subnet_cidr = str(IPNetwork(vn_subnet['cidr']).ip)
+                    for subnet in subnets:
+                        if subnet['subnet']['ip_prefix'] == vn_subnet_cidr:
+                            subnet_found = True
+                    if not subnet_found:
+                        self.logger.warn(
+                            "VN Subnet IP %s not found in API-Server for VN %s" %
+                            (vn_subnet_cidr, self.vn_name))
+                        self.api_verification_flag = self.api_verification_flag and False
+                        return False
+                    #end for
+             else:
+                self.logger.info("IPAM in flat-subnet, skip checking subnet on VN")
         # end for
+
+##
         self.api_s_route_targets = self.api_s_inspect.get_cs_route_targets(
             vn_id=self.uuid)
         if not self.api_s_route_targets:
