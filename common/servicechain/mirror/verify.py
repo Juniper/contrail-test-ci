@@ -9,6 +9,8 @@ from common.servicechain.verify import VerifySvcChain
 from common.ecmp.ecmp_verify import ECMPVerify
 from common.floatingip.config import CreateAssociateFip
 from random import randint
+from common.openstack_libs import network_exception as exceptions
+from tcutils.tcpdump_utils import *
 
 class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
 
@@ -294,7 +296,6 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                 self.logger.warning('No mirroring action seen')
         return result
 
-
     @retry(delay=2, tries=6)
     def verify_port_mirroring(self, src_vm, dst_vm, mirr_vm):
         result = True
@@ -303,24 +304,34 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             svm_name = svm.name
             host = self.get_svm_compute(svm_name)
             tapintf = self.get_svm_tapintf(svm_name)
-        session = ssh(host['host_ip'], host['username'], host['password'])
-        pcap = self.start_tcpdump(session, tapintf)
+        exp_count = 10
+        if self.inputs.pcap_on_vm:
+            vm_fix_pcap_pid_files = start_tcpdump_for_vm_intf(
+                None, [mirr_vm], None, filters='udp port 8099 -v', pcap_on_vm=True)
+        else:
+            session = ssh(host['host_ip'], host['username'], host['password'])
+            pcap = self.start_tcpdump(session, tapintf)
         assert src_vm.ping_with_certainty(dst_vm.vm_ip, count=5, size='1400')
         self.logger.info('Ping from %s to %s executed with c=5, expected mirrored packets 5 Ingress,5 Egress count = 10'
             % (src_vm.vm_ip, dst_vm.vm_ip))
-        exp_count = 10
-        filt = '| grep \"length [1-9][4-9][0-9][0-9][0-9]*\"'
-        mirror_pkt_count = self.stop_tcpdump(session, pcap, filt)
-        sleep(10)
+        filters = '| grep \"length [1-9][4-9][0-9][0-9][0-9]*\"'
+        if self.inputs.pcap_on_vm:
+            output, mirror_pkt_count = stop_tcpdump_for_vm_intf(
+                None, None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, filters=filters)
+            mirror_pkt_count = int(mirror_pkt_count[0])
+        else:
+            mirror_pkt_count = self.stop_tcpdump(session, pcap, filters)
         errmsg = "%s ICMP Packets mirrored to the analyzer VM %s,"\
                  "Expected %s packets" % (
                      mirror_pkt_count, svm_name, exp_count)
         if mirror_pkt_count < exp_count:
             self.logger.error(errmsg)
             assert False, errmsg
+
         self.logger.info("%s ICMP packets are mirrored to the analyzer "
                          "service VM '%s'", mirror_pkt_count, svm_name)
         return result
+    # end verify_port_mirroring
 
     def verify_policy_delete_add(self, svc_chain_info):
         left_vn_policy_fix = svc_chain_info['left_vn_policy_fix']
