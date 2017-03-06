@@ -47,7 +47,7 @@ class VNFixture(fixtures.Fixture):
                  af=None, empty_vn=False, enable_dhcp=True,
                  dhcp_option_list=None, disable_gateway=False,
                  uuid=None, sriov_enable=False, sriov_vlan=None,
-                 sriov_provider_network=None):
+                 sriov_provider_network=None, ecmp_hash=None):
         self.connections = connections
         self.inputs = inputs or connections.inputs
         self.logger = self.connections.logger
@@ -115,6 +115,7 @@ class VNFixture(fixtures.Fixture):
         self.sriov_vlan = sriov_vlan
         self.sriov_provider_network = sriov_provider_network
         self.dhcp_option_list = dhcp_option_list
+        self.ecmp_hash = ecmp_hash
         self.disable_gateway = disable_gateway
         self.vn_port_list=[]
         self.vn_with_route_target = []
@@ -141,7 +142,7 @@ class VNFixture(fixtures.Fixture):
                 self.vn_subnets = []
             self.logger.debug('Fetched VN: %s(%s) with subnets %s'
                              %(self.vn_fq_name, self.uuid, subnets))
-    
+
     def get_dns_ip(self, ipam_fq_name = None):
         if not ipam_fq_name:
             ipam_fq_name=self.ipam_fq_name
@@ -385,6 +386,10 @@ class VNFixture(fixtures.Fixture):
         if self.vxlan_id is not None:
             self.set_vxlan_id()
 
+        # Configure ecmp_hash
+        if self.ecmp_hash is not None:
+            self.set_ecmp_hash()
+
         # Populate the VN Subnet details
         if self.inputs.orchestrator == 'openstack':
             self.vn_subnet_objs = self.quantum_h.get_subnets_of_vn(self.uuid)
@@ -554,7 +559,7 @@ class VNFixture(fixtures.Fixture):
                     self.rt_number, self.rt_names))
                 self.api_verification_flag = self.api_verification_flag and False
                 return False
-        
+
         self.api_s_routing_instance = self.api_s_inspect.get_cs_routing_instances(
             vn_id=self.uuid)
         if not self.api_s_routing_instance:
@@ -1117,6 +1122,23 @@ class VNFixture(fixtures.Fixture):
             return vn_prop_obj['vxlan_network_identifier']
         return None
     # end get_vxlan_id
+
+    def set_ecmp_hash(self, ecmp_hash=None):
+        self.logger.debug('Updating ECMP Hash of VN %s to %s' % (
+            self.vn_fq_name, ecmp_hash))
+        vnc_lib = self.vnc_lib_h
+        vn_obj = vnc_lib.virtual_network_read(id =self.uuid)
+        vn_obj.set_ecmp_hashing_include_fields(ecmp_hash)
+        vnc_lib.virtual_network_update(vn_obj)
+    # end set_ecmp_hash
+
+    def get_ecmp_hash(self):
+        vnc_lib = self.vnc_lib_h
+        vn_obj = vnc_lib.virtual_network_read(id =self.uuid)
+        ecmp_hash = vn_obj.get_ecmp_hashing_include_fields()
+        self.logger.debug('ECMP Hash of VN %s is %s' % (
+            self.vn_fq_name, ecmp_hash))
+    # end get_ecmp_hash
 
     def add_forwarding_mode(self, project_fq_name, vn_name, forwarding_mode):
         vnc_lib = self.vnc_lib_h
