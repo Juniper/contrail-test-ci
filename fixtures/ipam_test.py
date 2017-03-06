@@ -16,7 +16,7 @@ class IPAMFixture(fixtures.Fixture):
 
     def __init__(self, name=None, connections=None,
                  ipamtype=IpamType("dhcp"), vdns_obj=None, uuid=None,
-                 subnet_method='user-defined-subnet-preferred',subnets=[]):):
+                 subnet_method='user-defined-subnet-preferred',subnets=[]):
         self.name = name
         self.connections = connections
         self.inputs = self.connections.inputs
