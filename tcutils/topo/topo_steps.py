@@ -33,6 +33,7 @@ from qos_fixture import QosConfigFixture
 from alarm_test import AlarmFixture
 from tor_fixture import ToRFixture
 from vcpe_router_fixture import VpeRouterFixture
+from interface_route_table_fixture import InterfaceRouteTableFixture
 try:
     from webui_test import *
 except ImportError:
@@ -1077,6 +1078,21 @@ def createVCPERouter(self):
                 connections=self.project_connections))
     return self
 # end createVCPERouter
+
+def createIntfRouteTable(self):
+    self.intf_fixture = {}
+    if not hasattr(self.topo, 'intf_route_table_params'):
+        return self
+    for intf in self.topo.intf_route_table_list:
+        self.intf_fixture[intf] = self.useFixture(
+            InterfaceRouteTableFixture(
+                connections=self.project_connections,
+                inputs=self.project_inputs,
+                name=intf,
+                prefixes=self.topo.intf_route_table_params[intf]['prefixes'],
+                community=self.topo.intf_route_table_params[intf]['community']))
+    return self
+# end createIntfRouteTable
 
 if __name__ == '__main__':
     ''' Unit test to invoke sdn topo setup utils.. '''
