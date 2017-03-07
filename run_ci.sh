@@ -119,11 +119,6 @@ function run_tests_serial {
   testr run --subunit $testrargs |  subunit2junitxml -f -o $serial_result_xml > /dev/null 2>&1
 }
 
-function check_test_discovery {
-   echo "Checking if test-discovery is fine"
-   bash -x tools/check_test_discovery.sh || die "Test discovery failed!"
-}
-
 function convert_logs_to_html {
   python tools/convert_logs_to_html.py logs/
   echo "Converted log files to html files"
@@ -283,7 +278,6 @@ if [ ! -z $ci_image ]; then
     export ci_image
 fi
 
-check_test_discovery
 setup_tor_agents
 setup_tors
 run_tests
