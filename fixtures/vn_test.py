@@ -378,25 +378,47 @@ class VNFixture(fixtures.Fixture):
                 self.uuid = self.get_vn_uid(
                     self.api_vn_obj, project_obj.uuid)
                 self.created = False
-            for fqname in self.ipam_fq_name:
-                ipam = self.vnc_lib_h.network_ipam_read(fq_name=fqname)
-                ipam_sn_lst = []
-            # The dhcp_option_list and enable_dhcp flags will be modified for all subnets in an ipam
-                for net in self.vn_subnets:
-                    network, prefix = net['cidr'].split('/')
-                    ipam_sn = IpamSubnetType(
-                        subnet=SubnetType(network, int(prefix)))
-                    if self.dhcp_option_list:
-                       ipam_sn.set_dhcp_option_list(DhcpOptionsListType(params_dict=self.dhcp_option_list))
-                    if not self.enable_dhcp:
-                       ipam_sn.set_enable_dhcp(self.enable_dhcp)
-                    ipam_sn_lst.append(ipam_sn)
-                if ipam.ipam_subnet_method != "flat-subnet":
-                   self.api_vn_obj.add_network_ipam(ipam, VnSubnetsType(ipam_sn_lst))
-                else:
-                    self.api_vn_obj.add_network_ipam(ipam, VnSubnetsType([]))
-                self.vnc_lib_h.virtual_network_update(self.api_vn_obj)
-                self.vn_fq_name = self.api_vn_obj.get_fq_name_str()
+            if (type(self.ipam_fq_name[0]) != list):
+               ipam = self.vnc_lib_h.network_ipam_read(fq_name=self.ipam_fq_name)
+               ipam_sn_lst = []
+               # The dhcp_option_list and enable_dhcp flags will be modified for all subnets in an ipam
+               for net in self.vn_subnets:
+                   network, prefix = net['cidr'].split('/')
+                   ipam_sn = IpamSubnetType(
+                      subnet=SubnetType(network, int(prefix)))
+                   if self.dhcp_option_list:
+                      ipam_sn.set_dhcp_option_list(DhcpOptionsListType(params_dict=self.dhcp_option_list))
+                   if not self.enable_dhcp:
+                      ipam_sn.set_enable_dhcp(self.enable_dhcp)
+                   ipam_sn_lst.append(ipam_sn)
+               if ipam.ipam_subnet_method != "flat-subnet":
+                  self.api_vn_obj.add_network_ipam(ipam, VnSubnetsType(ipam_sn_lst))
+               else:
+                   self.api_vn_obj.add_network_ipam(ipam, VnSubnetsType([]))
+               self.vnc_lib_h.virtual_network_update(self.api_vn_obj)
+               self.vn_fq_name = self.api_vn_obj.get_fq_name_str()
+            #end of for
+            else:
+                for fqname in self.ipam_fq_name:
+                    ipam = self.vnc_lib_h.network_ipam_read(fq_name=fqname)
+                    ipam_sn_lst = []
+                 # The dhcp_option_list and enable_dhcp flags will be modified for all subnets in an ipam
+                    for net in self.vn_subnets:
+                        network, prefix = net['cidr'].split('/')
+                        ipam_sn = IpamSubnetType(
+                            subnet=SubnetType(network, int(prefix)))
+                        if self.dhcp_option_list:
+                           ipam_sn.set_dhcp_option_list(DhcpOptionsListType(params_dict=self.dhcp_option_list))
+                        if not self.enable_dhcp:
+                           ipam_sn.set_enable_dhcp(self.enable_dhcp)
+                        ipam_sn_lst.append(ipam_sn)
+                    if ipam.ipam_subnet_method != "flat-subnet":
+                       self.api_vn_obj.add_network_ipam(ipam, VnSubnetsType(ipam_sn_lst))
+                    else:
+                        self.api_vn_obj.add_network_ipam(ipam, VnSubnetsType([]))
+                    self.vnc_lib_h.virtual_network_update(self.api_vn_obj)
+                    self.vn_fq_name = self.api_vn_obj.get_fq_name_str()
+            #end of for
         except PermissionDenied:
             self.logger.info('Permission denied to create VirtualNetwork')
             raise
@@ -602,33 +624,54 @@ class VNFixture(fixtures.Fixture):
                 "VN Object ID %s in API-Server is not what was created" % (self.uuid))
             self.api_verification_flag = self.api_verification_flag and False
             return False
-##
-        for fqname in self.ipam_fq_name:
-             ipam = self.vnc_lib_h.network_ipam_read(fq_name=fqname)
-             if ipam.ipam_subnet_method != "flat-subnet":
-                list_len = len (self.api_s_vn_obj['virtual-network']['network_ipam_refs'])
-                for iter in range(0, list_len):
-                    if (self.api_s_vn_obj['virtual-network']['network_ipam_refs'][iter]['to'] == fqname):
-                       subnets = self.api_s_vn_obj[
-                                     'virtual-network']['network_ipam_refs'][iter]['attr']['ipam_subnets']
-                for vn_subnet in self.vn_subnets:
-                    subnet_found = False
-                    vn_subnet_cidr = str(IPNetwork(vn_subnet['cidr']).ip)
-                    for subnet in subnets:
-                        if subnet['subnet']['ip_prefix'] == vn_subnet_cidr:
-                            subnet_found = True
-                    if not subnet_found:
-                        self.logger.warn(
-                            "VN Subnet IP %s not found in API-Server for VN %s" %
-                            (vn_subnet_cidr, self.vn_name))
-                        self.api_verification_flag = self.api_verification_flag and False
-                        return False
-                    #end for
-             else:
-                self.logger.info("IPAM in flat-subnet, skip checking subnet on VN")
-        # end for
+        if (type(self.ipam_fq_name[0]) != list):
+           ipam = self.vnc_lib_h.network_ipam_read(fq_name=self.ipam_fq_name)
+           if ipam.ipam_subnet_method != "flat-subnet":
+              list_len = len (self.api_s_vn_obj['virtual-network']['network_ipam_refs'])
+              for iter in range(0, list_len):
+                  if (self.api_s_vn_obj['virtual-network']['network_ipam_refs'][iter]['to'] == fqname):
+                     subnets = self.api_s_vn_obj[
+                                   'virtual-network']['network_ipam_refs'][iter]['attr']['ipam_subnets']
+              for vn_subnet in self.vn_subnets:
+                  subnet_found = False
+                  vn_subnet_cidr = str(IPNetwork(vn_subnet['cidr']).ip)
+                  for subnet in subnets:
+                      if subnet['subnet']['ip_prefix'] == vn_subnet_cidr:
+                          subnet_found = True
+                  if not subnet_found:
+                      self.logger.warn(
+                          "VN Subnet IP %s not found in API-Server for VN %s" %
+                          (vn_subnet_cidr, self.vn_name))
+                      self.api_verification_flag = self.api_verification_flag and False
+                      return False
+                  #end for
+           else:
+              self.logger.info("IPAM in flat-subnet, skip checking subnet on VN")
 
-##
+        else:
+            for fqname in self.ipam_fq_name:
+                ipam = self.vnc_lib_h.network_ipam_read(fq_name=self.ipam_fq_name)
+                if ipam.ipam_subnet_method != "flat-subnet":
+                   list_len = len (self.api_s_vn_obj['virtual-network']['network_ipam_refs'])
+                   for iter in range(0, list_len):
+                       if (self.api_s_vn_obj['virtual-network']['network_ipam_refs'][iter]['to'] == fqname):
+                          subnets = self.api_s_vn_obj[
+                                        'virtual-network']['network_ipam_refs'][iter]['attr']['ipam_subnets']
+                   for vn_subnet in self.vn_subnets:
+                       subnet_found = False
+                       vn_subnet_cidr = str(IPNetwork(vn_subnet['cidr']).ip)
+                       for subnet in subnets:
+                           if subnet['subnet']['ip_prefix'] == vn_subnet_cidr:
+                               subnet_found = True
+                       if not subnet_found:
+                           self.logger.warn(
+                               "VN Subnet IP %s not found in API-Server for VN %s" %
+                               (vn_subnet_cidr, self.vn_name))
+                           self.api_verification_flag = self.api_verification_flag and False
+                           return False
+                       #end for
+                else:
+                   self.logger.info("IPAM in flat-subnet, skip checking subnet on VN")
         self.api_s_route_targets = self.api_s_inspect.get_cs_route_targets(
             vn_id=self.uuid)
         if not self.api_s_route_targets:
