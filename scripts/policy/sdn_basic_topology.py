@@ -52,6 +52,9 @@ class sdn_basic_config ():
         self.rules = {}
 
         self.rules[self.policy_list[0]] = [
+            {'direction': '<>', 'protocol': 'icmp',
+             'dest_network': self.vnet_list[2], 'source_network': self.vnet_list[0],
+             'dst_ports': 'any', 'simple_action': 'pass', 'src_ports': 'any'},
             {'direction': '>', 'protocol': 'any',
              'dest_network': self.vnet_list[0], 'source_network': self.vnet_list[0],
              'dst_ports': 'any', 'simple_action': 'deny', 'src_ports': [0, 0]},
@@ -108,6 +111,9 @@ class sdn_basic_config ():
              'dst_ports': 'any', 'simple_action': 'deny', 'src_ports': [3, 3]}]
 
         self.rules[self.policy_list[4]] = [
+            {'direction': '<>', 'protocol': 'icmp',
+             'dest_network': self.vnet_list[0], 'source_network': self.vnet_list[2],
+             'dst_ports': 'any', 'simple_action': 'pass', 'src_ports': 'any'},
             {'direction': '>', 'protocol': 'udp',
              'dest_network': self.vnet_list[2], 'source_network': self.vnet_list[2],
              'dst_ports': 'any', 'simple_action': 'deny', 'src_ports': [0, 0]},
