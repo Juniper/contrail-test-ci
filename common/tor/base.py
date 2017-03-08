@@ -3,6 +3,7 @@ from netaddr import *
 from random import randint
 
 from common.neutron.base import BaseNeutronTest
+from common import isolated_creds, create_public_vn
 
 from pif_fixture import PhysicalInterfaceFixture
 from lif_fixture import LogicalInterfaceFixture
@@ -21,6 +22,23 @@ class BaseTorTest(BaseNeutronTest):
         super(BaseTorTest, cls).setUpClass()
         cls.vnc_api_h = cls.vnc_lib
         cls.vnc_lib_fixture = cls.connections.vnc_lib_fixture
+        cls.quantum_h = cls.connections.quantum_h
+        cls.nova_h = cls.connections.nova_h
+        cls.vnc_lib = cls.connections.vnc_lib
+        cls.agent_inspect = cls.connections.agent_inspect
+        cls.cn_inspect = cls.connections.cn_inspect
+        cls.analytics_obj = cls.connections.analytics_obj
+        if cls.inputs.admin_username:
+            public_creds = cls.admin_isolated_creds
+        else:
+            public_creds = cls.isolated_creds
+        cls.public_vn_obj = create_public_vn.PublicVn(
+            public_creds,
+            cls.inputs,
+            ini_file=cls.ini_file,
+            logger=cls.logger)
+        cls.public_vn_obj.configure_control_nodes()
+
     # end setUpClass
 
     @classmethod
