@@ -230,11 +230,9 @@ class VerifySvcFirewall(VerifySvcMirror):
         left_vm_name = left_vm_name or get_random_name('bridge_vm1')
         right_vm_name = right_vm_name or get_random_name('bridge_vm2')
         left_vm_fixture = left_vm_fixture or self.config_and_verify_vm(
-            left_vm_name, vn_fix=left_vn_fixture, image_name=image_name,
-            node_name=left_vm_node_name)
+            left_vm_name, vn_fix=left_vn_fixture, image_name=image_name)
         right_vm_fixture = right_vm_fixture or self.config_and_verify_vm(
-            right_vm_name, vn_fix=right_vn_fixture, image_name=image_name,
-            node_name=right_vm_node_name)
+            right_vm_name, vn_fix=right_vn_fixture, image_name=image_name)
 
         # SI
         if_list = []
@@ -362,11 +360,9 @@ class VerifySvcFirewall(VerifySvcMirror):
         right_vm_name = right_vm_name or get_random_name('in_network_vm2')
 
         left_vm_fixture = left_vm_fixture or self.config_and_verify_vm(
-            left_vm_name, vn_fix=left_vn_fixture, image_name=image_name,orch=self.orchestrator,
-            node_name=left_vm_node_name)
+            left_vm_name, vn_fix=left_vn_fixture, image_name=image_name,orch=self.orchestrator)
         right_vm_fixture = right_vm_fixture or self.config_and_verify_vm(
-            right_vm_name, vn_fix=right_vn_fixture, image_name=image_name,
-            node_name=right_vm_node_name)
+            right_vm_name, vn_fix=right_vn_fixture, image_name=image_name)
 
         # SIs
         if_list = [['management', False, False],
