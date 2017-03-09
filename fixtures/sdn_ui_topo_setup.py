@@ -247,6 +247,11 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
         assert ui_topo_steps.createRoutingPolicy(self)
         return True
     # end create_routing_policies
+    
+    def create_route_aggregates(self):
+        assert ui_topo_steps.createRouteAggregate(self)
+        return True
+    # end create_route_aggregates
 
     def cleanUp(self):
         if self.inputs.fixture_cleanup == 'yes':
