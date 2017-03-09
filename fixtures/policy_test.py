@@ -360,7 +360,7 @@ class PolicyFixture(fixtures.Fixture):
                 'dest_policy': None,
                 'dest_subnet': None,
                 'dst_ports': [PortType(-1, -1)],
-                'action_list': None
+                'action_list': {} 
             }
             for key in rule_dict:
                 new_rule[key] = rule_dict[key]
