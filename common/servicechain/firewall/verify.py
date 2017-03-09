@@ -529,7 +529,6 @@ class VerifySvcFirewall(VerifySvcMirror):
             action_list += action_step
             si_fixture_list.append(si_fixtures)
             st_fixture_list.append(st_fixture)
-            index += 1
         rules = [
             {
                 'direction': '<>',
