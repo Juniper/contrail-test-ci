@@ -42,7 +42,7 @@ class BaseK8sTest(test.BaseTestCase):
         '''
         A simple helper method to create a service
         '''
-        name = name or get_random_name('k8s-svc')
+        name = name or get_random_name('nginx-svc')
         metadata = metadata or {'name' :  name}
         selector_dict = {}
         spec = spec or {
@@ -96,6 +96,7 @@ class BaseK8sTest(test.BaseTestCase):
                         container_port=80,
                         app=None,
                         spec={}):
+        name = name or get_random_name('nginx-pod')
         if app:
             metadata['labels'] = metadata.get('labels') or { 'app': app }
         spec = spec or {
@@ -118,6 +119,7 @@ class BaseK8sTest(test.BaseTestCase):
                         namespace='default',
                         metadata={},
                         spec={}):
+        name = name or get_random_name('busybox-pod')
         spec = spec or {
                     'containers' : [
                         { 'image' : 'busybox',
@@ -133,3 +135,35 @@ class BaseK8sTest(test.BaseTestCase):
                               spec=spec)
     # end setup_busybox_pod
 
+    def validate_nginx_lb(self,
+                          test_pod,
+                          lb_pods,
+                          service_ip,
+                          port=80):
+        '''
+        From test_pod , run wget on http://<service_ip>:<port> and check
+        if the all the lb_pods respond to atleast one of the requests over
+        3*len(lb_pods) attempts
+        '''
+        for pod in lb_pods:
+            pod.run_cmd('echo %s > /usr/share/nginx/html/index.html' %(
+                pod.name))
+        tries = len(lb_pods)*3
+        hit = {}
+        for x in lb_pods:
+            hit[x.name] = 0
+        for i in range(0, tries):
+            out = test_pod.run_cmd('wget http://%s:%s -O -' %(
+                                   service_ip, port), shell='/bin/sh -l -c')
+            for pod in lb_pods:
+                if pod.name in out:
+                    hit[pod.name] += 1
+        if 0 in hit.values():
+            msg = ('No http hit seen for one or more pods.'
+                    'Pls check. Hits: %s' %(hit))
+            self.logger.error(msg)
+            assert False, msg
+        self.logger.info('Nginx lb hits seem to be ok: %s' %(hit))
+        return True
+    # end validate_nginx_lb
+            
