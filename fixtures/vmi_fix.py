@@ -3,12 +3,12 @@ from contrail_fixtures import ContrailFixture
 from tcutils.util import retry
 from vnc_api.vnc_api import VirtualMachineInterface
 
-class PortFixture (ContrailFixture):
+class PortFixture_v2 (ContrailFixture):
 
    vnc_class = VirtualMachineInterface
 
    def __init__ (self, connections, uuid=None, params=None, fixs=None):
-       super(PortFixture, self).__init__(
+       super(PortFixture_v2, self).__init__(
            uuid=uuid,
            connections=connections,
            params=params,
@@ -104,3 +104,69 @@ class PortFixture (ContrailFixture):
            return False, msg
        self.logger.debug('%s removed from orchestrator' % self)
        return True, None
+
+
+class PortFixture (PortFixture_v2):
+
+   ''' Fixture for backward compatibility '''
+
+   def __init__ (self, connections, vn_fqn, mac_address=[], vlan_id=None,
+                 security_groups=[], extra_dhcp_opts=[], binding_profile=None):
+       self.params = {'virtual_network_refs':[vn_fqn]}
+       if mac_address:
+           self.params['virtual_machine_interface_addresses'] = {
+               'mac_address' : mac_address }
+       if vlan_id:
+           self.params['virtual_machine_interface_properties'] = {
+               'sub_interface_vlan_tag' : vlan_id }
+       if binding_profile:
+           self.params['virtual_machine_interface_bindings'] = {
+               'key_value_pair' : [{'key':'profile',
+                                    'value':str(binding_profile)}]}
+       if security_groups:
+           self.params['security_group_refs'] = security_groups
+       if extra_dhcp_opts:
+           self.params['virtual_machine_inteface_dhcp_option_list'] = {
+               'dhcp_option' : extra_dhcp_opts }
+       super(PortFixture_v2, self).__init__(connections=connections,
+                                            params=self.params)
+
+   def disable_policy (self):
+       flag = self.params.get('virtual_machine_interface_disable_policy')
+       if flag is None or flag == False:
+           self.params['virtual_machine_interface_disable_policy'] = True
+           self.update(self.params)
+
+   def enable_policy (self):
+       flag = self.params.get('virtual_machine_interface_disable_policy')
+       if flag is None or flag == True:
+           self.params['virtual_machine_interface_disable_policy'] = False
+           self.update(self.params)
+
+   def add_fat_flow(self, fat_flow_config):
+       dd = self.params.get('virtual_machine_interface_fat_flow_protocols', {})
+       lst = dd.get('fat_flow_protocol', [])
+       lst.append(fat_flow_config)
+       self.params['virtual_machine_interface_fat_flow_protocols'] = dd
+       self.update(self.params)
+
+   def remove_fat_flow(self, fat_flow_config):
+       dd = self.params.get('virtual_machine_interface_fat_flow_protocols', {})
+       if dd:
+           lst = self.params['fat_flow_protocol']
+       if lst:
+           lst.remove(fat_flow_config)
+           self.update(self.params)
+
+   def add_interface_route_table (self, rt_fqn):
+       lst = self.params.get('interface_route_table_refs', [])
+       lst.append(rt_fqn)
+       self.params['interface_route_table_refs'] = lst
+       self.update(self.params)
+
+   def del_interface_route_table (self, rt_fqn):
+       lst = self.params.get('interface_route_table_refs', [])
+       if lst:
+           lst.remove(rt_fqn)
+           self.params['interface_route_table_refs'] = lst
+           self.update(self.params)
