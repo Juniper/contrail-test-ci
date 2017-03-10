@@ -15,6 +15,7 @@ from ipam_fixture import IPAMFixture
 from lif_fixture import LogicalInterfaceFixture_v2
 from floating_ip_pool_fixture import FloatingIpPoolFixture
 from floating_ip_fixture import FloatingIpFixture
+from alarm_fixture import AlarmFixture_v2
 
 # Map: heat resource type -> fixture
 _HEAT_2_FIXTURE = {
@@ -24,7 +25,9 @@ _HEAT_2_FIXTURE = {
    'OS::ContrailV2::ServiceInstance': SvcInstanceFixture,
    'OS::ContrailV2::PortTuple': PortTupleFixture,
    'OS::ContrailV2::InstanceIp': InstanceIpFixture,
-   'OS::ContrailV2::VirtualMachineInterface': vmi_fix.PortFixture,
+   'OS::ContrailV2::Alarm': AlarmFixture_v2,
+   'OS::ContrailV2::LogicalInterface': LogicalInterfaceFixture_v2,
+   'OS::ContrailV2::VirtualMachineInterface': vmi_fix.PortFixture_v2,
    'OS::Nova::Server': vm_fix.VMFixture,
 }
 

@@ -91,7 +91,7 @@ class LogicalInterfaceFixture (LogicalInterfaceFixture_v2):
        for vmi in vmis:
            params['virtual_machine_interface_refs'].append(vmi.fq_name_str)
        super(LogicalInterfaceFixture, self).__init__(connections=connections,
-                                                     params=params)
+                                                     params=self.params)
 
    def add_virtual_machine_interface (self, vmi):
        self.params['virtual_machine_interface_refs'].append(vmi.fq_name_str)
