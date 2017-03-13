@@ -4240,6 +4240,12 @@ class AnalyticsVerification(fixtures.Fixture):
                 result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-api',\
                             server,node = cfgm)
+                #If only containers are supported from R4.0, the below code should be removed and
+                #cassandra port in port_dict should be changed to 9161.
+                server = "%s:%s"%(ip,'9161')
+                result = result or self.verify_connection_infos(ops_inspect,\
+                            'contrail-api',\
+                            server,node = cfgm)
             assert result
             result = False    
             for ip in self.inputs.config_amqp_ips:
@@ -4299,6 +4305,12 @@ class AnalyticsVerification(fixtures.Fixture):
                 result = result or self.verify_connection_infos(ops_inspect,\
                             'DeviceManager',\
                             server,node = cfgm)
+                #If only containers are supported from R4.0, the below code should be removed and
+                #cassandra port in port_dict should be changed to 9161.
+                server = "%s:%s"%(ip,'9161')
+                result = result or self.verify_connection_infos(ops_inspect,\
+                            'DeviceManager',\
+                            server,node = cfgm)
             assert result
             result = False    
             for ip in self.inputs.config_amqp_ips:
@@ -4351,6 +4363,12 @@ class AnalyticsVerification(fixtures.Fixture):
                 result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-schema',\
                             server,node = cfgm)
+                #If only containers are supported from R4.0, the below code should be removed and
+                #cassandra port in port_dict should be changed to 9161.
+                server = "%s:%s"%(ip,'9161')
+                result = result or self.verify_connection_infos(ops_inspect,\
+                            'contrail-schema',\
+                            server,node = cfgm)
             assert result
 
         for cfgm in self.inputs.cfgm_names:
@@ -4396,6 +4414,12 @@ class AnalyticsVerification(fixtures.Fixture):
                 result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-svc-monitor',\
                             server,node = cfgm)
+                #If only containers are supported from R4.0, the below code should be removed and
+                #cassandra port in port_dict should be changed to 9161.
+                server = "%s:%s"%(ip,'9161')
+                result = result or self.verify_connection_infos(ops_inspect,\
+                            'contrail-svc-monitor',\
+                            server,node = cfgm)
             assert result
         return True
     # end verify_process_and_connection_infos_config
@@ -4417,6 +4441,12 @@ class AnalyticsVerification(fixtures.Fixture):
 
             for ip in self.inputs.database_control_ips:
                 server = "%s:%s"%(ip,port_dict['cassandra'])
+                result = result or self.verify_connection_infos(ops_inspect,\
+                            'contrail-control',\
+                            server,node = bgp)
+                #If only containers are supported from R4.0, the below code should be removed and
+                #cassandra port in port_dict should be changed to 9041.
+                server = "%s:%s"%(ip,'9041')
                 result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-control',\
                             server,node = bgp)
