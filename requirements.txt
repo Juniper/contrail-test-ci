@@ -19,3 +19,6 @@ tabulate
 fabric==1.11.1
 paramiko==1.17.0
 dpkt
+backports.ssl-match-hostname==3.5.0.1
+ipaddress==1.0.18
+urllib3==1.20
