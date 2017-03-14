@@ -1350,6 +1350,12 @@ class VMFixture(fixtures.Fixture):
                 # endif
             elif curr_vrf_id:
                 # vrf is in agent. Check that VM route is removed in vrouter
+                curr_vrf_dict = inspect_h.get_vna_vrf_by_id(curr_vrf_id)
+                if vn_fq_name not in curr_vrf_dict.get('name'):
+                    self.logger.debug('VRF %s already used by some other VN %s'
+                        '. Would have to skip vrouter check on %s' % (
+                        curr_vrf_id, curr_vrf_dict.get('name'), compute_ip))
+                    return True
                 prefixes = self.vm_ip_dict[vn_fq_name]
                 for prefix in prefixes:
                     route_table = inspect_h.get_vrouter_route_table(
