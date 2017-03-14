@@ -325,7 +325,8 @@ class VerifySvcFirewall(VerifySvcMirror):
         """Validate the service chaining in network  datapath"""
 
         if not image_name:
-            if ci and self.inputs.get_af() == 'v4' and self.inputs.orchestrator != 'vcenter':
+            if ci and self.inputs.get_af() == 'v4' and (self.inputs.orchestrator != 'vcenter'\
+                                     and not self.inputs.vcenter_gw_setup):
                 image_name = 'cirros'
             else:
                 image_name = 'ubuntu-traffic'
