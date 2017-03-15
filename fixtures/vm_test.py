@@ -777,7 +777,6 @@ class VMFixture(fixtures.Fixture):
             for vn_fq_name in self.vn_fq_names:
                 if  self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) =='l2':
                     self.logger.debug("skipping ping to one of the 169.254.x.x IPs")
-                    return True
                 if vn_fq_name in local_ips and local_ips[vn_fq_name] != '0.0.0.0':
                     if self.ping_vm_from_host(vn_fq_name):
                         self._local_ip = self.local_ips[vn_fq_name]
@@ -1724,19 +1723,19 @@ class VMFixture(fixtures.Fixture):
     def verify_cleared_from_setup(self, check_orch=True, verify=False):
         # Not expected to do verification when self.count is > 1, right now
         if self.verify_is_run or verify:
-             assert self.verify_vm_not_in_api_server(), ('VM %s is not removed ',
+             assert self.verify_vm_not_in_api_server(), ('VM %s is not removed '
                 'from API Server' %(self.vm_name))
              if check_orch:
-                 assert self.verify_vm_not_in_orchestrator(), ('VM %s is still',
+                 assert self.verify_vm_not_in_orchestrator(), ('VM %s is still'
                     'seen in orchestrator' % (self.vm_name))
-             assert self.verify_vm_not_in_agent(), ('VM %s is still seen in ',
+             assert self.verify_vm_not_in_agent(), ('VM %s is still seen in '
                 'one or more agents' % (self.vm_name))
-             assert self.verify_vm_not_in_control_nodes(), ('VM %s is still ',
+             assert self.verify_vm_not_in_control_nodes(), ('VM %s is still '
                 'seen in Control nodes' % (self.vm_name))
-             assert self.verify_vm_not_in_nova(), ('VM %s is still seen in ',
+             assert self.verify_vm_not_in_nova(), ('VM %s is still seen in '
                 'nova' % (self.vm_name))
 
-             assert self.verify_vm_flows_removed(), ('One or more flows of VM',
+             assert self.verify_vm_flows_removed(), ('One or more flows of VM'
                 ' %s is still seen in Compute node %s' %(self.vm_name,
                 self.vm_node_ip))
              for vn_fq_name in self.vn_fq_names:
