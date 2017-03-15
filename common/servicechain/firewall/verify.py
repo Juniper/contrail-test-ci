@@ -510,7 +510,7 @@ class VerifySvcFirewall(VerifySvcMirror):
                 svc_scaling = True
             svc_mode = si[0]
             (mgmt_vn, left_vn, right_vn) = (
-                None, left_vn_fixture.vn_fq_name, right_vn_fixture.vn_fq_name)
+                None, left_vn_fixture, right_vn_fixture)
             if svc_mode == 'transparent':
                 (mgmt_vn, left_vn, right_vn) = (None, None, None)
             if st_version == 2:
@@ -557,7 +557,7 @@ class VerifySvcFirewall(VerifySvcMirror):
         assert result, msg
 
         # Ping from left VM to right VM
-        errmsg = "Ping to right VM ip %s from left VM failed" % self.vm2_fixture.vm_ip
+        errmsg = "Ping to right VM ip %s from left VM failed" % right_vm_fixture.vm_ip
         assert left_vm_fixture.ping_with_certainty(
             right_vm_fixture.vm_ip), errmsg
         ret_dict = {
