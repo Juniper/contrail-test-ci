@@ -116,7 +116,7 @@ class DomainFixture(fixtures.Fixture):
             ret = self.auth.update_domain(domain_id=get_plain_uuid(self.uuid),domain_name=domain_name,
                                     description=description,enabled=enabled)
             self.domain_name = self.domain_obj.name
-            slef.logger.info('Domain updated successfully %s',self.domain_name)
+            self.logger.info('Domain updated successfully %s',self.domain_name)
             return ret
         except:
             self.logger.info('Domain updation failed')
