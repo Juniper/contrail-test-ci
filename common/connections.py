@@ -102,17 +102,18 @@ class ContrailConnections():
                 env[attr] = OpenstackAuth(username, password,
                            project_name, self.inputs, self.logger,
                            domain_name=self.domain_name)
-            else:
+            elif self.inputs.orchestrator == 'vcenter':
                 env[attr] = VcenterAuth(username, password,
                                        project_name, self.inputs)
-        return env[attr]
+        return env.get(attr)
 
     def get_vnc_lib_h(self, refresh=False):
         attr = '_vnc_lib_fixture_' + self.project_name + '_' + self.username
         cfgm_ip = self.inputs.api_server_ip or \
                   self.inputs.contrail_external_vip or self.inputs.cfgm_ip
         if not getattr(env, attr, None) or refresh:
-            if self.domain_name == 'default-domain' :
+            if self.domain_name == 'default-domain' \
+                         and self.inputs.orchestrator == 'openstack' :
                 self.domain = 'Default'        
             else:        
                 self.domain = self.domain_name
