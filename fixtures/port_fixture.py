@@ -82,7 +82,7 @@ class PortFixture(vnc_api_test.VncLibFixture):
             extra_dhcp_opts=self.extra_dhcp_opts,
             binding_profile=self.binding_profile)
         self.neutron_obj = neutron_obj
-        self.uuid = neutron_obj['id']
+        self.uuid = self.neutron_obj['id']
 
     def _contrail_create_port(self):
         vmi_props = vnc_api_test.VirtualMachineInterfacePropertiesType()
