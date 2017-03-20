@@ -30,6 +30,23 @@ class AgentInspect (VerificationUtilBase):
     def get_vna_policy(self, domain='default-domain', project='admin', policy='default-network-policy'):
         pass
 
+    def get_vna_vrf_list(self, domain='default-domain', project='admin'):
+        '''
+            method: get_vna_vrf_list returns a list
+            returns None if not found, a dict w/ attrib. eg:
+
+        '''
+        vrfl = self.dict_get('Snh_VrfListReq?name=')
+        avrf = vrfl.xpath('./VrfListResp/vrf_list/list/VrfSandeshData') or \
+            vrfl.xpath('./vrf_list/list/VrfSandeshData')
+        l = []
+        for v in avrf:
+            p = {}
+            for e in v:
+                p[e.tag] = e.text
+            l.append(p)
+        return VnaVrfListResult({'VRFs': l})
+
     def get_vna_vn_list(self, domain='default-domain', project='admin'):
         '''
             method: get_vna_vn_list returns a list
@@ -358,6 +375,23 @@ l[0]={'protocol': '1', 'stats_bytes': '222180', 'stats_packets': '2645', 'setup_
 
     def dissassociate_ip(self, domain='default-domain', *arg):
         pass
+
+    def get_vna_vrf_by_id(self, vrf_id):
+        '''
+        Query the vrf using vrf id instead of vrf fqname
+        Uses ucindex as a key (ucindex, mcindex, l2index, uc6index are all same
+        Returns dict of vrf entry as seen in Snh_VrfListReq query
+
+        If not found, returns empty dict
+        '''
+        vrf_dict = {}
+        vrf_list = self.dict_get('Snh_VrfListReq?name=').xpath('./VrfListResp')[0]
+        for entry in vrf_list.xpath('./vrf_list/list/VrfSandeshData'):
+            got_vrf_id = entry.xpath('./ucindex')[0].text
+            if got_vrf_id == vrf_id:
+                vrf_dict = elem2dict(entry)
+        return vrf_dict
+    # end get_vna_vrf_by_id
 
     def get_vna_vrf_objs(self, domain='default-domain', project='admin', vn_name='default-virtual-network'):
         '''

@@ -202,10 +202,36 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
         return True
     # end create_qos_config
 
+    def attach_qos_config_to_vn(self):
+        assert ui_topo_steps.attachQosToVN(self)
+        return True
+    # end attach_qos_config_to_vn
+
+    def create_global_qos_config(self):
+        glob_flag = True
+        assert topo_steps.createQos(self, glob_flag)
+        return True
+    # end create_global_qos_config
+
     def create_virtual_router(self):
         assert topo_steps.createVirtualRouter(self)
         return True
     # end create_virtual_router
+
+    def create_service_appliance_set(self):
+        assert ui_topo_steps.createSVCApplianceSet(self)
+        return True
+    # end create_service_appliance_set
+
+    def create_service_appliances(self):
+        assert ui_topo_steps.createSVCAppliances(self)
+        return True
+    # end create_service_appliances
+
+    def create_alarms(self):
+        assert topo_steps.createAlarms(self)
+        return True
+    # end create_alarms
 
     def cleanUp(self):
         if self.inputs.fixture_cleanup == 'yes':

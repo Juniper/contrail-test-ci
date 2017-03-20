@@ -822,13 +822,26 @@ class WebuiTest:
 
     def create_qos(self, fixture):
         result = True
+        title_type = None
         try:
+            if fixture.global_flag:
+                ele_type = 'QOS'
+                func_suffix = 'global_qos'
+                select_project = False
+                title_type = "//a[@data-original-title='" + fixture.qos_config_type + " QoS']"
+            else:
+                ele_type = 'QoS'
+                func_suffix = 'qos'
+                select_project = True
             if not self.ui.click_on_create(
-                    'QoS',
-                    'qos',
+                    ele_type,
+                    func_suffix,
                     fixture.name,
-                    prj_name=fixture.project_name):
+                    prj_name=fixture.project_name,
+                    select_project=select_project):
                 result = result and False
+            if title_type :
+                self.ui.click_element(title_type, 'xpath')
             self.ui.send_keys(fixture.name, 'display_name', 'name')
             self.ui.send_keys(fixture.default_fc_id,
                               'default_forwarding_class_id', 'name')
@@ -852,7 +865,8 @@ class WebuiTest:
                                 'class', browser=element_browser)
                 self.ui.click_on_caret_down(browser=fc_browser)
                 self.ui.find_select_from_dropdown(fc_value, browser=fc_browser)
-            if not self.ui.click_on_create('QoS', 'qos', save=True):
+            if not self.ui.click_on_create(
+                    ele_type, func_suffix, save=True):
                 self.ui.click_on_cancel_if_failure('cancelBtn')
                 self.logger.error("Error while creating Qos %s" %
                                   (fixture.name))
@@ -862,7 +876,7 @@ class WebuiTest:
                     "Qos %s creation successful" %
                         (fixture.name))
             rows_detail = self.ui.click_basic_and_get_row_details(
-                'qos', 0)[1]
+                func_suffix, 0)[1]
             fixture.uuid = self.ui.get_value_of_key(rows_detail, 'UUID')
             fixture.verify_on_setup()
         except WebDriverException:
@@ -876,6 +890,46 @@ class WebuiTest:
         self.ui.click_on_cancel_if_failure('cancelBtn')
         return result
     # end create_qos
+
+    def attach_qos_to_vn(
+            self,
+            qos_name,
+            vn):
+        result = True
+        try:
+            if not self.ui.click_configure_networks():
+                result = result and False
+            self.ui.select_project(self.project_name_input)
+            rows = self.ui.get_rows()
+            self.logger.info("Attaching qos config %s using contrail-webui" %
+                             (qos_name))
+            for net in rows:
+                if net.text:
+                    if (self.ui.get_slick_cell_text(net, 2) == vn):
+                        self.ui.click_element('fa-cog', 'class', browser=net)
+                        self.ui.wait_till_ajax_done(self.browser)
+                        self.ui.click_element(['tooltip-success', 'i'], ['class', 'tag'])
+                        self.ui.click_element('advanced_options')
+                        self.ui.click_element('s2id_qos_config_refs_dropdown')
+                        self.ui.wait_till_ajax_done(self.browser)
+                        self.ui.select_from_dropdown(qos_name)
+                        if not self.ui.click_on_create('Network', 'network', save=True):
+                            result = result and False
+                            raise Exception("Qos attachment to VN failed")
+                        else:
+                            self.logger.info(
+                                "Attached qos config %s using contrail-webui" %
+                                    (qos_name))
+                        break
+        except WebDriverException:
+            self.logger.error("Error while attaching %s" % (qos_name))
+            self.ui.screenshot("qos_attach_error")
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            result = result and False
+            raise
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end attach_qos_to_vn
 
     def create_security_group(self, fixture):
         result = True
@@ -4165,6 +4219,7 @@ class WebuiTest:
         self.delete_bgp_aas()
         self.delete_link_local_service()
         self.delete_virtual_router()
+        self.delete_svc_appliance_set()
         return True
     # end cleanup
 
@@ -4179,6 +4234,28 @@ class WebuiTest:
     def delete_virtual_router(self):
         self.ui.delete_element(element_type='vrouter_delete')
     # end delete_virtual_router
+
+    def delete_svc_appliance(self):
+        self.ui.delete_element(element_type='svc_appliance_delete')
+    # end delete_svc_appliance
+
+    def delete_svc_appliance_set(self):
+        self.ui.click_configure_svc_appliance_set()
+        rows = self.ui.get_rows(canvas=True)
+        for row in rows:
+            element_text = self.ui.find_div_element_by_tag(2, row)
+            if element_text in ['opencontrail', 'native']:
+                continue
+            else:
+                self.ui.click_configure_svc_appliances()
+                self.ui.select_project(element_text, proj_type='service appliance set')
+                self.delete_svc_appliance()
+        self.ui.delete_element(element_type='svc_appliance_set_delete')
+    # end delete_svc_appliance_set
+
+    def delete_alarms(self, fixture):
+        self.ui.delete_element(fixture, 'alarm_delete')
+    # end delete_alarms
 
     def delete_dns_server_and_record(self):
         self.detach_ipam_from_dns_server()
@@ -4224,6 +4301,46 @@ class WebuiTest:
                 self.logger.warning("ipam detach from router failed")
         return result
     # end detach_ipam_from_dns_server
+
+    def detach_qos_from_vn(
+            self,
+            qos_name,
+            vn):
+        result = True
+        try:
+            if not self.ui.click_configure_networks():
+                result = result and False
+            self.ui.select_project(self.project_name_input)
+            rows = self.ui.get_rows()
+            self.logger.info("Detaching qos config %s using contrail-webui" %
+                             (qos_name))
+            for net in rows:
+                if net.text:
+                    if (self.ui.get_slick_cell_text(net, 2) == vn):
+                        self.ui.click_element('fa-cog', 'class', browser=net)
+                        self.ui.wait_till_ajax_done(self.browser)
+                        self.ui.click_element(['tooltip-success', 'i'], ['class', 'tag'])
+                        self.ui.click_element('advanced_options')
+                        self.ui.click_element('s2id_qos_config_refs_dropdown')
+                        self.ui.wait_till_ajax_done(self.browser)
+                        self.ui.select_from_dropdown('None')
+                        if not self.ui.click_on_create('Network', 'network', save=True):
+                            result = result and False
+                            raise Exception("Qos detachment from VN failed")
+                        else:
+                            self.logger.info(
+                                "Detached qos config %s using contrail-webui" %
+                                    (qos_name))
+                        break
+        except WebDriverException:
+            self.logger.error("Error while detaching %s" % (qos_name))
+            self.ui.screenshot("qos_detach_error")
+            self.ui.click_on_cancel_if_failure('cancelBtn')
+            result = result and False
+            raise
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end detach_qos_from_vn
 
     def service_template_delete_in_webui(self, fixture):
         if not self.ui.click_configure_service_template():
@@ -6841,3 +6958,134 @@ class WebuiTest:
         self.ui.click_on_cancel_if_failure('cancelBtn')
         return result
     # end create_virtual_router
+
+    def create_service_appliance_set(self, appliance_list, appliance_params):
+        result = True
+        try:
+            for appl in appliance_list:
+                appl_lbdriver = appliance_params[appl]['load_balancer']
+                appl_mode = appliance_params[appl]['ha_mode']
+                appl_key = appliance_params[appl]['key']
+                appl_value = appliance_params[appl]['value']
+                if not self.ui.click_on_create(
+                        'Service Appliance Set',
+                        'svc_appliance_set',
+                        appl,
+                        select_project=False):
+                    result = result and False
+                send_key_values = {
+                    'name': {
+                        'display_name': appl,
+                        'service_appliance_ha_mode': appl_mode,
+                        'key': appl_key,
+                        'value': appl_value},
+                    'class': {
+                        'custom-combobox-input': appl_lbdriver}}
+                self.ui.click_element('ui-accordion-header-icon', 'class')
+                self.ui.click_element('editable-grid-add-link', 'class')
+                if not self.ui.send_keys_values(send_key_values):
+                    result = result and False
+                self.ui.click_on_create('Service Appliance Set',
+                                       'svcApplianceSet', save=True)
+        except WebDriverException:
+            self.logger.error(
+                "Error while creating service appliance set")
+            self.ui.screenshot("ServiceApplianceSet")
+            result = result and False
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end create_service_appliances_set
+
+    def create_service_appliances(self, appliance_list, appliance_params):
+        result = True
+        try:
+            for appl in appliance_list:
+                appl_set = appliance_params[appl]['svc_appl_set']
+                appl_ip = appliance_params[appl]['svc_appl_ip']
+                appl_uname =  appliance_params[appl]['user_name']
+                appl_pword = appliance_params[appl]['password']
+                appl_key = appliance_params[appl]['key']
+                appl_value = appliance_params[appl]['value']
+                if not self.ui.click_on_create(
+                        'Service Appliance',
+                        'svc_appliances',
+                        appl,
+                        prj_name=appl_set):
+                    result = result and False
+                key_values = {
+                    'name': {
+                        'display_name': appl,
+                        'service_appliance_ip_address': appl_ip,
+                        'username': appl_uname,
+                        'password': appl_pword,
+                        'key': appl_key,
+                        'value': appl_value}}
+                for index in range(0,2):
+                    self.ui.click_element('ui-accordion-header-icon',
+                                         'class', elements=True, index=index)
+                self.ui.click_element('editable-grid-add-link', 'class')
+                if not self.ui.send_keys_values(key_values):
+                    result = result and False
+                self.ui.click_on_create('Service Appliance',
+                                       'svcAppliance', save=True)
+        except WebDriverException:
+            self.logger.error(
+                "Error while creating service appliances")
+            self.ui.screenshot("ServiceAppliances")
+            result = result and False
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end create_service_appliances
+
+    def create_alarms(self, fixture):
+        result = True
+        try:
+            if fixture.parent_obj_type == 'project':
+                func_suffix = 'alarms_in_project'
+                select_project = True
+            else:
+                func_suffix = 'alarms_in_global'
+                select_project = False
+            if not self.ui.click_on_create(
+                    'Alarm Rule',
+                    func_suffix,
+                    fixture.alarm_name,
+                    prj_name=fixture.project_name,
+                    select_project=select_project):
+                result = result and False
+            self.ui.click_element('s2id_severity_dropdown')
+            if fixture.alarm_severity == 'minor':
+                index = 2
+            elif fixture.alarm_severity == 'major':
+                index = 1
+            else:
+                index = 0
+            self.ui.click_element('select2-results-dept-0', 'class', elements=True,
+                                 index=index)
+            des_xpath = "//textarea[contains(@name, 'description')]"
+            send_key_values = {
+                'name': {
+                    'display_name': fixture.alarm_name,
+                    'operand1': fixture.operand1,
+                    'operand2': fixture.operand2},
+                'id': {
+                    'uve_keys_dropdown': fixture.uve_keys[0]},
+                'xpath': {
+                    des_xpath: fixture.alarm_name}}
+            if not self.ui.send_keys_values(send_key_values):
+                result = result and False
+            self.ui.click_element('s2id_operation_dropdown')
+            operation = self.ui.find_element('select2-results-dept-1', 'class', elements=True)
+            for index, oper in enumerate(operation, start=8):
+                if fixture.alarm_rules == oper.text:
+                    operation[index].click()
+                    break
+            self.ui.click_on_create('Alarms', 'configalarm', save=True)
+        except WebDriverException:
+            self.logger.error(
+                "Error while creating alarms %s " %(fixture.alarm_name))
+            self.ui.screenshot("Alarm")
+            result = result and False
+        self.ui.click_on_cancel_if_failure('cancelBtn')
+        return result
+    # end create_alarms

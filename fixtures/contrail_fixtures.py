@@ -97,23 +97,14 @@ class ContrailFixture (fixtures.Fixture):
    @property
    def name (self):
        return self._name
-       #if self._args:
-       #    return self._args['name']
-       #return self.vnc_obj.name
 
    @property
    def fq_name (self):
        return self._fq_name
-       #if not self._vnc_obj:
-       #    return self._vnc.id_to_fqn(self.uuid)
-       #return self.vnc_obj.get_fq_name()
 
    @property
    def fq_name_str (self):
        return self._fq_name_str
-       #if not self._vnc_obj:
-       #    return ':'.join(self.fq_name)
-       #return self.vnc_obj.get_fq_name_str()
 
    def _minimal_read (self):
        if self.uuid:
@@ -153,10 +144,7 @@ class ContrailFixture (fixtures.Fixture):
        assert flag, msg
 
    def assert_on_setup (self, flag, msg):
-       if self._owned and self.inputs.fixture_cleanup == 'yes':
-           assert flag, msg
-       else:
-           self.logger.warn(msg)
+       assert flag, msg
 
 #TODO: check with contrail_fix_ext reqd?
 def contrail_fix_ext(*dargs, **dkwargs):

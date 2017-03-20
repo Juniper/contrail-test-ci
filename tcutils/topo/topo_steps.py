@@ -30,6 +30,7 @@ from physical_router_fixture import PhysicalRouterFixture
 from virtual_router_fixture import VirtualRouterFixture
 from qos_fixture import QosForwardingClassFixture
 from qos_fixture import QosConfigFixture
+from alarm_test import AlarmFixture
 try:
     from webui_test import *
 except ImportError:
@@ -860,20 +861,32 @@ def createForwardingClass(self):
     return self
 # end of create_forwarding_class
 
-def createQos(self):
-    if hasattr(self.topo, 'qos_list'):
+def createQos(self, glob_flag=False):
+    if hasattr(self.topo, 'qos_list' or 'qos_glob_list'):
         self.qos_fixture = {}
-        for qos_name in self.topo.qos_list:
+        if glob_flag:
+            qos_list_option = self.topo.qos_glob_list
+            qos_params_option = self.topo.qos_glob_params
+        else:
+            qos_list_option = self.topo.qos_list
+            qos_params_option = self.topo.qos_params
+            qos_config_type = None
+        for qos_name in qos_list_option:
             result = True
             msg = []
+            qos_param = qos_params_option[qos_name]
+            if 'qos_config_type' in qos_param.keys():
+                qos_config_type = qos_param['qos_config_type']
             self.qos_fixture[qos_name] = self.useFixture(
                 QosConfigFixture(
+                    glob_flag,
                     connections=self.project_connections,
                     name=qos_name,
-                    dscp_mapping=self.topo.qos_params[qos_name]['dscp_mapping'],
-                    exp_mapping=self.topo.qos_params[qos_name]['exp_mapping'],
-                    dot1p_mapping=self.topo.qos_params[qos_name]['dot1p_mapping'],
-                    default_fc_id=self.topo.qos_params[qos_name]['default_fc_id']))
+                    dscp_mapping=qos_param['dscp_mapping'],
+                    exp_mapping=qos_param['exp_mapping'],
+                    dot1p_mapping=qos_param['dot1p_mapping'],
+                    default_fc_id=qos_param['default_fc_id'],
+                    qos_config_type=qos_config_type))
             if self.skip_verify == 'no':
                 ret, msg = self.qos_fixture[qos_name].verify_on_setup()
                 assert ret, "Verifications for qos :%s has failed and its error message: %s" % (
@@ -1006,6 +1019,25 @@ def createVirtualRouter(self):
                 inputs=self.project_inputs))
     return self
 # end createVirtualRouter
+
+def createAlarms(self):
+    self.alarm_fixture = {}
+    if not hasattr(self.topo, 'alarms_params'):
+        return self
+    for alarm in self.topo.alarms_list:
+        self.alarm_fixture[alarm] = self.useFixture(
+            AlarmFixture(self.project_connections,
+                alarm_name=alarm,
+                uve_keys=self.topo.alarms_params[alarm]['uve_keys'],
+                alarm_severity=self.topo.alarms_params[alarm]['alarm_severity'],
+                alarm_rules = self.topo.alarms_params[alarm]['operation'],
+                operand1=self.topo.alarms_params[alarm]['operand1'],
+                operand2=self.topo.alarms_params[alarm]['operand2'],
+                description=alarm,
+                parent_obj_type=self.topo.alarms_params[alarm]['parent_type']))
+        self.alarm_fixture[alarm].create(self.alarm_fixture[alarm].alarm_rules)
+    return self
+# end createAlarms
 
 if __name__ == '__main__':
     ''' Unit test to invoke sdn topo setup utils.. '''

@@ -49,7 +49,7 @@ class VNFixture(fixtures.Fixture):
                  af=None, empty_vn=False, enable_dhcp=True,
                  dhcp_option_list=None, disable_gateway=False,
                  uuid=None, sriov_enable=False, sriov_vlan=None,
-                 sriov_provider_network=None,*args,**kwargs):
+                 sriov_provider_network=None,ecmp_hash=None,*args,**kwargs):
         self.connections = connections
         self.inputs = inputs or connections.inputs
         self.logger = self.connections.logger
@@ -61,6 +61,8 @@ class VNFixture(fixtures.Fixture):
         self.cn_inspect = self.connections.cn_inspect
         self.analytics_obj = self.connections.analytics_obj
         self.domain_name = self.connections.domain_name
+        if self.domain_name == 'Default':
+            self.domain_name = 'default-domain'
         self.project_name = project_name or self.connections.project_name
         self.vn_name = vn_name or get_random_name(self.project_name)
         self.project_id = self.connections.get_project_id()
@@ -117,6 +119,7 @@ class VNFixture(fixtures.Fixture):
         self.sriov_vlan = sriov_vlan
         self.sriov_provider_network = sriov_provider_network
         self.dhcp_option_list = dhcp_option_list
+        self.ecmp_hash = ecmp_hash
         self.disable_gateway = disable_gateway
         self.vn_port_list=[]
         self.vn_with_route_target = []
@@ -450,6 +453,10 @@ class VNFixture(fixtures.Fixture):
         if self.vxlan_id is not None:
             self.set_vxlan_id()
 
+        # Configure ecmp_hash
+        if self.ecmp_hash is not None:
+            self.set_ecmp_hash()
+
         # Populate the VN Subnet details
         if isinstance(self.orchestrator,OpenstackOrchestrator):
             self.vn_subnet_objs = self.quantum_h.get_subnets_of_vn(self.uuid)
@@ -575,7 +582,8 @@ class VNFixture(fixtures.Fixture):
         """
         self.api_verification_flag = True
         self.api_s_vn_obj = self.api_s_inspect.get_cs_vn(
-            project=self.project_name, vn=self.vn_name, refresh=True)
+            domain=self.domain_name, project=self.project_name,
+            vn=self.vn_name, refresh=True)
         if not self.api_s_vn_obj:
             self.logger.debug("VN %s is not found in API-Server" %
                              (self.vn_name))
@@ -780,7 +788,8 @@ class VNFixture(fixtures.Fixture):
             "====Verifying policy data for %s in API_Server ======" %
             (self.vn_name))
         self.api_s_vn_obj = self.api_s_inspect.get_cs_vn(
-            project=self.project_name, vn=self.vn_name, refresh=True)
+            domain=self.domain_name, project=self.project_name,
+            vn=self.vn_name, refresh=True)
         try:
             vn_pol = self.api_s_vn_obj[
                 'virtual-network']['network_policy_refs']
@@ -842,7 +851,9 @@ class VNFixture(fixtures.Fixture):
             self.logger.warn("RI %s is still found in API-Server" % self.ri_ref['name'])
             self.not_in_api_verification_flag = False
             return False
-        if self.api_s_inspect.get_cs_vn(project=self.project_name, vn=self.vn_name, refresh=True):
+        if self.api_s_inspect.get_cs_vn(domain=self.domain_name,
+                                        project=self.project_name,
+                                        vn=self.vn_name, refresh=True):
             self.logger.debug("VN %s is still found in API-Server" %
                              (self.vn_name))
             self.not_in_api_verification_flag = False
@@ -879,7 +890,7 @@ class VNFixture(fixtures.Fixture):
         self.cn_verification_flag = True
         for cn in self.inputs.bgp_ips:
             cn_config_vn_obj = self.cn_inspect[cn].get_cn_config_vn(
-                vn_name=self.vn_name, project=self.project_name)
+                vn_name=self.vn_name, project=self.project_name, domain=self.domain_name)
             if not cn_config_vn_obj:
                 self.logger.warn('Control-node %s does not have VN %s info ' %
                                  (cn, self.vn_name))
@@ -968,7 +979,8 @@ class VNFixture(fixtures.Fixture):
                 result = result and False
                 self.not_in_cn_verification_flag = result
         # end for
-        if self.cn_inspect[cn].get_cn_config_vn(vn_name=self.vn_name, project=self.project_name):
+        if self.cn_inspect[cn].get_cn_config_vn(vn_name=self.vn_name,
+                                project=self.project_name, domain=self.domain_name):
             self.logger.debug("Control-node config DB still has VN %s" %
                              (self.vn_name))
             result = result and False
@@ -999,12 +1011,21 @@ class VNFixture(fixtures.Fixture):
             inspect_h = self.agent_inspect[compute_ip]
             vrf_id = self.vrf_ids[compute_ip]
             # Check again if agent does not have this vrf by chance
-            curr_vrf_id = inspect_h.get_vna_vrf_id(
-                    self.vn_fq_name)
-            if curr_vrf_id:
-                self.logger.warn('VRF ID %s is still seen in agent %s' % (
-                    curr_vrf_id, compute_ip))
-                return False
+            curr_vrf = inspect_h.get_vna_vrf_by_id(vrf_id)
+            if curr_vrf:
+                if curr_vrf.get('name') == self.vrf_name:
+                    self.logger.warn('VRF %s is still seen in agent %s' % (
+                        curr_vrf, compute_ip))
+                    return False
+                else:
+                    self.logger.info('VRF id %s already used by some other vrf '
+                        '%s, will have to skip vrouter verification on %s' %(
+                        vrf_id, curr_vrf.get('name'), compute_ip))
+                    return True
+                # endif
+            else:
+                self.logger.debug('VRF %s is not seen in agent %s' % (vrf_id,
+                                   compute_ip))
 
             # Agent has deleted this vrf. Check in kernel too that it is gone
             vrouter_route_table = inspect_h.get_vrouter_route_table(
@@ -1029,14 +1050,14 @@ class VNFixture(fixtures.Fixture):
         for compute_ip in self.inputs.compute_ips:
             inspect_h = self.agent_inspect[compute_ip]
             vn = inspect_h.get_vna_vn(
-                project=self.project_name, vn_name=self.vn_name)
+                domain=self.domain_name, project=self.project_name, vn_name=self.vn_name)
             if vn:
                 self.logger.debug('VN %s is still found in %s ' %
                                  (self.vn_name, compute_ip))
                 return False
                 self.not_in_agent_verification_flag = False
             vrf_objs = inspect_h.get_vna_vrf_objs(
-                project=self.project_name, vn_name=self.vn_name)
+                domain=self.domain_name, project=self.project_name, vn_name=self.vn_name)
             if len(vrf_objs['vrf_list']) != 0:
                 self.logger.debug(
                     'VRF %s for VN %s is still found in agent %s' %
@@ -1265,6 +1286,23 @@ class VNFixture(fixtures.Fixture):
             return vn_prop_obj['vxlan_network_identifier']
         return None
     # end get_vxlan_id
+
+    def set_ecmp_hash(self, ecmp_hash=None):
+        self.logger.info('Updating ECMP Hash of VN %s to %s' % (
+            self.vn_fq_name, ecmp_hash))
+        vnc_lib = self.vnc_lib_h
+        vn_obj = vnc_lib.virtual_network_read(id =self.uuid)
+        vn_obj.set_ecmp_hashing_include_fields(ecmp_hash)
+        vnc_lib.virtual_network_update(vn_obj)
+    # end set_ecmp_hash
+
+    def get_ecmp_hash(self):
+        vnc_lib = self.vnc_lib_h
+        vn_obj = vnc_lib.virtual_network_read(id =self.uuid)
+        ecmp_hash = vn_obj.get_ecmp_hashing_include_fields()
+        self.logger.debug('ECMP Hash of VN %s is %s' % (
+            self.vn_fq_name, ecmp_hash))
+    # end get_ecmp_hash
 
     def add_forwarding_mode(self, project_fq_name, vn_name, forwarding_mode):
         vnc_lib = self.vnc_lib_h

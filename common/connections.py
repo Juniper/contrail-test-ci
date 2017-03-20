@@ -7,10 +7,8 @@ from tcutils.collector.opserver_introspect_utils import *
 from tcutils.collector.analytics_tests import *
 from vnc_api.vnc_api import *
 from tcutils.vdns.dns_introspect_utils import DnsAgentInspect
-from tcutils.config.ds_introspect_utils import *
-from tcutils.config.discovery_tests import *
 from tcutils.kubernetes.api_client import Client as Kubernetes_client
-from tcutils.util import custom_dict
+from tcutils.util import custom_dict, get_plain_uuid
 import os
 from openstack import OpenstackAuth, OpenstackOrchestrator
 from vcenter import VcenterAuth, VcenterOrchestrator
@@ -25,7 +23,7 @@ except ImportError:
 
 class ContrailConnections():
     def __init__(self, inputs=None, logger=None, project_name=None,
-                 username=None, password=None, domain_name=None, ini_file=None):
+                 username=None, password=None, domain_name=None, ini_file=None, domain_obj=None):
         self.inputs = inputs or ContrailTestInit(ini_file,
                                 stack_tenant=project_name)
         self.project_name = project_name or self.inputs.project_name
@@ -36,6 +34,7 @@ class ContrailConnections():
         self.nova_h = None
         self.quantum_h = None
         self.orch_ctrl = None
+        self.vnc_lib_fixture = None
         self.api_server_inspects = custom_dict(self.get_api_inspect_handle,
                         'api_inspect:'+self.project_name+':'+self.username)
         self.dnsagent_inspect = custom_dict(self.get_dns_agent_inspect_handle,
@@ -46,15 +45,16 @@ class ContrailConnections():
                                         'ops_inspect:'+self.project_name+':'+self.username)
         self.cn_inspect = custom_dict(self.get_control_node_inspect_handle,
                                       'cn_inspect')
-        self.ds_inspect = custom_dict(self.get_discovery_service_inspect_handle,
-                                      'ds_inspect')
         self.k8s_client = self.get_k8s_api_client_handle()
 
         # ToDo: msenthil/sandipd rest of init needs to be better handled
+        self.domain_id = None        
+        if domain_obj:        
+            self.domain_id = get_plain_uuid(domain_obj.uuid)        
         self.auth = self.get_auth_h()
         self.vnc_lib = self.get_vnc_lib_h()
+        self.project_id = self.get_project_id()
         if self.inputs.orchestrator == 'openstack':
-            self.project_id = self.get_project_id()
             if self.inputs.verify_thru_gui():
                 self.ui_login = UILogin(self, self.inputs, project_name, username, password)
                 self.browser = self.ui_login.browser
@@ -102,7 +102,11 @@ class ContrailConnections():
     def get_project_id(self, project_name=None):
         project_name = project_name or self.project_name
         auth = self.get_auth_h(project_name)
-        return auth.get_project_id(project_name or self.project_name)
+        if auth:
+            return auth.get_project_id(project_name or self.project_name,
+                                       self.domain_id)
+        else:
+            return self.vnc_lib_fixture.project_id if self.vnc_lib_fixture else None
 
     def get_auth_h(self, refresh=False, project_name=None,
                    username=None, password=None):
@@ -113,20 +117,26 @@ class ContrailConnections():
         if not getattr(env, attr, None) or refresh:
             if self.inputs.orchestrator == 'openstack':
                 env[attr] = OpenstackAuth(username, password,
-                           project_name, self.inputs, self.logger)
-            else:
+                           project_name, self.inputs, self.logger,
+                           domain_name=self.domain_name)
+            elif self.inputs.orchestrator == 'vcenter':
                 env[attr] = VcenterAuth(username, password,
                                        project_name, self.inputs)
-        return env[attr]
+        return env.get(attr)
 
     def get_vnc_lib_h(self, refresh=False):
         attr = '_vnc_lib_fixture_' + self.project_name + '_' + self.username
         cfgm_ip = self.inputs.api_server_ip or \
                   self.inputs.contrail_external_vip or self.inputs.cfgm_ip
         if not getattr(env, attr, None) or refresh:
+            if self.domain_name == 'default-domain' \
+                    and self.inputs.orchestrator == 'openstack':
+                self.domain = 'Default'
+            else:        
+                self.domain = self.domain_name
             env[attr] = VncLibFixture(
                 username=self.username, password=self.password,
-                domain=self.domain_name, project_name=self.project_name,
+                domain=self.domain, project_name=self.project_name,
                 inputs=self.inputs,
                 cfgm_ip=cfgm_ip,
                 api_server_port=self.inputs.api_server_port,
@@ -135,7 +145,7 @@ class ContrailConnections():
                 project_id=self.get_project_id(),
                 certfile = self.inputs.keystonecertfile,
                 keyfile = self.inputs.keystonekeyfile,
-                cacert = self.inputs.keycertbundle,
+                cacert = self.inputs.certbundle,
                 insecure = self.inputs.insecure,
                 logger=self.logger)
             env[attr].setUp()
@@ -189,16 +199,6 @@ class ContrailConnections():
                                         inputs=self.inputs)
         return self.ops_inspects[ip]
 
-    def get_discovery_service_inspect_handle(self, host):
-        discovery_ip = self.inputs.discovery_ip or \
-                       self.inputs.contrail_internal_vip
-        if discovery_ip:
-            host = discovery_ip
-        if host not in self.ds_inspect:
-            self.ds_inspect[host] = VerificationDsSrv(host, self.inputs.ds_port,
-                                                      logger=self.logger)
-        return self.ds_inspect[host]
-
     def get_k8s_api_client_handle(self):
         if self.inputs.orchestrator != 'kubernetes':
             return None
@@ -248,30 +248,16 @@ class ContrailConnections():
     def analytics_obj(self, value):
         self._analytics_obj = value
 
-    @property
-    def ds_verification_obj(self):
-        if not getattr(self, '_ds_verification_obj', None):
-            self._ds_verification_obj = DiscoveryVerification(self.inputs,
-                                        self.cn_inspect, self.agent_inspect,
-                                        self.ops_inspects, self.ds_inspect, self.vnc_lib,
-                                        logger=self.logger)
-        return self._ds_verification_obj
-    @ds_verification_obj.setter
-    def ds_verification_obj(self, value):
-        self._ds_verification_obj = value
-
     def update_inspect_handles(self):
         self.api_server_inspects.clear()
         self.cn_inspect.clear()
         self.dnsagent_inspect.clear()
         self.agent_inspect.clear()
         self.ops_inspects.clear()
-        self.ds_inspect.clear()
         self._svc_mon_inspect = None
         self._api_server_inspect = None
         self._ops_inspect = None
         self._analytics_obj = None
-        self._ds_verification_obj = None
     # end update_inspect_handles
 
     def update_vnc_lib_fixture(self):

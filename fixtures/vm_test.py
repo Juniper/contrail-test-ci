@@ -1336,7 +1336,7 @@ class VMFixture(fixtures.Fixture):
             self.logger.debug('No interested compute node info present.'
                               ' Skipping vm cleanup check in vrouter')
             return True
-        curr_vrf_ids = self.get_vrf_ids()
+        curr_vrf_ids = self.get_vrf_ids(refresh=True)
         for compute_ip in compute_ips:
             vrf_id = None
             earlier_agent_vrfs = self.vrf_ids.get(compute_ip)
@@ -1359,6 +1359,12 @@ class VMFixture(fixtures.Fixture):
                 # endif
             elif curr_vrf_id:
                 # vrf is in agent. Check that VM route is removed in vrouter
+                curr_vrf_dict = inspect_h.get_vna_vrf_by_id(curr_vrf_id)
+                if vn_fq_name not in curr_vrf_dict.get('name'):
+                    self.logger.debug('VRF %s already used by some other VN %s'
+                        '. Would have to skip vrouter check on %s' % (
+                        curr_vrf_id, curr_vrf_dict.get('name'), compute_ip))
+                    return True
                 prefixes = self.vm_ip_dict[vn_fq_name]
                 for prefix in prefixes:
                     route_table = inspect_h.get_vrouter_route_table(
@@ -2582,7 +2588,8 @@ class VMFixture(fixtures.Fixture):
                 --virtual_machine_interface_id %s \
                 --user %s\
                 --password %s\
-                --route_table_name %s" % (prefix,
+                --route_table_name %s \
+                --api_server_use_ssl %s" % (prefix,
                                           tenant_name,
                                           api_server_ip,
                                           api_server_port,
@@ -2590,7 +2597,8 @@ class VMFixture(fixtures.Fixture):
                                           virtual_machine_interface_id,
                                           user,
                                           password,
-                                          route_table_name)
+                                          route_table_name,
+                                          self.inputs.api_protocol == 'https')
         args = shlex.split(cmd)
         process = Popen(args, stdout=PIPE)
         stdout, stderr = process.communicate()

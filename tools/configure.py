@@ -5,15 +5,15 @@ import string
 import json
 import os
 import platform
-from fabric.api import env, run, local, lcd
+from fabric.api import env, run, local, lcd, get
 from fabric.context_managers import settings, hide
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 from common import log_orig as contrail_logging
-from fabric.operations import get
+from fabric.contrib.files import exists
+from cfgm_common import utils
 
 def detect_ostype():
     return platform.dist()[0].lower()
-
 
 def get_address_family():
     address_family = os.getenv('AF', 'dual')
@@ -21,7 +21,6 @@ def get_address_family():
     if os.getenv('GUESTVM_IMAGE', None):
         address_family = 'v4'
     return address_family
-
 
 def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contrail-test'):
     """
@@ -40,11 +39,23 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         get_apiserver_protocol, get_apiserver_certfile, get_apiserver_keyfile, \
         get_apiserver_cafile, get_keystone_insecure_flag, \
         get_apiserver_insecure_flag, get_keystone_certfile, get_keystone_keyfile, \
-        get_keystone_cafile
+        get_keystone_cafile, get_keystone_version
     from fabfile.utils.multitenancy import get_mt_enable
     from fabfile.utils.interface import get_data_ip
     from fabfile.tasks.install import update_config_option, update_js_config
+    from fabfile.utils.fabos import get_as_sudo
     logger = contrail_logging.getLogger(__name__)
+
+    def validate_and_copy_file(filename, source_host):
+        with settings(host_string='%s' %(source_host),
+                      warn_only=True, abort_on_prompts=False):
+            if exists(filename):
+                filedir = os.path.dirname(filename)
+                if not os.path.exists(filedir):
+                    os.makedirs(filedir)
+                get_as_sudo(filename, filename)
+                return filename
+            return ""
 
     cfgm_host = env.roledefs['cfgm'][0]
 
@@ -57,9 +68,9 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     api_auth_protocol = get_apiserver_protocol()
 
     if api_auth_protocol == 'https':
-        api_certfile = get_apiserver_certfile()
-        api_keyfile = get_apiserver_keyfile()
-        api_cafile = get_apiserver_cafile()
+        api_certfile = validate_and_copy_file(get_apiserver_certfile(), cfgm_host)
+        api_keyfile = validate_and_copy_file(get_apiserver_keyfile(), cfgm_host)
+        api_cafile = validate_and_copy_file(get_apiserver_cafile(), cfgm_host)
         api_insecure_flag = get_apiserver_insecure_flag()
     else:
        api_certfile = ""
@@ -67,15 +78,15 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
        api_cafile = ""
        api_insecure_flag = True
 
-    api_ssl_cert_files_list = [api_certfile, api_cafile, api_keyfile]
-
+    cert_dir = os.path.dirname(api_certfile)
     if auth_protocol == 'https':
-        keystone_certfile = os.path.dirname(api_certfile) + '/' + os.path.basename(
-                            get_keystone_certfile())
-        keystone_cafile = os.path.dirname(api_cafile) + '/' + os.path.basename(
-                          get_keystone_cafile())
+        keystone_cafile = validate_and_copy_file(cert_dir + '/' +\
+                          os.path.basename(get_keystone_cafile()), cfgm_host)
+        keystone_certfile = validate_and_copy_file(cert_dir + '/' +\
+                          os.path.basename(get_keystone_certfile()), cfgm_host)
         keystone_keyfile = keystone_certfile
-        keystone_insecure_flag = get_keystone_insecure_flag()
+        keystone_insecure_flag = os.getenv('OS_INSECURE', \
+                                 get_keystone_insecure_flag())
     else:
         keystone_certfile = ""
         keystone_keyfile = ""
@@ -132,7 +143,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
             with settings(host_string = cassandra_host), hide('everything'):
                 host_name = run("hostname")
                 cassandra_host_names.append(host_name)
-
+    keystone_version = get_keystone_version()
     internal_vip = get_openstack_internal_vip()
     external_vip = get_openstack_external_vip()
     contrail_internal_vip = get_contrail_internal_vip()
@@ -303,6 +314,22 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     stack_password = env.test.get('stack_password',
                          os.getenv('STACK_PASSWORD') or '')
     stack_tenant = env.test.get('stack_tenant', os.getenv('STACK_TENANT') or '')
+    if not env.has_key('domain_isolation'):
+        env.domain_isolation = False
+    if not env.has_key('cloud_admin_domain'):
+        env.cloud_admin_domain = 'Default'
+    if not env.has_key('cloud_admin_user'):
+        env.cloud_admin_user = 'admin'
+    if not env.has_key('cloud_admin_password'):
+        env.cloud_admin_password = env.get('openstack_admin_password')
+    domain_isolation = env.test.get('domain_isolation',
+                           os.getenv('DOMAIN_ISOLATION') or env.domain_isolation)
+    cloud_admin_domain = env.test.get('cloud_admin_domain',
+                           os.getenv('CLOUD_ADMIN_DOMAIN') or env.cloud_admin_domain)
+    cloud_admin_user = env.test.get('cloud_admin_user',
+                           os.getenv('CLOUD_ADMIN_USER') or env.cloud_admin_user)
+    cloud_admin_password = env.test.get('cloud_admin_password',
+                           os.getenv('CLOUD_ADMIN_PASSWORD') or env.cloud_admin_password)
     tenant_isolation = env.test.get('tenant_isolation',
                            os.getenv('TENANT_ISOLATION') or '')
 
@@ -357,7 +384,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     dns_port = env.test.get('dns_port', os.getenv('DNS_PORT') or '')
     agent_port = env.test.get('agent_port', os.getenv('AGENT_PORT') or '')
     user_isolation = env.test.get('user_isolation',
-                                  bool(os.getenv('USER_ISOLATION') or True))
+                                  os.getenv('USER_ISOLATION') or True)
     neutron_username = env.test.get('neutron_username',
                                     os.getenv('NEUTRON_USERNAME') or None)
     availability_zone = env.test.get('availability_zone',
@@ -416,11 +443,16 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
 
     sanity_params = sanity_ini_templ.safe_substitute(
         {'__testbed_json_file__'   : 'sanity_testbed.json',
+         '__keystone_version__'    : keystone_version,
          '__nova_keypair_name__'   : keypair_name,
          '__orch__'                : orch,
          '__admin_user__'          : admin_user,
          '__admin_password__'      : admin_password,
          '__admin_tenant__'        : admin_tenant,
+         '__domain_isolation__'    : domain_isolation,
+         '__cloud_admin_domain__'  : cloud_admin_domain,
+         '__cloud_admin_user__'    : cloud_admin_user,
+         '__cloud_admin_password__': cloud_admin_password,
          '__tenant_isolation__'    : tenant_isolation,
          '__stack_user__'          : stack_user,
          '__stack_password__'      : stack_password,
@@ -523,6 +555,12 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     if not os.path.exists('/etc/contrail'):
         os.makedirs('/etc/contrail')
 
+    keycertbundle = None
+    if keystone_cafile and keystone_keyfile and keystone_certfile:
+        bundle = '/tmp/keystonecertbundle.pem'
+        certs = [keystone_certfile, keystone_keyfile, keystone_cafile]
+        keycertbundle = utils.getCertKeyCaBundle(bundle, certs)
+
     with open('/etc/contrail/openstackrc','w') as rc:
         rc.write("export OS_USERNAME=%s\n" % admin_user)
         rc.write("export OS_PASSWORD=%s\n" % admin_password)
@@ -531,6 +569,10 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         rc.write("export OS_AUTH_URL=%s://%s:%s/v2.0\n" % (auth_protocol,
                                                            auth_server_ip,
                                                            auth_server_port))
+        rc.write("export OS_CACERT=%s\n" % keycertbundle)
+        rc.write("export OS_CERT=%s\n" % keystone_certfile)
+        rc.write("export OS_KEY=%s\n" % keystone_keyfile)
+        rc.write("export OS_INSECURE=%s\n" % keystone_insecure_flag)
         rc.write("export OS_NO_CACHE=1\n")
 
     # Write vnc_api_lib.ini - this is required for vnc_api to connect to keystone
@@ -547,9 +589,10 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     config.set('auth','AUTHN_PROTOCOL', auth_protocol)
     config.set('auth','AUTHN_SERVER', auth_server_ip)
     config.set('auth','AUTHN_PORT', auth_server_port)
-    config.set('auth','AUTHN_URL', '/v2.0/tokens')
-    if bool(os.getenv('OS_INSECURE', True)):
-        config.set('auth', 'insecure', 'True')
+    if keystone_version == 'v3':
+        config.set('auth','AUTHN_URL', '/v3/auth/tokens')
+    else:
+        config.set('auth','AUTHN_URL', '/v2.0/tokens')
 
     if api_auth_protocol == 'https':
         if 'global' not in config.sections():
@@ -558,7 +601,6 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         config.set('global','cafile', api_cafile)
         config.set('global','keyfile', api_keyfile)
         config.set('global','insecure',api_insecure_flag)
-        copy_cert_ca_key_file(api_ssl_cert_files_list, cfgm_host)
 
     if auth_protocol == 'https':
         if 'auth' not in config.sections():
@@ -567,9 +609,6 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         config.set('auth','cafile', keystone_cafile)
         config.set('auth','keyfile', keystone_keyfile)
         config.set('auth','insecure', keystone_insecure_flag)
-        keystone_ssl_cert_files_list = [keystone_certfile, keystone_cafile,
-                                        keystone_keyfile]
-        copy_cert_ca_key_file(keystone_ssl_cert_files_list, cfgm_host)
 
     with open(vnc_api_ini,'w') as f:
         config.write(f)
@@ -578,7 +617,9 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     # Get kube config file to the testrunner node
     if orch == 'kubernetes':
         if not os.path.exists(kube_config_file):
-            os.makedirs(os.path.dirname(kube_config_file))
+            dir_name = os.path.dirname(kube_config_file)
+            if not os.path.exists(dir_name):
+                os.makedirs(dir_name)
             with settings(host_string = env.roledefs['cfgm'][0]):
                 get(kube_config_file, kube_config_file)
             
@@ -590,15 +631,6 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
                              '86400','keystone')
         update_js_config('openstack', '/etc/contrail/config.global.js',
                          'contrail-webui')
-
-def copy_cert_ca_key_file(ssl_cert_files_list, source_host):
-    for cert_file in ssl_cert_files_list:
-        cert_file_dir = os.path.dirname(cert_file)
-        if not os.path.exists(cert_file_dir):
-            os.makedirs(cert_file_dir)
-        with settings(host_string='%s' %(source_host),
-                  warn_only=True, abort_on_prompts=False):
-            get(cert_file, cert_file)
 
 def main(argv=sys.argv):
     ap = argparse.ArgumentParser(

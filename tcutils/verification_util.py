@@ -7,8 +7,6 @@ import threading
 import logging as LOG
 from lxml import etree
 from tcutils.util import *
-from cfgm_common import utils
-
 from common import log_orig as contrail_logging
 
 LOG.basicConfig(format='%(levelname)s: %(message)s', level=LOG.INFO)
@@ -34,18 +32,24 @@ class JsonDrv (object):
                                                       max_message_size=msg_size)
         # Since introspect log is a single file, need locks
         self.lock = threading.Lock()
-        if self._args and self._args.api_protocol == 'https':
-            self.api_bundle = '/tmp/' + get_random_string() + '.pem'
-            if self._args.apicertfile and self._args.apikeyfile and \
-                   self._args.apicafile and not self._args.api_insecure:
-                self.certs=[self._args.apicertfile, self._args.apikeyfile,
-                           self._args.apicafile]
-                self.apicertbundle=utils.getCertKeyCaBundle(self.api_bundle, self.certs)
+        self.verify = True
+        if self._args:
+            self.verify = (not getattr(self._args, 'api_insecure')) \
+                           and self._args.certbundle
 
     def _auth(self):
         if self._args:
             if os.getenv('OS_AUTH_URL'):
-                url = os.getenv('OS_AUTH_URL') + '/tokens'
+                if 'v3' in os.getenv('OS_AUTH_URL'):
+                   url = os.getenv('OS_AUTH_URL') + '/auth/tokens'
+                else:
+                    url = os.getenv('OS_AUTH_URL') + '/tokens'
+            elif 'v3' in self._args.auth_url:
+                self._DEFAULT_AUTHN_URL = "/v3/auth/tokens"
+                url = "%s://%s:%s%s" % (self._args.auth_protocol,
+                                        self._args.auth_ip,
+                                        self._args.auth_port,
+                                        self._DEFAULT_AUTHN_URL)
             else:
                 url = "%s://%s:%s%s" % (self._args.auth_protocol,
                                         self._args.auth_ip,
@@ -54,12 +58,22 @@ class JsonDrv (object):
             if self._args.insecure:
                 verify = not self._args.insecure
             else:
-                verify = self._args.keycertbundle
-            self._authn_body = \
-                '{"auth":{"passwordCredentials":{"username": "%s", "password": "%s"}, "tenantName":"%s"}}' % (
-                    self._args.admin_username if self._use_admin_auth else self._args.stack_user,
-                    self._args.admin_password if self._use_admin_auth else self._args.stack_password,
-                    self._args.admin_tenant if self._use_admin_auth else self._args.project_name)
+                verify = self._args.certbundle
+            if 'v3' in (os.getenv('OS_AUTH_URL') or self._args.auth_url):
+                self._authn_body = \
+                '{"auth": {"identity": {"methods": ["password"],"password": {"user": {"domain": {"name": "%s"},"name": "%s","password": "%s"}}},\
+                    "scope": {"project": {"domain": {"name": "%s"},"name": "%s"}}}}' %(
+                                          self._args.admin_domain,
+                                          self._args.admin_username,
+                                          self._args.admin_password,
+                                          self._args.admin_domain,
+                                          self._args.admin_username)
+            else:
+                self._authn_body = \
+                    '{"auth":{"passwordCredentials":{"username": "%s", "password": "%s"}, "tenantName":"%s"}}' % (
+                        self._args.admin_username if self._use_admin_auth else self._args.stack_user,
+                        self._args.admin_password if self._use_admin_auth else self._args.stack_password,
+                        self._args.admin_tenant if self._use_admin_auth else self._args.project_name)
             response = requests.post(url, data=self._authn_body,
                                      headers=self._DEFAULT_HEADERS,
                                      verify=verify)
@@ -69,12 +83,17 @@ class JsonDrv (object):
                 self._auth_token = authn_content['access']['token']['id']
                 self._headers = {'X-AUTH-TOKEN': self._auth_token}
                 return
+            elif response.status_code == 201: 
+                authn_content = response.headers
+                self._auth_token = authn_content['X-Subject-Token']
+                self._headers = {'X-AUTH-TOKEN': self._auth_token}
+                return
         raise RuntimeError('Authentication Failure')
 
     def load(self, url, retry=True):
         self.common_log("Requesting: %s" %(url))
         if url.startswith('https:'):
-            resp = requests.get(url, headers=self._headers, verify=self.apicertbundle)
+            resp = requests.get(url, headers=self._headers, verify=self.verify)
         else:
             resp = requests.get(url, headers=self._headers)
         if resp.status_code == 401:
