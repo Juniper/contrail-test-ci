@@ -335,10 +335,7 @@ class OpenstackAuth(OrchestratorAuth):
        if inputs:
            self.auth_url = inputs.auth_url
            self.region_name = inputs.region_name
-           if self.inputs.domain_isolation:
-               self.domain_name = domain_name or self.inputs.domain_name
-           else:
-               self.domain_name = domain_name or self.inputs.admin_domain
+           self.domain_name = domain_name or self.inputs.admin_domain
            self.keystone_certfile = self.inputs.keystonecertfile
            self.keystone_keyfile = self.inputs.keystonekeyfile
            self.certbundle = self.inputs.certbundle
@@ -365,16 +362,20 @@ class OpenstackAuth(OrchestratorAuth):
                                         key=self.keystone_keyfile,
                                         cacert=self.certbundle,
                                         logger=self.logger)
+       
    def get_domain_id(self, name='Default'):
         return self.keystone.get_domain_id(name)
 
    def get_project_id(self, name=None, domain_id=None):
-       if not name:
+       if not name or name == self.project:
            return self.keystone.get_id()
        return self.keystone.get_project_id(name, domain_id)
 
-   def get_session(self):
-       return self.keystone.get_session()
+   def get_session(self,scope='domain'):
+       return self.keystone.get_session(scope)
+
+   def get_client(self,scope='domain'):
+       return self.keystone.get_client(scope)
 
    def get_endpoint(self, service, interface='public'):
        return self.keystone.get_endpoint(service, interface)
@@ -418,7 +419,13 @@ class OpenstackAuth(OrchestratorAuth):
    def delete_role(self, role):
        self.keystone.delete_role(role)
 
-   def add_user_to_project(self, user, project, role='admin', domain=None):
+   def add_user_to_domain(self, user, role='admin', domain=None):
+       try:
+           self.keystone.add_user_to_domain(self, user, role, domain)
+       except Exception as e:
+           self.logger.info("%s user already added to domain"%(user))
+
+   def add_user_to_project(self, user, project, role='admin'):
        try:
            self.keystone.add_user_to_tenant(project, user, role, domain)
        except Exception as e:
@@ -448,7 +455,7 @@ class OpenstackAuth(OrchestratorAuth):
        try:
            self.keystone.create_group(group,domain_name)
        except Exception as e:
-           self.logger.info("%s user already present"%(group))
+           self.logger.info("%s user group already present"%(group))
 
    def delete_group(self,name):
         return self.keystone.delete_group(name=name)
@@ -459,10 +466,32 @@ class OpenstackAuth(OrchestratorAuth):
        except Exception as e:
            self.logger.info("%s user already added to group %s"%(user, group))
 
-   def add_user_group_to_tenant(self, project, group, role='admin', domain=None):
+   def remove_user_from_group(self,user,group):
        try:
-           self.keystone.add_group_to_tenant(project, group, role='admin', domain=domain)
+           self.keystone.remove_user_from_group(user, group)
        except Exception as e:
-           self.logger.info("%s group already added to project"%(group,project))
+           self.logger.info("%s user already removed from group %s"%(user, group))
 
+   def add_group_to_domain(self,group, role='admin', domain=None):
+       try:
+           self.keystone.add_group_to_domain(group, role='admin', domain=domain)
+       except Exception as e:
+           self.logger.info("%s group already added to domain"%(group,project))
 
+   def remove_group_from_domain(self, group, role, domain=None):
+       try:
+           self.keystone.remove_group_from_domain(self, group, role, domain=None)
+       except Exception as e:
+           self.logger.info("%s group already removed from domain"%(group,domain))
+
+   def add_group_to_tenant(self, tenant, group, role='admin'):
+       try:
+           self.keystone.add_group_to_tenant(project, group, role='admin')
+       except Exception as e:
+           self.logger.info("%s group already added to project"%(group,tenant))
+
+   def remove_group_from_tenant(self,tenant, group, role):
+       try:
+           self.keystone.remove_group_from_tenant(self,tenant, group, role)
+       except Exception as e:
+           self.logger.info("%s group already removed from project"%(group,tenant))

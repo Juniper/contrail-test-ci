@@ -19,7 +19,6 @@ class IsolatedCreds(fixtures.Fixture):
         self.username = None
         self.password = None
         self.inputs = inputs
-        self.domain_obj = None
         if inputs.domain_isolation:
             self.domain_name = get_random_name(domain_name)
         else :
@@ -88,6 +87,7 @@ class IsolatedCreds(fixtures.Fixture):
 
     def get_inputs(self, project_fixture):
         project_inputs= ContrailTestInit(self.ini_file,
+                            stack_domain=project_fixture.domain_name,
                             stack_user=project_fixture.project_username,
                             stack_password=project_fixture.project_user_password,
                             stack_tenant=self.project_name,logger = self.logger)
@@ -99,8 +99,7 @@ class IsolatedCreds(fixtures.Fixture):
                                     username=self.username,
                                     password=self.password,
                                     logger=self.logger,
-                                    domain_name=self.domain_name,
-                                    domain_obj=self.domain_obj)
+                                    domain_name=self.domain_name)
         return self.project_connections
 
     def cleanUp(self):
@@ -113,7 +112,7 @@ class AdminIsolatedCreds(fixtures.Fixture):
         username=None, password=None, domain_name=None):
         self.inputs = inputs
         if 'v3' in self.inputs.auth_url:
-            self.domain_name = domain_name or self.inputs.admin_domain
+            self.domain_name = domain_name or self.inputs.domain_name
         else:
             self.domain_name = None
         self.project_name = admin_project_name or inputs.admin_tenant
@@ -159,6 +158,7 @@ class AdminIsolatedCreds(fixtures.Fixture):
             if self.inputs.user_isolation:
                 self.auth.create_user(username, password, project_name, domain_name)
             self.auth.add_user_to_project(username, project_name, domain=domain_name)
+            self.auth.add_user_to_domain(username, domain=domain_name)
             if self.inputs.admin_username:
                 self.auth.add_user_to_project(self.inputs.admin_username,
                                         project_name, domain=domain_name)
@@ -225,6 +225,7 @@ class AdminIsolatedCreds(fixtures.Fixture):
 
     def get_inputs(self, project_fixture):
         project_inputs= ContrailTestInit(self.ini_file,
+                            stack_domain=project_fixture.domain_name,
                             stack_user=project_fixture.project_username,
                             stack_password=project_fixture.project_user_password,
                             stack_tenant=self.project_name, logger = self.logger)
