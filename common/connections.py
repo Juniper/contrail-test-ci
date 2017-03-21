@@ -23,14 +23,15 @@ except ImportError:
 
 class ContrailConnections():
     def __init__(self, inputs=None, logger=None, project_name=None,
-                 username=None, password=None, domain_name=None, ini_file=None, domain_obj=None):
+                 username=None, password=None, domain_name=None, ini_file=None, domain_obj=None,scope='domain'):
         self.inputs = inputs or ContrailTestInit(ini_file,
                                 stack_tenant=project_name)
         self.project_name = project_name or self.inputs.project_name
         self.domain_name = domain_name or self.inputs.domain_name
-        self.orch_domain_name = domain_name or self.inputs.admin_domain
-        if domain_name == 'Default':
-            self.domain_name = self.inputs.domain_name
+        self.orch_domain_name = domain_name or self.inputs.domain_name
+        if self.orch_domain_name == 'Default':
+            self.domain_name = 'default-domain'
+        self.scope = scope
         self.username = username or self.inputs.stack_user
         self.password = password or self.inputs.stack_password
         self.logger = logger or self.inputs.logger
@@ -52,15 +53,12 @@ class ContrailConnections():
         # ToDo: msenthil/sandipd rest of init needs to be better handled
         self.domain_id = None
         if self.inputs.domain_isolation: 
-            if domain_obj:        
-                self.domain_id = get_plain_uuid(domain_obj.uuid)
             #get admin auth to list domains and get domain_id
-            else:
-                auth = self.get_auth_h(username = self.inputs.admin_username,
-                                       password=self.inputs.admin_password,
-                                       project_name=self.inputs.admin_tenant,
-                                       domain_name=self.inputs.admin_domain)
-                self.domain_id = auth.get_domain_id(self.domain_name)    
+            auth = self.get_auth_h(username = self.inputs.admin_username,
+                                   password=self.inputs.admin_password,
+                                   project_name=self.inputs.admin_tenant,
+                                   domain_name=self.inputs.admin_domain)
+            self.domain_id = auth.get_domain_id(self.domain_name)
         self.auth = self.get_auth_h()
         self.vnc_lib = self.get_vnc_lib_h()
         self.project_id = self.get_project_id()
@@ -112,7 +110,8 @@ class ContrailConnections():
             if self.inputs.orchestrator == 'openstack':
                 env[attr] = OpenstackAuth(username, password,
                            project_name, self.inputs, self.logger,
-                           domain_name=domain_name or self.orch_domain_name)
+                           domain_name=domain_name or self.orch_domain_name,
+                           scope=self.scope)
             elif self.inputs.orchestrator == 'vcenter':
                 env[attr] = VcenterAuth(username, password,
                                        project_name, self.inputs)
@@ -125,7 +124,7 @@ class ContrailConnections():
         if not getattr(env, attr, None) or refresh:
             if self.inputs.orchestrator == 'openstack' :
                 domain = self.orch_domain_name     
-            else:        
+            else:  
                 domain = self.domain_name
             env[attr] = VncLibFixture(
                 username=self.username, password=self.password,
