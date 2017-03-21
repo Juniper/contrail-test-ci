@@ -155,6 +155,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         # Verify UDP traffic mirror
         sessions = self.tcpdump_on_all_analyzer(
             self.si_fixtures, self.si_prefix, si_count)
+
         # Install traffic package in VM
         self.vm1_fixture.install_pkg("Traffic")
         self.vm2_fixture.install_pkg("Traffic")
