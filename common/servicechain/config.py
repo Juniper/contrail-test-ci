@@ -47,7 +47,8 @@ class ConfigSvcChain(fixtures.Fixture):
                      svc_mode='transparent', flavor='contrail_flavor_2cpu',
                      static_route=[None, None, None], ordered_interfaces=True,
                      svc_img_name=None, st_version=1):
-
+        if self.inputs.domain_isolation:
+            domain = self.connections.domain_name or self.inputs.domain_name
         svc_type_props = {
             'firewall': {'in-network-nat': 'tiny_nat_fw',
                          'in-network': 'tiny_in_net',
