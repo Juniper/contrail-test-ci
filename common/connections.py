@@ -28,6 +28,9 @@ class ContrailConnections():
                                 stack_tenant=project_name)
         self.project_name = project_name or self.inputs.project_name
         self.domain_name = domain_name or self.inputs.domain_name
+        self.orch_domain_name = domain_name or self.inputs.admin_domain
+        if domain_name == 'Default':
+            self.domain_name = self.inputs.domain_name
         self.username = username or self.inputs.stack_user
         self.password = password or self.inputs.stack_password
         self.logger = logger or self.inputs.logger
@@ -47,12 +50,20 @@ class ContrailConnections():
                                       'ds_inspect')
 
         # ToDo: msenthil/sandipd rest of init needs to be better handled
-        self.domain_id = None        
-        if domain_obj:        
-            self.domain_id = get_plain_uuid(domain_obj.uuid)        
+        self.domain_id = None
+        if self.inputs.domain_isolation: 
+            if domain_obj:        
+                self.domain_id = get_plain_uuid(domain_obj.uuid)
+            #get admin auth to list domains and get domain_id
+            else:
+                auth = self.get_auth_h(username = self.inputs.admin_username,
+                                       password=self.inputs.admin_password,
+                                       project_name=self.inputs.admin_tenant,
+                                       domain_name=self.inputs.admin_domain)
+                self.domain_id = auth.get_domain_id(self.domain_name)    
         self.auth = self.get_auth_h()
         self.vnc_lib = self.get_vnc_lib_h()
-	self.project_id = self.get_project_id()
+        self.project_id = self.get_project_id()
         if self.inputs.orchestrator == 'openstack':
             if self.inputs.verify_thru_gui():
                 self.ui_login = UILogin(self, self.inputs, project_name, username, password)
@@ -92,7 +103,7 @@ class ContrailConnections():
         return auth.get_project_id(project_name or self.project_name, self.domain_id)
 
     def get_auth_h(self, refresh=False, project_name=None,
-                   username=None, password=None):
+                   username=None, password=None, domain_name=None):
         project_name = project_name or self.project_name
         username = username or self.username
         password = password or self.password
@@ -101,20 +112,19 @@ class ContrailConnections():
             if self.inputs.orchestrator == 'openstack':
                 env[attr] = OpenstackAuth(username, password,
                            project_name, self.inputs, self.logger,
-                           domain_name=self.domain_name)
+                           domain_name=domain_name or self.orch_domain_name)
             elif self.inputs.orchestrator == 'vcenter':
                 env[attr] = VcenterAuth(username, password,
                                        project_name, self.inputs)
         return env.get(attr)
-
+    
     def get_vnc_lib_h(self, refresh=False):
         attr = '_vnc_lib_fixture_' + self.project_name + '_' + self.username
         cfgm_ip = self.inputs.api_server_ip or \
                   self.inputs.contrail_external_vip or self.inputs.cfgm_ip
         if not getattr(env, attr, None) or refresh:
-            if self.domain_name == 'default-domain' \
-                         and self.inputs.orchestrator == 'openstack' :
-                self.domain = 'Default'        
+            if self.inputs.orchestrator == 'openstack' :
+                self.domain = self.orch_domain_name     
             else:        
                 self.domain = self.domain_name
             env[attr] = VncLibFixture(
