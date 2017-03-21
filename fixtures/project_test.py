@@ -205,7 +205,7 @@ class ProjectFixture(fixtures.Fixture):
                 username=username,
                 password=password,
                 domain_name=self.domain_name,
-                domain_obj=domain_obj)
+                scope='project')
         return self.project_connections[username]
     # end get_project_connections
 
@@ -214,6 +214,7 @@ class ProjectFixture(fixtures.Fixture):
         password = password or self.project_user_password or self.inputs.stack_password
         if username not in self.project_inputs:
             self.project_inputs[username] = ContrailTestInit(self.inputs.ini_file,
+                 stack_domain=self.domain_name,
                  stack_user=username,
                  stack_password=password,
                  stack_tenant=self.project_name,
