@@ -996,14 +996,14 @@ class VerifySvcFirewall(VerifySvcMirror):
         self, si_count=1, svc_scaling=False, max_inst=1,
             firewall_svc_mode='in-network', mirror_svc_mode='transparent', flavor='contrail_flavor_2cpu', vn1_subnets=None, vn2_subnets=None):
         """Validate the service chaining in network  datapath"""
-
-        vn1_fq_name = "default-domain:" + self.inputs.project_name + \
+        domain_name = self.connections.domain_name
+        vn1_fq_name = domain_name + ":" + self.inputs.project_name + \
             ":" + get_random_name("in_network_vn1")
         vn1_name = vn1_fq_name.split(':')[2]
         vn1_subnets = [
             vn1_subnets or get_random_cidr(af=self.inputs.get_af())]
         vm1_name = get_random_name("in_network_vm1")
-        vn2_fq_name = "default-domain:" + self.inputs.project_name + \
+        vn2_fq_name = domain_name + ":" + self.inputs.project_name + \
             ":" + get_random_name("in_network_vn2")
         vn2_name = vn2_fq_name.split(':')[2]
         vn2_subnets = [

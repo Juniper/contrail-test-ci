@@ -20,7 +20,7 @@ class SvcInstanceFixture(fixtures.Fixture):
         self.api_s_inspect = connections.api_server_inspect
         self.nova_h = connections.nova_h
         self.inputs = connections.inputs
-        self.domain_name = domain_name
+        self.domain_name = domain_name or self.connections.domain_name 
         self.project_name = project_name
         self.si_name = si_name
         self.svc_template = svc_template
@@ -182,7 +182,7 @@ class SvcInstanceFixture(fixtures.Fixture):
     def verify_st(self):
         """check service template"""
         self.cs_si = self.api_s_inspect.get_cs_si(
-            project=self.project.name, si=self.si_name, refresh=True)
+            domain=self.domain_name, project=self.project.name, si=self.si_name, refresh=True)
         try:
             st_refs = self.cs_si['service-instance']['service_template_refs']
         except KeyError:
@@ -208,7 +208,7 @@ class SvcInstanceFixture(fixtures.Fixture):
     def verify_pt(self):
         """check Service PT"""
         self.cs_si = self.api_s_inspect.get_cs_si(
-            project=self.project.name, si=self.si_name, refresh=True)
+            domain=self.domain_name, project=self.project.name, si=self.si_name, refresh=True)
         try:
             self.pt_refs = self.cs_si[
                 'service-instance']['port_tuples']
@@ -230,7 +230,7 @@ class SvcInstanceFixture(fixtures.Fixture):
         # From svm_ids, get the svm_list
         # Verify the SVMs in the svm_list
         self.cs_si = self.api_s_inspect.get_cs_si(
-            project=self.project.name, si=self.si_name, refresh=True)
+            domain=self.domain_name, project=self.project.name, si=self.si_name, refresh=True)
         try:
             self.pt_refs = self.cs_si[
                 'service-instance']['port_tuples']
@@ -322,7 +322,7 @@ class SvcInstanceFixture(fixtures.Fixture):
         for vn in vn_refs:
             self.svc_vn = self.api_s_inspect.get_cs_vn(
                 # project=self.project.name, vn=vn['to'][-1], refresh=True)
-                project=vn['to'][1], vn=vn['to'][-1], refresh=True)
+                domain=vn['to'][0],project=vn['to'][1], vn=vn['to'][-1], refresh=True)
             if not self.svc_vn:
                 errmsg = "IF %s has no vn" % self.if_type
                 self.logger.warn(errmsg)
@@ -467,7 +467,7 @@ class SvcInstanceFixture(fixtures.Fixture):
         if not self.si:
             return (True, None)
         si = self.api_s_inspect.get_cs_si(
-            project=self.project.name, si=self.si_name, refresh=True)
+            domain=self.domain_name, project=self.project.name, si=self.si_name, refresh=True)
         if si:
             errmsg = "Service instance %s not removed from api server" % self.si_name
             self.logger.warn(errmsg)
@@ -514,7 +514,7 @@ class SvcInstanceFixture(fixtures.Fixture):
             return (True, None)
         for vn in self.cs_svc_vns:
             svc_vn = self.api_s_inspect.get_cs_vn(
-                project=self.project.name, vn=vn, refresh=True)
+                domain=self.domain_name, project=self.project.name, vn=vn, refresh=True)
             self.logger.debug('Service VN %s seen' % svc_vn)
             # We will not worry about the Service-VNs not generated via
             # fixtures
