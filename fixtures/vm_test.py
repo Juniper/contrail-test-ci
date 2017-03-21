@@ -87,6 +87,10 @@ class VMFixture(fixtures.Fixture):
         self.image_name = image_name
         self.flavor = self.orch.get_default_image_flavor(self.image_name) or flavor
         self.project_name = project_name or self.connections.project_name
+        self.domain_name = None
+        if self.inputs.domain_isolation:
+            self.domain_name = self.connections.domain_name or self.inputs.domain_name
+        self.vm_name = vm_name or get_random_name(self.project_name)
         self.vm_name = vm_name or get_random_name(self.project_name)
         self.vm_id = uuid
         self.vm_obj = None
@@ -433,6 +437,7 @@ class VMFixture(fixtures.Fixture):
     @retry(delay=2, tries=4)
     def verify_sec_grp_in_agent(self, secgrp, domain='default-domain'):
         # this method verifies sg secgrp attached to vm info in agent
+        domain = self.domain_name or domain
         secgrp_fq_name = ':'.join([domain,
                                    self.project_name,
                                    secgrp])
@@ -454,6 +459,7 @@ class VMFixture(fixtures.Fixture):
 
     @retry(delay=2, tries=4)
     def verify_sg_acls_in_agent(self, secgrp, domain='default-domain'):
+        domain = self.domain_name or domain
         secgrp_fq_name = ':'.join([domain,
                                    self.project_name,
                                    secgrp])

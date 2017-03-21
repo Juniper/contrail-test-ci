@@ -25,6 +25,8 @@ class SecurityGroupFixture(ContrailFixture):
         self.vnc_lib_h = connections.get_vnc_lib_h()
         self.api_s_inspect = connections.api_server_inspect
         self.domain_name = self.inputs.domain_name
+        if self.inputs.domain_isolation:
+            self.domain_name = self.connections.domain_name or self.inputs.domain_name
         self.project_name = self.inputs.project_name
         self.secgrp_name = secgrp_name or get_random_name(self.project_name)
         self.secgrp_id = uuid
