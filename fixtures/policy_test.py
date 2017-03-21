@@ -29,12 +29,14 @@ class PolicyFixture(fixtures.Fixture):
         self.quantum_h = self.connections.quantum_h
         self.api_s_inspect = self.connections.api_server_inspect
         self.vnc_lib = self.connections.vnc_lib
+        self.domain_name = self.connections.domain_name
+        self.project_name = self.inputs.project_name
+        self.project_fq_name = [self.domain_name,self.project_name]
         self.policy_name = policy_name
         self.policy_obj = None
         self.logger = self.inputs.logger
         self.already_present = False
         self.verify_is_run = False
-        self.project_name = self.inputs.project_name
         self.api_flag = api
         if self.inputs.orchestrator == 'vcenter' or self.inputs.vcenter_gw_setup:
             self.api_flag = True

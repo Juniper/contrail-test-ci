@@ -373,7 +373,6 @@ class ConfigSvcChain(fixtures.Fixture):
         '''
         Returns `value` if intf_type is required to launch svm with
             image svc_img_name. Else returns None
-
         intf_type : One of management/left/right
         '''
         svm_intf_ctrl = SVC_IMAGE_PROPS.get(svc_img_name)
@@ -792,4 +791,3 @@ class ConfigSvcChain(fixtures.Fixture):
         self.config_ecmp_hash_vmi(svm_list, ecmp_hash)
         vn_fixture.set_ecmp_hash(ecmp_hash)
     # end del_ecmp_hash_config
-
