@@ -650,7 +650,7 @@ class VerifySvcFirewall(VerifySvcChain):
         self, max_inst=1,
             firewall_svc_mode='in-network', mirror_svc_mode='transparent'):
         """Validate the service chaining in network  datapath"""
-
+        
         #TODO
         # max_inst cannot be more than one in this method since
         # analyzer packet count verification logic needs to be updated when
