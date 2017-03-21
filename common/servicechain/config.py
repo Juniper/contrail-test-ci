@@ -47,7 +47,8 @@ class ConfigSvcChain(fixtures.Fixture):
                      svc_mode='transparent', flavor='contrail_flavor_2cpu',
                      static_route=[None, None, None], ordered_interfaces=True,
                      svc_img_name=None, st_version=1):
-
+        if self.inputs.domain_isolation:
+            domain = self.connections.domain_name or self.inputs.domain_name
         svc_type_props = {
             'firewall': {'in-network-nat': 'tiny_nat_fw',
                          'in-network': 'tiny_in_net',
@@ -171,7 +172,7 @@ class ConfigSvcChain(fixtures.Fixture):
         for i in range(0, si_count):
             si_name = si_prefix + str(i + 1)
             # chain services by appending to action list
-            si_fq_name = 'default-domain' + ':' + project_name + ':' + si_name
+            si_fq_name = (self.connections.domain_name or 'default-domain')  + ':' + project_name + ':' + si_name
             action_list.append(si_fq_name)
         return action_list
 

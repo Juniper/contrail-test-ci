@@ -23,6 +23,8 @@ class VerifySvcChain(object):
     @retry(delay=5, tries=6)
     def validate_vn(self, vn_name, domain_name='default-domain',
                     project_name='admin', right_vn=False):
+        if self.inputs.domain_isolation:
+            domain_name = self.connections.domain_name or self.inputs.domain_name
         ri_fq_name = [domain_name, project_name, vn_name, vn_name]
         ri_obj = self.connections.vnc_lib_fixture.routing_instance_read(fq_name=ri_fq_name)
         errmsg = "RI object not found for RI: %s" % ri_fq_name

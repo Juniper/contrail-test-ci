@@ -25,21 +25,22 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
            single node : Pkts mirrored to the analyzer should be equal to 'count'
            multinode :Pkts mirrored to the analyzer should be equal to '2xcount'
         """
+        domain_name = self.connections.domain_name or 'default-domain'
         vn1_subnets = [get_random_cidr(af=self.inputs.get_af())]
         vn2_subnets = [get_random_cidr(af=self.inputs.get_af())]
-        self.vn1_fq_name = "default-domain:" + self.inputs.project_name + \
+        self.vn1_fq_name = domain_name + ":" + self.inputs.project_name + \
             ":" + get_random_name("in_network_vn1")
         self.vn1_name = self.vn1_fq_name.split(':')[2]
         self.vn1_subnets = vn1_subnets
         self.vm1_name = get_random_name("in_network_vm1")
-        self.vn2_fq_name = "default-domain:" + self.inputs.project_name + \
+        self.vn2_fq_name = domain_name + ":"  + self.inputs.project_name + \
             ":" + get_random_name("in_network_vn2")
         self.vn2_name = self.vn2_fq_name.split(':')[2]
         self.vn2_subnets = vn2_subnets
         self.vm2_name = get_random_name("in_network_vm2")
 
         mgmt_vn_subnets = [get_random_cidr(af=self.inputs.get_af())]
-        self.mgmt_vn_fq_name = "default-domain:" + self.inputs.project_name + \
+        self.mgmt_vn_fq_name = domain_name + ":"  + self.inputs.project_name + \
             ":" + get_random_name("mgmt_vn")
         self.mgmt_vn_name = self.mgmt_vn_fq_name.split(':')[2]
         self.mgmt_vn_subnets = mgmt_vn_subnets
@@ -192,15 +193,15 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
            single node : Pkts mirrored to the analyzer should be equal to 'count'
            multinode :Pkts mirrored to the analyzer should be equal to '2xcount'
         """
-
+        domain_name = self.connections.domain_name or domain_name
         vn1_subnets = [get_random_cidr(af=self.inputs.get_af())]
         vn2_subnets = [get_random_cidr(af=self.inputs.get_af())]
-        self.vn1_fq_name = "default-domain:" + self.inputs.project_name + \
+        self.vn1_fq_name = domain_name + ":"  + self.inputs.project_name + \
             ":" + get_random_name("in_network_vn1")
         self.vn1_name = self.vn1_fq_name.split(':')[2]
         self.vn1_subnets = vn1_subnets
         self.vm1_name = get_random_name("in_network_vm1")
-        self.vn2_fq_name = "default-domain:" + self.inputs.project_name + \
+        self.vn2_fq_name = domain_name + ":"  + self.inputs.project_name + \
             ":" + get_random_name("in_network_vn2")
         self.vn2_name = self.vn2_fq_name.split(':')[2]
         self.vn2_subnets = vn2_subnets
@@ -805,14 +806,15 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
            single node : Pkts mirrored to the analyzer should be equal to 'count'
            multinode :Pkts mirrored to the analyzer should be equal to '2xcount'
         """
+        domain = self.connections.domain_name or 'default-domain'
         vn1_subnets = [get_random_cidr(af=self.inputs.get_af())]
         vn2_subnets = [get_random_cidr(af=self.inputs.get_af())]
-        self.vn1_fq_name = "default-domain:" + self.inputs.project_name + \
+        self.vn1_fq_name = domain_name + ":"  + self.inputs.project_name + \
             ":" + get_random_name("in_network_vn1")
         self.vn1_name = self.vn1_fq_name.split(':')[2]
         self.vn1_subnets = vn1_subnets
         self.vm1_name = get_random_name("in_network_vm1")
-        self.vn2_fq_name = "default-domain:" + self.inputs.project_name + \
+        self.vn2_fq_name = domain_name + ":"  + self.inputs.project_name + \
             ":" + get_random_name("in_network_vn2")
         self.vn2_name = self.vn2_fq_name.split(':')[2]
         self.vn2_subnets = vn2_subnets
@@ -947,15 +949,15 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
 
     def verify_attach_detach_policy_with_svc_mirroring(self, si_count=1, st_version=1):
         """Validate the detach and attach policy with SI doesn't block traffic"""
-
+        domain_name = self.connections.domain_name or 'default-domain'
         vn1_subnets = [get_random_cidr(af=self.inputs.get_af())]
         vn2_subnets = [get_random_cidr(af=self.inputs.get_af())]
-        self.vn1_fq_name = "default-domain:" + self.inputs.project_name + \
+        self.vn1_fq_name = domain_name + ":"  + self.inputs.project_name + \
             ":" + get_random_name("in_network_vn1")
         self.vn1_name = self.vn1_fq_name.split(':')[2]
         self.vn1_subnets = vn1_subnets
         self.vm1_name = get_random_name("in_network_vm1")
-        self.vn2_fq_name = "default-domain:" + self.inputs.project_name + \
+        self.vn2_fq_name = domain_name + ":"  + self.inputs.project_name + \
             ":" + get_random_name("in_network_vn2")
         self.vn2_name = self.vn2_fq_name.split(':')[2]
         self.vn2_subnets = vn2_subnets
