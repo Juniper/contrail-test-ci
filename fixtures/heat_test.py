@@ -29,6 +29,7 @@ class HeatFixture(fixtures.Fixture):
                       else contrail_logging.getLogger(__name__)
         auth_h = auth_h or connections.auth if connections else None
         if not auth_h:
+            kwargs['scope'] = 'project'
             auth_h = self.get_auth_h(**kwargs)
         self.auth = auth_h
         self.obj = None

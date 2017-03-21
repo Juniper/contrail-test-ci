@@ -309,8 +309,9 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     sanity_testbed_json = json.dumps(sanity_testbed_dict)
     stack_user = env.test.get('stack_user', os.getenv('STACK_USER') or '')
     stack_password = env.test.get('stack_password',
-                         os.getenv('STACK_PASSWORD') or '')
-    stack_tenant = env.test.get('stack_tenant', os.getenv('STACK_TENANT') or '')
+                         os.getenv('STACK_PASSWORD') or env.get('stack_password',''))
+    stack_tenant = env.test.get('stack_tenant', os.getenv('STACK_TENANT') or env.get('stack_tenant', ''))
+    stack_domain = env.test.get('stack_domain', os.getenv('STACK_DOMAIN') or env.get('stack_domain', ''))
     if not env.has_key('domain_isolation'):
         env.domain_isolation = False
     if not env.has_key('cloud_admin_domain'):

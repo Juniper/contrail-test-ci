@@ -869,12 +869,14 @@ class ContrailTestInit(object):
             stack_user=None,
             stack_password=None,
             stack_tenant=None,
+            stack_domain=None,
             logger=None):
         self.connections = None
         self.logger = logger or contrail_logging.getLogger(__name__)
         self.inputs = TestInputs(ini_file, self.logger)
         self.stack_user = stack_user or self.stack_user
         self.stack_password = stack_password or self.stack_password
+        self.stack_domain = stack_domain or self.stack_domain
         self.stack_tenant = stack_tenant or self.stack_tenant
         self.project_fq_name = [self.stack_domain, self.stack_tenant]
         self.project_name = self.stack_tenant

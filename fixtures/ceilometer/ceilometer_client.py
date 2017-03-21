@@ -58,6 +58,7 @@ class CeilometerClient(object):
     '''
     def __init__(self, auth_h=None, **kwargs):
         if not auth_h:
+            kwargs['scope'] = 'project'
             auth_h = self.get_auth_h(**kwargs)
         self.auth_h = auth_h
         self.certfile = kwargs.get('certfile') or auth_h.keystone_certfile
