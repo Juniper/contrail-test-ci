@@ -304,16 +304,19 @@ class TestInputs(object):
                 self.auth_url = '%s://%s:%s/v2.0'%(self.auth_protocol,
                                            self.auth_ip,
                                            self.auth_port)
+                self.authn_url = '/v2.0//tokens'
             else:
                 self.auth_url = os.getenv('OS_AUTH_URL') or \
                             '%s://%s:%s/v3'%(self.auth_protocol,
                                                self.auth_ip,
                                                self.auth_port)
+                self.authn_url = '/v3/auth/tokens'
         else:
             self.auth_url = os.getenv('OS_AUTH_URL') or \
                         '%s://%s:%s/v2.0'%(self.auth_protocol,
                                            self.auth_ip,
                                            self.auth_port)
+            self.authn_url = '/v2.0//tokens'
         self.apicertfile = read_config_option(self.config,
                                              'cfgm', 'api_certfile', None)
         self.apikeyfile = read_config_option(self.config,
