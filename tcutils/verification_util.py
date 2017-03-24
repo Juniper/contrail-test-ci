@@ -6,9 +6,7 @@ import requests
 import threading
 import logging as LOG
 from tcutils.util import *
-from cfgm_common import utils
 from lxml import etree
-
 from common import log_orig as contrail_logging
 
 LOG.basicConfig(format='%(levelname)s: %(message)s', level=LOG.INFO)
@@ -35,15 +33,9 @@ class JsonDrv (object):
         # Since introspect log is a single file, need locks
         self.lock = threading.Lock()
         self.verify = True
-        if self._args and hasattr(self._args, 'api_insecure'):
-            self.verify = not self._args.api_insecure
-        if self._args and self._args.api_protocol == 'https':
-            self.api_bundle = '/tmp/' + get_random_string() + '.pem'
-            if self._args.apicertfile and self._args.apikeyfile and \
-                   self._args.apicafile and not self._args.api_insecure:
-                self.certs=[self._args.apicertfile, self._args.apikeyfile,
-                           self._args.apicafile]
-                self.verify=utils.getCertKeyCaBundle(self.api_bundle, self.certs)
+        if self._args:
+            self.verify = (not getattr(self._args, 'api_insecure')) \
+                           and self._args.certbundle
 
     def _auth(self):
         if self._args:
@@ -57,12 +49,22 @@ class JsonDrv (object):
             if self._args.insecure:
                 verify = not self._args.insecure
             else:
-                verify = self._args.keycertbundle
-            self._authn_body = \
-                '{"auth":{"passwordCredentials":{"username": "%s", "password": "%s"}, "tenantName":"%s"}}' % (
-                    self._args.admin_username if self._use_admin_auth else self._args.stack_user,
-                    self._args.admin_password if self._use_admin_auth else self._args.stack_password,
-                    self._args.admin_tenant if self._use_admin_auth else self._args.project_name)
+                verify = self._args.certbundle
+            if 'v3' in (os.getenv('OS_AUTH_URL') or self._args.auth_url):
+                self._authn_body = \
+                '{"auth": {"identity": {"methods": ["password"],"password": {"user": {"domain": {"name": "%s"},"name": "%s","password": "%s"}}},\
+                    "scope": {"project": {"domain": {"name": "%s"},"name": "%s"}}}}' %(
+                                          self._args.admin_domain,
+                                          self._args.admin_username,
+                                          self._args.admin_password,
+                                          self._args.admin_domain,
+                                          self._args.admin_username)
+            else:
+                self._authn_body = \
+                    '{"auth":{"passwordCredentials":{"username": "%s", "password": "%s"}, "tenantName":"%s"}}' % (
+                        self._args.admin_username if self._use_admin_auth else self._args.stack_user,
+                        self._args.admin_password if self._use_admin_auth else self._args.stack_password,
+                        self._args.admin_tenant if self._use_admin_auth else self._args.project_name)
             response = requests.post(url, data=self._authn_body,
                                      headers=self._DEFAULT_HEADERS,
                                      verify=verify)

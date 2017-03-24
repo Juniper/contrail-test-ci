@@ -340,7 +340,7 @@ class OpenstackAuth(OrchestratorAuth):
            self.region_name = inputs.region_name
            self.keystone_certfile = self.inputs.keystonecertfile
            self.keystone_keyfile = self.inputs.keystonekeyfile
-           self.keycertbundle = self.inputs.keycertbundle
+           self.certbundle = self.inputs.certbundle
            self.insecure = self.inputs.insecure
        else:
            self.auth_url = auth_url or os.getenv('OS_AUTH_URL')
@@ -348,7 +348,7 @@ class OpenstackAuth(OrchestratorAuth):
            self.keystone_certfile = certfile
            self.keystone_keyfile = keyfile
            self.insecure = insecure
-           self.keycertbundle = cacert
+           self.certbundle = cacert
        self.reauth()
 
    def reauth(self):
@@ -360,7 +360,7 @@ class OpenstackAuth(OrchestratorAuth):
                                         region_name=self.region_name,
                                         cert=self.keystone_certfile,
                                         key=self.keystone_keyfile,
-                                        cacert=self.keycertbundle,
+                                        cacert=self.certbundle,
                                         logger=self.logger)
 
    def get_project_id(self, name=None):
