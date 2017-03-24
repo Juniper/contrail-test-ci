@@ -827,6 +827,28 @@ class LBaasV2Fixture(LBBaseFixture):
         if not self.hmon_id and self.hm_probe_type:
             self.create_hmon(self.hm_probe_type, self.hm_delay, self.hm_max_retries, self.hm_timeout)
 
+    def create_container(self):
+        self.tls_container = BarbicanHelper(connections=self.connections)
+        return self.tls_container
+
+    def delete_container(self):
+        self.tls_container.delete(self.container_certs)
+        self.tls_container=None
+
+    def create_container_cert(self, container_name='tls_container', cert_payload='certificate', pkey_payload='priavte_key'):
+        self.container_certs = self.tls_container.create_container_certificate(container_name=container_name,
+            cert_payload=cert_payload,
+            pkey_payload=pkey_payload)
+        return self.container_certs
+
+    def add_neutron_user_to_acl(self, user='neutron'):
+        self.connections.auth.add_user_to_project(user, self.connections.project_name, '_member_')
+        auth_token = self.connections.auth.get_token()
+        user_id = str(self.connections.auth.keystone.get_user_dct(user).id)
+        for secrets in self.container_certs.secret_refs:
+            self.tls_container.add_users_to_refs_acl(auth_token, [user_id], str(self.container_certs.secret_refs[secrets]))
+        self.tls_container.add_users_to_refs_acl(auth_token, [user_id], str(self.container_certs.container_ref))
+
     def create_pool(self):
         self.pool_active = False
         pool_obj = self.network_h.create_lbaas_pool(
