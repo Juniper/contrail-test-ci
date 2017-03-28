@@ -192,6 +192,12 @@ function parse_results {
     python tools/parse_result.py $serial_result_xml $REPORT_DETAILS_FILE
 }
 
+function collect_tracebacks {
+    export PYTHONPATH=$PYTHONPATH:$PWD:$PWD/fixtures
+    python tools/collect_bts.py $TEST_CONFIG_FILE
+}
+    
+
 function find_python_version {
     output="$(python -c 'import sys; print(sys.version_info[:])')"
     substring='2, 6, 6'
@@ -301,6 +307,7 @@ fi
 python tools/report_gen.py $TEST_CONFIG_FILE $REPORT_DETAILS_FILE
 echo "Generated report_details* file: $REPORT_DETAILS_FILE"
 parse_results
+collect_tracebacks
 generate_html 
 upload_to_web_server
 sleep 2
