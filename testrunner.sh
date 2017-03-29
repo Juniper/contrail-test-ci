@@ -112,6 +112,14 @@ add_contrail_env () {
         var=`echo ${i/CT_/} | sed -e 's/|/ /g' -e "s/\(.*\)=\(.*\)/\1='\2'/g"`
         arg_env[$n]=" -e $var "
         n=$(($n+1))
+        if [[ $var =~ 'PRIV' ]]; then
+          key_file=`echo $var | sed -e "s/.*='\(.*\)'/\1/g"`
+          if [[ $key_file =~ 'cert' ]]; then
+            arg_base_vol="$arg_base_vol -v $key_file:/contrail-test/tools/tor/sc-cert.pem"
+          else
+            arg_base_vol="$arg_base_vol -v $key_file:/contrail-test/tools/tor/sc-privkey.pem"
+          fi
+        fi
     done
 }
 
