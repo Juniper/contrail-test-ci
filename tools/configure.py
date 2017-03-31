@@ -11,6 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 from common import log_orig as contrail_logging
 from fabric.contrib.files import exists
 from cfgm_common import utils
+from shutil import copyfile
 
 def detect_ostype():
     return platform.dist()[0].lower()
@@ -638,6 +639,32 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         update_js_config('openstack', '/etc/contrail/config.global.js',
                          'contrail-webui')
 
+def testbed_format_conversion(path='/opt/contrail/utils'):
+    tb_file = path + '/fabfile/testbeds/testbed.py'
+    tb_file_cp = path + '/fabfile/testbeds/testbed_backup.py'
+    tb_file_tmp = path + '/fabfile/testbeds/testbed_new.py'
+
+    copyfile(tb_file, tb_file_cp)
+    fr=open(tb_file)
+    fw=open(tb_file_tmp, 'w')
+
+    for line in fr:
+        if 'contrail-controller' in line:
+            fw.write(line.replace('contrail-controller', 'cfgm'))
+            fw.write(line.replace('contrail-controller', 'control'))
+            fw.write(line.replace('contrail-controller', 'webui'))
+        if 'contrail-analytics\'' in line:
+            fw.write(line.replace('contrail-analytics', 'collector'))
+        if 'contrail-analyticsdb' in line:
+            fw.write(line.replace('contrail-analyticsdb', 'database'))
+        if 'contrail-compute' in line:
+            fw.write(line.replace('contrail-compute', 'compute'))
+        fw.write(line)
+    fr.close()
+    fw.close()
+    copyfile(tb_file_tmp, tb_file)
+# end testbed_format_conversion
+
 def main(argv=sys.argv):
     ap = argparse.ArgumentParser(
         description='Configure test environment')
@@ -647,6 +674,7 @@ def main(argv=sys.argv):
                     help='Contrail fab path on local machine')
     args = ap.parse_args()
 
+    testbed_format_conversion(argv[2])
     configure_test_env(args.contrail_fab_path, args.contrail_test_directory)
 
 if __name__ == "__main__":
