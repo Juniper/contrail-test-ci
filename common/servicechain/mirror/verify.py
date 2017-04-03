@@ -655,9 +655,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             % (src_vm.vm_ip, dst_vm.vm_ip))
         filters = '| grep \"length [1-9][4-9][0-9][0-9][0-9]*\"'
         if self.inputs.pcap_on_vm:
-            output, mirror_pkt_count = self.stop_tcpdump_for_vm_intf(
+            output, mirror_pkt_count = stop_tcpdump_for_vm_intf(
                 None, None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, filters=filters)
-            mirror_pkt_count = int(mirror_pkt_count[0])
         else:
             mirror_pkt_count = self.stop_tcpdump(session, pcap, filters)
         errmsg = "%s ICMP Packets mirrored to the analyzer VM %s,"\
@@ -833,15 +832,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         errmsg = "UDP traffic with src port %s and dst port %s failed" % (
             sport, dport)
         assert sent and recv == sent, errmsg
-<<<<<<< HEAD
-        svmname = self.get_svms_in_si(
-                     self.si_fixtures[0], self.inputs.project_name)[0].name
-        for svm_name, (session, pcap) in sessions.items():
-            count = sent
-            if new_left_vm_fix.vm_node_ip != new_right_vm_fix.vm_node_ip:
-                count = count * 2
-            self.verify_l4_mirror(svm_name, session, pcap, count, 'udp')
-=======
+
         count = sent
         if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
             count = count * 2
@@ -860,7 +851,6 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                          self.si_fixtures[0], self.inputs.project_name)[0].name
             for svm_name, (session, pcap) in sessions.items():
                 self.verify_l4_mirror(svm_name, session, pcap, count, 'udp')
->>>>>>> b070ed5... Svc mirrroing changes to support pcap on VM
 
         # One mirror instance
         if len(self.action_list) != 2:
@@ -885,17 +875,9 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         errmsg = "UDP traffic with src port %s and dst port %s failed" % (
             sport, dport)
         assert sent and recv == sent, errmsg
-<<<<<<< HEAD
-        svmname = self.get_svms_in_si(
-                     self.si_fixtures[0], self.inputs.project_name)[0].name
-        for svm_name, (session, pcap) in sessions.items():
-            count = sent
-            if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
-                count = count * 2
-            self.verify_l4_mirror(svm_name, session, pcap, count, 'udp')
-=======
+
         count = sent
-        if svc_mode == 'transparent' and self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
+        if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
             count = count * 2
         if self.inputs.pcap_on_vm:
             output, mirror_pkt_count = self.stop_tcpdump(None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, pcap_on_vm=True)
@@ -913,7 +895,6 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                          self.si_fixtures[0], self.inputs.project_name)[0].name
             for svm_name, (session, pcap) in sessions.items():
                 self.verify_l4_mirror(svm_name, session, pcap, count, 'udp')
->>>>>>> b070ed5... Svc mirrroing changes to support pcap on VM
 
         # Verify ICMP traffic mirror between new VN's
         # sessions = self.tcpdump_on_all_analyzer(si_prefix, si_count)
