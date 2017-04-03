@@ -265,6 +265,8 @@ class VerifyIntfMirror(VerifySvcMirror):
 
         self.analyzer_port = 8099
         image_name = 'cirros'
+        if self.inputs.pcap_on_vm:
+            image_name='ubuntu-traffic'
 
         self.vn1_subnets = [get_random_cidr(af=self.inputs.get_af())]
         self.vn2_subnets = [get_random_cidr(af=self.inputs.get_af())]
@@ -496,7 +498,6 @@ class VerifyIntfMirror(VerifySvcMirror):
 
         self.src_vm_fixture = self.create_vm(vn_objs=[self.src_vn_fixture.obj], vm_name=self.src_vm_name,
                                  image_name=image_name, node_name=src_compute, port_ids=src_port_ids)
-
         self.dst_vm_fixture = self.create_vm(vn_objs=[self.dst_vn_fixture.obj], vm_name=self.dst_vm_name,
                                  image_name=image_name, node_name=dst_compute, port_ids=dst_port_ids)
 
