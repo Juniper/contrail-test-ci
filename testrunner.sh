@@ -30,6 +30,7 @@ ESC=$(printf "\e")
 GREEN="$ESC[0;32m"
 NO_COLOR="$ESC[0;0m"
 RED="$ESC[0;31m"
+CONTRAIL_TEST_FOLDER="/contrail-test"
 
 trap finish EXIT SIGHUP SIGINT SIGTERM
 
@@ -151,8 +152,8 @@ EOF
 docker_run () {
     # Volumes to be mounted to container
 
-    arg_base_vol=" -v ${run_path}/${SCRIPT_TIMESTAMP}/logs:/contrail-test/logs \
-        -v ${run_path}/${SCRIPT_TIMESTAMP}/reports:/contrail-test/report \
+    arg_base_vol=" -v ${run_path}/${SCRIPT_TIMESTAMP}/logs:${CONTRAIL_TEST_FOLDER}/logs \
+        -v ${run_path}/${SCRIPT_TIMESTAMP}/reports:${CONTRAIL_TEST_FOLDER}/report \
         -v ${run_path}/${SCRIPT_TIMESTAMP}:/contrail-test.save \
         -v /etc/localtime:/etc/localtime:ro \
         -v /etc/hosts:/etc/hosts:ro"
@@ -181,7 +182,8 @@ docker_run () {
                 s=`echo $i | sed "s#$mount_local#/combined/#"`
                 ln -s $s $temp_dir/$d
             done
-            local_vol=" -v $mount_local:/combined -v $temp_dir:/contrail-test-local "
+	    CONTRAIL_TEST_FOLDER="/contrail-test-local"
+            local_vol=" -v $mount_local:/combined -v $temp_dir:${CONTRAIL_TEST_FOLDER} "
         else
             echo "ERROR: Mount local directory ($mount_local) should have contrail-test and contrail-test-ci cloned"
             exit 1
@@ -205,8 +207,8 @@ docker_run () {
     if [[ $testbed ]]; then
         arg_testbed_vol=" -v $testbed:/opt/contrail/utils/fabfile/testbeds/testbed.py:ro "
     elif [[ $testbed_json && $params_file ]]; then
-        arg_testbed_json_vol=" -v $testbed_json:/contrail-test/sanity_testbed.json:ro "
-        arg_params_vol=" -v $params_file:/contrail-test/sanity_params.ini:ro "
+        arg_testbed_json_vol=" -v $testbed_json:$CONTRAIL_TEST_FOLDER/sanity_testbed.json:ro "
+        arg_params_vol=" -v $params_file:$CONTRAIL_TEST_FOLDER/sanity_params.ini:ro "
     fi
 
 
@@ -240,6 +242,8 @@ docker_run () {
         ci_image_arg=" -e CI_IMAGE=$CI_IMAGE_ORIG -e ci_image=$CI_IMAGE_ORIG"
     fi
 
+    ct_folder=" -e CONTRAIL_TEST_FOLDER=${CONTRAIL_TEST_FOLDER}"
+
     run_log=$(mktemp /tmp/contrail_test_XXXXXXXXX.log)
 	run_n=1
 
@@ -268,11 +272,11 @@ run_docker_cmd () {
     tempfile=$(mktemp /tmp/contrail_test_XXXXXXXXX)
     name=$(basename $tempfile)
     if [[ -n $background ]]; then
-        echo "$docker run ${arg_env[*]} $arg_base_vol $local_vol $key_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name $ci_image_arg -e FEATURE=$feature -e TEST_TAGS=$test_tags -e SCENARIOS=$scenarios -d $arg_rm $arg_shell -t $image_name" > $tempfile
+        echo "$docker run ${arg_env[*]} $arg_base_vol $local_vol $key_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name $ci_image_arg $ct_folder -e FEATURE=$feature -e TEST_TAGS=$test_tags -e SCENARIOS=$scenarios -d $arg_rm $arg_shell -t $image_name" > $tempfile
         id=. $tempfile
         $docker ps -a --format "ID: {{.ID}}, Name: {{.Names}}" -f id=$id
     else
-        echo "$docker run ${arg_env[*]} $arg_base_vol $local_vol $key_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name $ci_image_arg -e FEATURE=$feature -e TEST_TAGS=$test_tags -e SCENARIOS=$scenarios $arg_bg $arg_rm $arg_shell -t $image_name" > $tempfile
+        echo "$docker run ${arg_env[*]} $arg_base_vol $local_vol $key_vol $arg_testbed_vol $arg_testbed_json_vol $arg_params_vol --name $name $ci_image_arg $ct_folder -e FEATURE=$feature -e TEST_TAGS=$test_tags -e SCENARIOS=$scenarios $arg_bg $arg_rm $arg_shell -t $image_name" > $tempfile
     fi
     bash $tempfile | tee $run_log; rv=${PIPESTATUS[0]}
     return $rv
@@ -334,6 +338,7 @@ $GREEN  -f, --feature FEATURE           $NO_COLOR Features or Tags to test - val
                                             NOTE: this is only valid for Full contrail-test suite.
 $GREEN -T, --test-tags TEST_TAGS        $NO_COLOR test tags to run specific tests
 $GREEN -c, --testcase TESTCASE          $NO_COLOR testcase to execute
+$GREEN -m, --mount_local path          $NO_COLOR mount a local folder which includes contrail-test and contrail-test-ci
 NOTE: Either testbed.py (-t) or both testbed-json and params-file required
 
 ${GREEN}Possitional Parameters:
