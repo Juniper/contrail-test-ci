@@ -1023,7 +1023,7 @@ class ContrailVncApi(object):
         mac_move_control = kwargs.get('mac_move_control', None)
         mac_aging_time = kwargs.get('mac_aging_time', None)
         isid = kwargs.get('isid', None)
-        bd_obj = self.vnc_lib.bridge_domain_read(id=uuid)
+        bd_obj = self._vnc.bridge_domain_read(id=uuid)
         if mac_learning_enabled:
             bd_obj.set_mac_learning_enabled(mac_learning_enabled)
         if mac_limit_control:
@@ -1035,9 +1035,9 @@ class ContrailVncApi(object):
         if isid:
             bd_obj.set_isid(isid)
 
-        #[TBD], Need to call update api call?
-        self._log.info('Updated Bridge Domain%s, UUID: %s' % (
-                         self.vnc_lib.id_to_fq_name(uuid), uuid))
+        self._vnc.bridge_domain_update(bd_obj)
+        self._log.info('Updated Bridge Domain %s, UUID: %s' % (
+                         self._vnc.id_to_fq_name(uuid), uuid))
         return uuid
     # end update_bd
 
