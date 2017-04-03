@@ -12,7 +12,7 @@ from tcutils.traffic_utils.scapy_traffic_gen import ScapyTraffic
 
 import random
 from netaddr import *
-from tcutils.util import retry
+from tcutils.util import retry, get_random_mac
 from tcutils.tcpdump_utils import *
 
 
@@ -29,11 +29,13 @@ vlan-raw-device eth0\" > /etc/network/interfaces
 
 /etc/init.d/networking restart"""
 
+MAC_AGING_DEFAULT = 300 #in Seconds
+
 PBB_EVPN_CONFIG = {
     'pbb_evpn_enable': True,
     'mac_learning': True,
     'pbb_etree': False,
-    'mac_aging':300,
+    'mac_aging':MAC_AGING_DEFAULT,
     'mac_limit': {
         'limit'   :1024,
         'action':'log'
@@ -43,6 +45,45 @@ PBB_EVPN_CONFIG = {
         'action':'log',
         'window': 30
     }
+}
+VLAN_ID = 212
+BASIC_PBB_RESOURCES = {
+
+        # VN parameters
+        'vn': {'count':2,
+              'vn1':{'subnet':'10.10.10.0/24'},
+              'vn2':{'subnet':'1.1.1.0/24', 'asn':64510, 'target':1},},
+
+        # Bridge domain parameters
+        'bd': {'count':1,
+              'bd1':{'isid':200200,'vn':'vn2'}},
+
+        # VMI parameters
+        'vmi': {'count':4,
+               'vmi1':{'vn': 'vn1'},
+               'vmi2':{'vn': 'vn1'},
+               'vmi3':{'vn': 'vn2','parent':'vmi1','vlan':VLAN_ID},
+               'vmi4':{'vn': 'vn2','parent':'vmi2','vlan':VLAN_ID},},
+
+        # VM parameters
+        'vm': {'count':2, 'launch_mode':'distribute',
+              'vm1':{'vn':['vn1'], 'vmi':['vmi1'], 'userdata':{
+                'vlan':str(VLAN_ID)} },
+              'vm2':{'vn':['vn1'], 'vmi':['vmi2'], 'userdata':{
+                'vlan':str(VLAN_ID)} }
+            },
+
+        # Traffic
+        'traffic': {
+                   'stream1': {'src':'vm1','dst':'vm2','count':10,
+                                'src_cmac': get_random_mac(),
+                                'dst_cmac': get_random_mac(),
+                                'bd': 'bd1', 'src_vmi': 'vmi3',
+                                'dst_vmi': 'vmi4'}
+                  },
+
+        # BD to VMI mapping parameters
+        'bd_vmi_mapping': {'bd1':['vmi3','vmi4']}
 }
 
 class PbbEvpnTestBase(BaseVrouterTest):
@@ -437,7 +478,8 @@ class PbbEvpnTestBase(BaseVrouterTest):
         scapy_obj.start()
         return scapy_obj
 
-    def verify_mac_learning(self, vmi_fixture, bd_fixture, cmac=None):
+    def verify_mac_learning(self, vmi_fixture, bd_fixture, cmac=None,
+            expectation=True):
         '''
         Verify if c-mac learned in agents:
             1. in local agent, nh type should be interface
@@ -462,7 +504,14 @@ class PbbEvpnTestBase(BaseVrouterTest):
             vrf = self.get_i_component_vrf(vmi_fixture, bd_uuid, compute_ip=ip)
             vrf_id = self.get_vrf_id(vrf)
 
-            l2_route_in_agent = self.get_vna_layer2_route(ip, vrf_id, mac=cmac)
+            l2_route_in_agent = self.get_vna_layer2_route(ip, vrf_id, mac=cmac,
+                expectation=expectation)
+            if not expectation:
+                result = True if l2_route_in_agent else False 
+                if result:
+                    continue
+                else:
+                    return result
             if not l2_route_in_agent:
                 self.logger.error("C-MAC %s is NOT learned in agent %s" % (
                     cmac, ip))
@@ -505,23 +554,33 @@ class PbbEvpnTestBase(BaseVrouterTest):
     def get_vrf_mpls_label(self, agent_vrf_obj_vn):
         return agent_vrf_obj_vn['table_label']
 
-    @retry(delay=2, tries=3)
-    def get_vna_layer2_route(self, compute_ip, vrf_id, mac=None):
+    @retry(delay=2, tries=7)
+    def get_vna_layer2_route(self, compute_ip, vrf_id, mac=None,
+            expectation=True):
         '''
         Get L2 routes from the agent with retry
         '''
         l2_route_in_agent = self.agent_inspect[compute_ip].get_vna_layer2_route(
             vrf_id=vrf_id, mac=mac)
-
-        if not l2_route_in_agent:
-            self.logger.warn("L2 routes in agent %s not found for vrf id %s" % (
-                compute_ip, vrf_id))
-            return False
+        if expectation:
+            if not l2_route_in_agent:
+                self.logger.warn("L2 routes in agent %s not found for vrf id %s" % (
+                    compute_ip, vrf_id))
+                return False
+            else:
+                self.logger.debug("L2 routes found in agent is: %s" % (
+                    l2_route_in_agent))
+                return (True, l2_route_in_agent['routes'])
         else:
-            self.logger.debug("L2 routes found in agent is: %s" % (
-                l2_route_in_agent))
-            return (True, l2_route_in_agent['routes'])
-
+            if l2_route_in_agent:
+                self.logger.warn("L2 routes found in agent is: %s" % (
+                    l2_route_in_agent))
+                return False
+            else:
+                self.logger.debug("L2 routes in agent %s not found for vrf id %s" % (
+                    compute_ip, vrf_id))
+                return (True, None)
+                
     def validate_pbb_l2_route(self, l2_route_in_agent, cmac, bmac, nh_type,
             mpls_label=None, isid=0):
 
@@ -547,6 +606,8 @@ class PbbEvpnTestBase(BaseVrouterTest):
             self.logger.warn("nh type in agent is not as expected: %s "
                 "got: %s" % (nh_type, route['path_list'][0] ['nh']['type']))
 
+            #No need to proceed further verifications if nh type itself does not match
+            return result
         if (nh_type == 'PBB Tunnel') and (EUI(route['path_list'][0]['nh'][
                 'pbb_bmac']) != EUI(bmac)):
             result = False
