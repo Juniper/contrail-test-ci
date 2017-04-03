@@ -754,13 +754,25 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         errmsg = "UDP traffic with src port %s and dst port %s failed" % (
             sport, dport)
         assert sent and recv == sent, errmsg
-        svmname = self.get_svms_in_si(
-                     self.si_fixtures[0], self.inputs.project_name)[0].name
-        for svm_name, (session, pcap) in sessions.items():
-            count = sent
-            if new_left_vm_fix.vm_node_ip != new_right_vm_fix.vm_node_ip:
-                count = count * 2
-            self.verify_l4_mirror(svm_name, session, pcap, count, 'udp')
+
+        count = sent
+        if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
+            count = count * 2
+        if self.inputs.pcap_on_vm:
+            output, mirror_pkt_count = self.stop_tcpdump(None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, pcap_on_vm=True)
+            errmsg = "%s UDP Packets mirrored to the analyzer VM %s,"\
+                     "Expected %s packets" % (
+                         mirror_pkt_count, svm_list, count)
+            if mirror_pkt_count < count:
+                self.logger.error(errmsg)
+                assert False, errmsg
+            self.logger.info("%s UDP packets are mirrored to the analyzer "
+                             "service VM '%s' tcpdump on VM", mirror_pkt_count, svm_list)
+        else:
+            svmname = self.get_svms_in_si(
+                         self.si_fixtures[0], self.inputs.project_name)[0].name
+            for svm_name, (session, pcap) in sessions.items():
+                self.verify_l4_mirror(svm_name, session, pcap, count, 'udp')
 
         # One mirror instance
         if len(self.action_list) != 2:
@@ -781,13 +793,26 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         errmsg = "UDP traffic with src port %s and dst port %s failed" % (
             sport, dport)
         assert sent and recv == sent, errmsg
-        svmname = self.get_svms_in_si(
-                     self.si_fixtures[0], self.inputs.project_name)[0].name
-        for svm_name, (session, pcap) in sessions.items():
-            count = sent
-            if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
-                count = count * 2
-            self.verify_l4_mirror(svm_name, session, pcap, count, 'udp')
+
+        count = sent
+        if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
+            count = count * 2
+        if self.inputs.pcap_on_vm:
+            output, mirror_pkt_count = self.stop_tcpdump(None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, pcap_on_vm=True)
+            errmsg = "%s UDP Packets mirrored to the analyzer VM %s,"\
+                     "Expected %s packets" % (
+                         mirror_pkt_count, svm_list, count)
+            if mirror_pkt_count < count:
+                self.logger.error(errmsg)
+                assert False, errmsg
+            self.logger.info("%s UDP packets are mirrored to the analyzer "
+                             "service VM '%s', tcpdump on VM", mirror_pkt_count, svm_list)
+            return True
+        else:
+            svmname = self.get_svms_in_si(
+                         self.si_fixtures[0], self.inputs.project_name)[0].name
+            for svm_name, (session, pcap) in sessions.items():
+                self.verify_l4_mirror(svm_name, session, pcap, count, 'udp')
 
         # Verify ICMP traffic mirror between new VN's
         # sessions = self.tcpdump_on_all_analyzer(si_prefix, si_count)
