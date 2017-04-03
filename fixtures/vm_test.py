@@ -2665,23 +2665,46 @@ class VMFixture(fixtures.Fixture):
     def migrate(self, compute):
         self.orch.migrate_vm(self.vm_obj, compute)
 
-    def start_tcpdump(self, interface=None, filters=''):
+    def start_tcpdump(self, interface=None, filters='', pcap_on_vm=False):
         ''' This is similar to start_tcpdump_for_vm_intf() in tcpdump_utils.py
             But used here too, for ease of use
         '''
-        if not interface:
-            interface = self.tap_intf.values()[0]['name']
-        compute_ip = self.vm_node_ip
-        compute_user = self.inputs.host_data[compute_ip]['username']
-        compute_password = self.inputs.host_data[compute_ip]['password']
+        if not pcap_on_vm:
+            if not interface:
+                interface = self.tap_intf.values()[0]['name']
+            compute_ip = self.vm_node_ip
+            compute_user = self.inputs.host_data[compute_ip]['username']
+            compute_password = self.inputs.host_data[compute_ip]['password']
         
-        (session, pcap) = start_tcpdump_for_intf(compute_ip, compute_user,
-            compute_password, interface, filters, self.logger)
-        return (session, pcap)
+            (session, pcap) = start_tcpdump_for_intf(compute_ip, compute_user,
+                compute_password, interface, filters, self.logger)
+            return (session, pcap)
+        else:
+            if not interface:
+                interface = 'eth0'
+            pcap = '/tmp/%s.pcap' % (get_random_name())
+            cmd_to_tcpdump = [ 'tcpdump -ni %s -U %s -w %s 1>/dev/null 2>/dev/null' % (interface, filters, pcap) ]
+            pidfile = pcap + '.pid'
+            pcap_pid_files =[]
+            self.run_cmd_on_vm(cmds=cmd_to_tcpdump, as_daemon=True, pidfile=pidfile, as_sudo=True)
+            pcap_pid_files.append((pcap, pidfile))
+            return pcap_pid_files
     # end start_tcpdump
 
-    def stop_tcpdump(self, session, pcap):
-        stop_tcpdump_for_intf(session, pcap, self.logger)
+    def stop_tcpdump(self, session, pcap, pcap_pid_files=[], filters=''):
+        if not pcap_pid_files:
+            stop_tcpdump_for_intf(session, pcap, self.logger)
+        else:
+            pcap, pidfile = pcap_pid_files[0]
+            cmd_to_output  = 'tcpdump -nr %s %s' % (pcap, filters)
+            cmd_to_kill = 'cat %s | xargs kill ' % (pidfile)
+            count = cmd_to_output + '| wc -l'
+            self.run_cmd_on_vm(cmds=[cmd_to_kill], as_sudo=True)
+            self.run_cmd_on_vm(cmds=[cmd_to_output], as_sudo=True)
+            output = self.return_output_cmd_dict[cmd_to_output]
+            self.run_cmd_on_vm(cmds=[count], as_sudo=True)
+            pkts = int(vm_fix.return_output_cmd_dict[count].split('\n')[2])
+            return output, pkts
 
     def get_vm_interface_name(self, mac_address=None):
         ''' 

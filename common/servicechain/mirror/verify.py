@@ -654,9 +654,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             % (src_vm.vm_ip, dst_vm.vm_ip))
         filters = '| grep \"length [1-9][4-9][0-9][0-9][0-9]*\"'
         if self.inputs.pcap_on_vm:
-            output, mirror_pkt_count = self.stop_tcpdump_for_vm_intf(
+            output, mirror_pkt_count = stop_tcpdump_for_vm_intf(
                 None, None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, filters=filters)
-            mirror_pkt_count = int(mirror_pkt_count[0])
         else:
             mirror_pkt_count = self.stop_tcpdump(session, pcap, filters)
         errmsg = "%s ICMP Packets mirrored to the analyzer VM %s,"\

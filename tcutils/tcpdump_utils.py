@@ -31,7 +31,7 @@ def start_tcpdump_for_vm_intf(obj, vm_fix, vn_fq_name, filters='-v', pcap_on_vm=
             compute_password, vm_tapintf, filters, logger=obj.logger)
     else:
         pcap = '/tmp/%s.pcap' % (get_random_name())
-        cmd_to_tcpdump = [ 'tcpdump -ni %s %s -w %s 1>/dev/null 2>/dev/null' % (vm_intf, filters, pcap) ]
+        cmd_to_tcpdump = [ 'tcpdump -ni %s -U %s -w %s 1>/dev/null 2>/dev/null' % (vm_intf, filters, pcap) ]
         pidfile = pcap + '.pid'
         vm_fix_pcap_pid_files =[]
         for vm_fixture in vm_fix:
@@ -40,7 +40,7 @@ def start_tcpdump_for_vm_intf(obj, vm_fix, vn_fq_name, filters='-v', pcap_on_vm=
         return vm_fix_pcap_pid_files
 # end start_tcpdump_for_vm_intf
 
-def stop_tcpdump_for_vm_intf(obj, session, pcap, vm_fix_pcap_pid_files=[], filters=''):
+def stop_tcpdump_for_vm_intf(obj, session, pcap, vm_fix_pcap_pid_files=[], filters='', verify_on_all=False):
     if not vm_fix_pcap_pid_files:
         return stop_tcpdump_for_intf(session, pcap, logger=obj.logger)
     else:
@@ -54,9 +54,44 @@ def stop_tcpdump_for_vm_intf(obj, session, pcap, vm_fix_pcap_pid_files=[], filte
             vm_fix.run_cmd_on_vm(cmds=[cmd_to_output], as_sudo=True)
             output.append(vm_fix.return_output_cmd_dict[cmd_to_output])
             vm_fix.run_cmd_on_vm(cmds=[count], as_sudo=True)
-            pkt_count.append(vm_fix.return_output_cmd_dict[count].split('\n')[2])
+            pkts = int(vm_fix.return_output_cmd_dict[count].split('\n')[2])
+            pkt_count.append(pkts)
+            total_pkts = sum(pkt_count)
+        if not verify_on_all:
+            return output, total_pkts
+        else:
             return output, pkt_count
+
 # end stop_tcpdump_for_vm_intf
+
+def pcap_on_all_vms_and_verify_mirrored_traffic(
+    self, src_vm_fix, dst_vm_fix, svm_fixtures, count=1, filt='', tap='eth0', expectation=True, verify_on_all=False):
+        vm_fix_pcap_pid_files = self.start_tcpdump(None, tap_intf=tap, vm_fixtures= svm_fixtures, pcap_on_vm=True)
+        assert src_vm_fix.ping_with_certainty(
+            dst_vm_fix.vm_ip, expectation=expectation)
+        output, total_pkts = self.stop_tcpdump(
+            None, pcap=tap, filt=filt, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, pcap_on_vm=True, verify_on_all=verify_on_all)
+        if not verify_on_all:
+            if count > total_pkts:
+                errmsg = "%s ICMP Packets mirrored to the analyzer VM,"\
+                    "Expected %s packets, tcpdump on VM" % (
+                    total_pkts, count)
+                self.logger.error(errmsg)
+                assert False, errmsg
+            else:
+                self.logger.info("Mirroring verified using tcpdump on the VM, Expected = Mirrored = %s " % (total_pkts))
+        else:
+            for pkts in total_pkts:
+                if not pkts > 0:
+                    errmsg = "%s ICMP Packets not mirrored to the analyzer VM,"\
+                    "Expected not zero packets, tcpdump on VM"
+                    self.logger.error(errmsg)
+                    assert False, errmsg
+            self.logger.info(
+                "Mirroring verified using tcpdump on the VM, Total pkts mirrored = %s on all the VMs" % (total_pkts))
+        return True
+# end pcap_on_all_vms_and_verify_mirrored_traffic
+
 
 def read_tcpdump(obj, session, pcap):
     cmd = 'tcpdump -n -r %s' % pcap
@@ -65,14 +100,17 @@ def read_tcpdump(obj, session, pcap):
 
 @retry(delay=2, tries=6)
 def verify_tcpdump_count(obj, session, pcap, exp_count=None, mac=None,
-                         exact_match=True):
+                         exact_match=True, vm_fix_pcap_pid_files=[]):
     if mac:
         cmd = 'tcpdump -r %s | grep %s | wc -l' % (pcap,mac)
     else:
         cmd = 'tcpdump -r %s | wc -l' % pcap
-
-    out, err = execute_cmd_out(session, cmd, obj.logger)
-    count = int(out.strip('\n'))
+    if not vm_fix_pcap_pid_files:
+        out, err = execute_cmd_out(session, cmd, obj.logger)
+        count = int(out.strip('\n'))
+    else:
+        output, count = stop_tcpdump_for_vm_intf(
+            None, None, pcap, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files)
     result = True
     if exp_count is not None:
         if count != exp_count and exact_match:
@@ -96,12 +134,18 @@ def verify_tcpdump_count(obj, session, pcap, exp_count=None, mac=None,
         obj.logger.info(
             "%s packets are found in tcpdump output as expected",
             count)
-        stop_tcpdump_for_vm_intf(obj, session, pcap)
+        if not vm_fix_pcap_pid_files:
+            stop_tcpdump_for_vm_intf(obj, session, pcap)
     return result
 
-def search_in_pcap(session, pcap, search_string):
+def search_in_pcap(session, pcap, search_string, vm_fix_pcap_pid_files=[]):
     cmd = 'tcpdump -v -r %s | grep "%s"' % (pcap, search_string)
-    out, err = execute_cmd_out(session, cmd)
+    if not vm_fix_pcap_pid_files:
+        out, err = execute_cmd_out(session, cmd)
+    else:
+        output, count = stop_tcpdump_for_vm_intf(
+            None, None, pcap, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files)
+        out = output[0]
     if search_string in out:
         return True
     else:
