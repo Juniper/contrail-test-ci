@@ -4,6 +4,7 @@ from random import randint
 
 from common.neutron.base import BaseNeutronTest
 
+from policy_test import PolicyFixture, copy
 from pif_fixture import PhysicalInterfaceFixture
 from lif_fixture import LogicalInterfaceFixture
 from physical_router_fixture import PhysicalRouterFixture
@@ -216,6 +217,16 @@ class BaseTorTest(BaseNeutronTest):
         return vn_fixture
     # end create_vn
 
+    def create_policy(self, policy_name, rules=[]):
+        policy_fixture = self.useFixture(
+            PolicyFixture(
+                policy_name=policy_name,
+                rules_list=rules,
+                inputs=self.inputs,
+                connections=self.connections))
+        return policy_fixture
+    #end create_policy
+
     def validate_interface_ip(self, bms_fixture, expected_ip):
         assert expected_ip == bms_fixture.info['inet_addr'],\
             'BMS IP not expected : Seen:%s, Expected:%s' % (
@@ -368,3 +379,12 @@ class BaseTorTest(BaseNeutronTest):
         delete_pcap(session, pcap)
         return (result, message)
     # end validate_dhcp_forwarding
+
+    def start_webserver_in_ns(self, bms_fixture, listen_port=8000, content=None):
+        cmd = 'mkdir -p '+bms_fixture.namespace+';'
+        cmd = cmd + 'cd '+bms_fixture.namespace + ';'
+        cmd = cmd + 'echo '+bms_fixture.namespace+' >& index.html;'
+        cmd = cmd + 'nohup python -m SimpleHTTPServer '+str(listen_port) + ' &'
+        cmd = '''bash -c "''' + cmd + '"'
+        bms_fixture.run_cmd(cmd)
+    # end start_webserver_in_ns
