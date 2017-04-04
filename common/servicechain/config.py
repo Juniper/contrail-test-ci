@@ -41,13 +41,13 @@ class ConfigSvcChain(fixtures.Fixture):
         self.remove_from_cleanups(st_fix.cleanUp)
 
     def config_st_si(self, st_name, si_name_prefix, si_count,
-                     svc_scaling=False, max_inst=1, domain='default-domain',
+                     svc_scaling=False, max_inst=1, domain= None,
                      project='admin', mgmt_vn_fixture=None, left_vn_fixture=None,
                      right_vn_fixture=None, svc_type='firewall',
                      svc_mode='transparent', flavor='contrail_flavor_2cpu',
                      static_route=[None, None, None], ordered_interfaces=True,
                      svc_img_name=None, st_version=1):
-
+        domain = domain or self.connections.domain_name
         svc_type_props = {
             'firewall': {'in-network-nat': 'tiny_nat_fw',
                          'in-network': 'tiny_in_net',
@@ -171,7 +171,7 @@ class ConfigSvcChain(fixtures.Fixture):
         for i in range(0, si_count):
             si_name = si_prefix + str(i + 1)
             # chain services by appending to action list
-            si_fq_name = 'default-domain' + ':' + project_name + ':' + si_name
+            si_fq_name = self.connections.domain_name  + ':' + project_name + ':' + si_name
             action_list.append(si_fq_name)
         return action_list
 
