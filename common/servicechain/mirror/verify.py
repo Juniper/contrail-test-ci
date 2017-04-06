@@ -642,7 +642,6 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             host = self.get_svm_compute(svm_name)
             tapintf = self.get_svm_tapintf(svm_name)
         exp_count = 10
-        self.inputs.pcap_on_vm = True
         if self.inputs.pcap_on_vm:
             vm_fix_pcap_pid_files = start_tcpdump_for_vm_intf(
                 None, [mirr_vm], None, filters='udp port 8099', pcap_on_vm=True)
