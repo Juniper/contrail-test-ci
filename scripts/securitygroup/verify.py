@@ -639,19 +639,31 @@ class VerifySecGroup(BaseVrouterTest):
             dst_vn_fq_name = ':'.join(dst_vn_fix._obj.get_fq_name())
 
         # start tcpdump on dst VM
-        session1, pcap1 = start_tcpdump_for_vm_intf(self,
-                                    dst_vm_fix, dst_vn_fq_name,
-                                    filters = dst_filters)
-        # start tcpdump on src VM
-        session2, pcap2 = start_tcpdump_for_vm_intf(self,
-                                    src_vm_fix, src_vn_fq_name,
-                                    filters = src_filters)
+        if not self.inputs.pcap_on_vm:
+            session1, pcap1 = start_tcpdump_for_vm_intf(self,
+                                        dst_vm_fix, dst_vn_fq_name,
+                                        filters = dst_filters)
+            # start tcpdump on src VM
+            session2, pcap2 = start_tcpdump_for_vm_intf(self,
+                                        src_vm_fix, src_vn_fq_name,
+                                        filters = src_filters)
 
-        #verify packet count and stop tcpdump on dst VM
-        if not verify_tcpdump_count(self, session1, pcap1, exp_count=dst_exp_count):
-            return result
-        #verify packet count and stop tcpdump on src VM
-        if not verify_tcpdump_count(self, session2, pcap2, exp_count=src_exp_count):
-            return result
+            #verify packet count and stop tcpdump on dst VM
+            if not verify_tcpdump_count(self, session1, pcap1, exp_count=dst_exp_count):
+                return result
+            #verify packet count and stop tcpdump on src VM
+            if not verify_tcpdump_count(self, session2, pcap2, exp_count=src_exp_count):
+                return result
+        else:
+            vm_fix_pcap_pid_files1 = start_tcpdump_for_vm_intf(
+                None, [dst_vm_fix], None, filters=dst_filters, pcap_on_vm=True)
+            vm_fix_pcap_pid_files2 = start_tcpdump_for_vm_intf(
+                None, [src_vm_fix], None, filters=src_filters, pcap_on_vm=True)
+            if not verify_tcpdump_count(
+                self, None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files1, exp_count=dst_exp_count):
+                return result
+            if not verify_tcpdump_count(
+                self, None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files2, exp_count=src_exp_count):
+                return result
 
         return True
