@@ -11,6 +11,7 @@ from common import isolated_creds
 from tcutils.util import get_random_name, copy_file_to_server, fab_put_file_to_vm
 import os
 from tcutils.topo.sdn_topo_setup import *
+from tcutils.tcpdump_utils import *
 
 class BaseSGTest(test_v1.BaseTestCase_v1):
 
@@ -38,6 +39,58 @@ class BaseSGTest(test_v1.BaseTestCase_v1):
 
     def tearDown(self):
         super(BaseSGTest, self).tearDown()
+
+    def start_tcpdump_send_verify_traffic(
+        self, src_vm_fix, dst_vm_fix, src_vn_fq_name, filters=None, proto='udp',
+            sport=None, dport=None, count=None, fip=None,
+            payload=None, icmp_type=None, icmp_code=None,
+            recvr=False, assert_error=None, stop=True, exp_count=None):
+        result = True
+        #if not isinstance(icmp_type, list):
+        #    icmp_type = [icmp_type]
+        if not self.inputs.pcap_on_vm:
+            session, pcap = start_tcpdump_for_vm_intf(
+                self, src_vm_fix, src_vn_fq_name, filters=filters)
+        else:
+            vm_fix_pcap_pid_files = start_tcpdump_for_vm_intf(
+                None, [src_vm_fix], None, filters=filters, pcap_on_vm=True)
+        # start traffic
+        sender, receiver = self.start_traffic_scapy(
+            src_vm_fix, dst_vm_fix, proto, sport, dport,
+            payload=payload, icmp_type=icmp_type,
+            icmp_code=icmp_code, count=count, fip=fip, recvr=recvr)
+        # verify packet count and stop tcpdump
+        if not self.inputs.pcap_on_vm:
+            if not assert_error:
+                assert verify_tcpdump_count(self, session, pcap, exp_count=exp_count)
+            else:
+                assert verify_tcpdump_count(self, session, pcap, exp_count=exp_count), assert_error
+        else:
+            if not assert_error:
+                assert verify_tcpdump_count(
+                    self, None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, exp_count=exp_count)
+            else:
+                assert verify_tcpdump_count(
+                    self, None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, exp_count=exp_count), assert_error
+        # stop traffic
+        if stop:
+            sent, recv = self.stop_traffic_scapy(sender, receiver, recvr=recvr)
+   # start_tcpdump_send_verify_traffic
+
+    def start_stop_verify_icmp_traffic(self, src_vm_fix, dst_vm_fix, src_vn_fq_name, proto='icmp',
+                sport=None, dport=None, count=None, fip=None,
+                payload="payload", icmp_type=None,
+                icmp_code=None, exp_count=0):
+
+        filters = '\'(icmp[0] = %s and icmp[1] = %s)\'' % (
+            icmp_type, icmp_code)
+        assert_error = "pkt count in tcpdump is not ZERO for icmp type %s and code %s" % (icmp_type, icmp_code)
+        self.start_tcpdump_send_verify_traffic(src_vm_fix, dst_vm_fix, src_vn_fq_name, filters=filters, proto=proto,
+            sport=sport, dport=dport, count=count, fip=fip,
+            payload=payload, icmp_type=icmp_type,
+            icmp_code=icmp_code, assert_error=assert_error, exp_count=exp_count)
+
+    #end start_stop_verify_icmp_traffic
 
     def create_sg_test_resources(self):
         """Config common resources."""
