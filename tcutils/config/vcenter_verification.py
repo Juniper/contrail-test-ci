@@ -1,20 +1,21 @@
 from tcutils.util import retry
 from tcutils.config import vmware_introspect_utils
+from common import log_orig as contrail_logging
 
 class VMWareVerificationLib:
     '''Clas to hold verification helper functions for vcenter plugin introspect'''
     def __init__(self,inputs):
         self.inputs = inputs
         self.vcntr_introspect = None
-        self.logger = self.inputs.logger
+        self.logger = contrail_logging.getLogger(__name__)
+        self.intfs_dict = {}
 
     def get_introspect(self):
         try:
             for ip in self.inputs.cfgm_ips:
-                vc_inspect = vmware_introspect_utils.\
-							get_vcenter_plugin_introspect_elements(\
-							vmware_introspect_utils.VMWareInspect(ip))
-                if (vc_inspect['master'][0] == 'true'):
+                if  vmware_introspect_utils.\
+			get_vcenter_plugin_introspect_elements(\
+			vmware_introspect_utils.VMWareInspect(ip)):
                     self.vcntr_introspect = vmware_introspect_utils.VMWareInspect(ip)
                     break
         except Exception as e:
@@ -55,15 +56,31 @@ class VMWareVerificationLib:
                                %(vm_name,vrouter_ip))
 		return True
 
+    def get_vmi_from_vcenter_introspect(self, vrouter_ip,vm_name, *args):
+       intfs = []
+       if vm_name in self.intfs_dict.keys():
+           return self.intfs_dict[vm_name]
+       self.get_introspect()
+       vrouter_details = vmware_introspect_utils.get_vrouter_details(self.vcntr_introspect, vrouter_ip)
+       for virtual_machine in vrouter_details.virtual_machines:
+           if virtual_machine.name == vm_name:
+               intfs.append(virtual_machine)
+       self.intfs_dict[vm_name] = intfs
+       return intfs
+                
+        
+
 if __name__ == '__main__':
-    va =  vmware_introspect_utils.VMWareInspect('10.204.216.14')
+    #va =  vmware_introspect_utils.VMWareInspect('10.204.216.62')
     class Inputs:
         def __init__(self):
-            self.cfgm_ips = ['10.204.216.7','10.204.216.14','10.204.216.15']
-    r =  vmware_introspect_utils.vrouter_details(va,'10.204.217.27')
-    import pprint
-    pprint.pprint(r)
+            self.cfgm_ips = ['10.204.216.61','10.204.216.62','10.204.216.63']
+    #r =  vmware_introspect_utils.get_vrouter_details(va,'10.204.216.183')
+    #import pprint
+    #pprint.pprint(r)
     inputs = Inputs()
     vcenter = VMWareVerificationLib(inputs)
-    vcenter.verify_vm_in_vcenter('10.204.217.27','test_vm2')
+    #vcenter.verify_vm_in_vcenter('10.204.216.181','ctest-pt_svm0-91002703')
+    abc = vcenter.get_vmi_from_vcenter_introspect('10.204.216.183','ctest-pt_svm0-33618931')
+    import pdb;pdb.set_trace()
 

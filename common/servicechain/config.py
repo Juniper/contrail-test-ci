@@ -139,7 +139,7 @@ class ConfigSvcChain(fixtures.Fixture):
                         self.trans_left_vn_name, self.trans_left_vn_subnets)
                     self.trans_right_vn_fixture = self.config_vn(
                         self.trans_right_vn_name, self.trans_right_vn_subnets)
-                non_docker_zones = [x for x in self.nova_h.zones if x != 'nova/docker']
+                non_docker_zones = [x for x in self.orch.get_zones() if x != 'nova/docker']
                 for i in range(max_inst):
                     svm_name = get_random_name("pt_svm" + str(i))
                     pt_name = get_random_name("port_tuple" + str(i))
