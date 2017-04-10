@@ -123,9 +123,9 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         policy_fixture.update_policy_api(rules)
 
         fip_fixture = self.config_fip(
-            left_vn_fixture.vn_id, pool_name=fip_pool_name)
+            left_vn_fixture.uuid, pool_name=fip_pool_name)
         fip_ca = self.useFixture(CreateAssociateFip(self.inputs, fip_fixture,
-                                                         left_vn_fixture.vn_id,
+                                                         left_vn_fixture.uuid,
                                                          right_vm_fixture.vm_id))
         fip = right_vm_fixture.vnc_lib_h.floating_ip_read(id=fip_ca.fip_id).\
             get_floating_ip_address()
@@ -842,7 +842,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
 
     def get_seq_num(self, vn_fix, pol_name):
         vn_obj = self.vnc_lib.virtual_network_read(
-            id=vn_fix.vn_id)
+            id=vn_fix.uuid)
         for net_pol_ref in vn_obj.get_network_policy_refs():
             if net_pol_ref['to'][-1] == pol_name:
                 vn_seq_num = net_pol_ref['attr'].sequence.major

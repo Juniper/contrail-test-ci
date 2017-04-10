@@ -119,14 +119,15 @@ class GenericTestBase(test_v1.BaseTestCase_v1):
 
     def create_port(self, net_id, fixed_ips=[],
                     mac_address=None, no_security_group=False,
-                    security_groups=[], extra_dhcp_opts=None):
+                    security_groups=[], extra_dhcp_opts=None, sriov=False):
         port_rsp = self.quantum_h.create_port(
             net_id,
             fixed_ips,
             mac_address,
             no_security_group,
             security_groups,
-            extra_dhcp_opts)
+            extra_dhcp_opts,
+            sriov)
         self.addCleanup(self.delete_port, port_rsp['id'], quiet=True)
         return port_rsp
 
@@ -237,14 +238,14 @@ class GenericTestBase(test_v1.BaseTestCase_v1):
                 connections=self.connections))
 
         vn1_fixture.bind_policies(
-            [policy_fixture.policy_fq_name], vn1_fixture.vn_id)
+            [policy_fixture.policy_fq_name], vn1_fixture.uuid)
         self.addCleanup(vn1_fixture.unbind_policies,
-                        vn1_fixture.vn_id, [policy_fixture.policy_fq_name])
+                        vn1_fixture.uuid, [policy_fixture.policy_fq_name])
 
         vn2_fixture.bind_policies(
-            [policy_fixture.policy_fq_name], vn2_fixture.vn_id)
+            [policy_fixture.policy_fq_name], vn2_fixture.uuid)
         self.addCleanup(vn2_fixture.unbind_policies,
-                        vn2_fixture.vn_id, [policy_fixture.policy_fq_name])
+                        vn2_fixture.uuid, [policy_fixture.policy_fq_name])
     # end allow_all_traffic_between_vns
 
     def create_dhcp_server_vm(self,

@@ -145,7 +145,7 @@ echo "Hello World.  The time is now $(date -R)!" | tee /tmp/output.txt
         vm1_fixture.wait_till_vm_is_up()
         vm2_fixture.wait_till_vm_is_up()
         assert vm1_fixture.ping_to_vn(dst_vm_fixture=vm2_fixture,
-                                      vn_fq_name=vn_fixture.get_vn_fq_name())
+                                      vn_fq_name=vn_fixture.fq_name_str)
 
         return True
 
@@ -186,10 +186,10 @@ echo "Hello World.  The time is now $(date -R)!" | tee /tmp/output.txt
 
         for subnet in subnet_objects:
             if subnet['cidr'] == subnet1:
-                ports['subnet1'] = vn1_fixture.create_port(vn1_fixture.vn_id,
+                ports['subnet1'] = vn1_fixture.create_port(vn1_fixture.uuid,
                     subnet_id=subnet['id'], ip_address=fixed_ip1)
             elif subnet['cidr'] == subnet2:
-                ports['subnet2'] = vn1_fixture.create_port(vn1_fixture.vn_id,
+                ports['subnet2'] = vn1_fixture.create_port(vn1_fixture.uuid,
                     subnet_id=subnet['id'],ip_address=fixed_ip2)
 
         vm1_fixture = self.useFixture(

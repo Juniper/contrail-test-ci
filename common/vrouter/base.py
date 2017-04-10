@@ -696,7 +696,9 @@ class BaseVrouterTest(BaseNeutronTest):
                               ' VN Fixture or vrf id')
             return None
         if not vrf_id:
-            vrf_id = vn_fixture.get_vrf_id(node_ip)
+            #vrf_id = vn_fixture.get_vrf_id(node_ip)
+            compute_fix = self.compute_fixtures_dict[node_ip]
+            vrf_id = compute_fix.get_vrf_id(vn_fixture.fq_name_str)
         inspect_h = self.agent_inspect_h[node_ip]
         routes = inspect_h.get_vrouter_route_table(vrf_id)
         return routes

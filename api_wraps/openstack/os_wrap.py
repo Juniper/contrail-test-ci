@@ -44,6 +44,17 @@ try:
                                 region_name=region_name,
                                 insecure=insecure)
 
+       @property
+       def quantum_handle (self):
+           return self._qh
+
+       @property
+       def nova_handle (self):
+           return self._nh
+
+       def is_supported_type (self, arg):
+           return arg in ['ContrailV2', 'Openstack']
+
        def get_zones (self):
            try:
                zones = self._nh.availability_zones.list()

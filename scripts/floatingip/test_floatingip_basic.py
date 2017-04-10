@@ -105,10 +105,10 @@ class FloatingipBasicTestSanity(base.FloatingIpBaseTest):
                 inputs=self.inputs,
                 connections=self.connections,
                 pool_name=fip_pool_name,
-                vn_id=fvn_fixture.vn_id))
+                vn_id=fvn_fixture.uuid))
         assert fip_fixture.verify_on_setup()
         fip_id = fip_fixture.create_and_assoc_fip(
-            fvn_fixture.vn_id, vn1_vm1_fixture.vm_id)
+            fvn_fixture.uuid, vn1_vm1_fixture.vm_id)
         assert fip_fixture.verify_fip(fip_id, vn1_vm1_fixture, fvn_fixture)
         vn1_vm1_fixture.wait_till_vm_up()
         fvn_vm1_fixture.wait_till_vm_up()

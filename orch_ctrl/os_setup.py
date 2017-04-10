@@ -16,7 +16,7 @@ class OpenstackControl (object):
                  openstack_ip, endpoint, region, lb_class, inputs, logger):
        self.inputs = inputs
        self._apis = {}
-       self._select_api = None
+       self._select_api = [0]
        self._select_lb = None
        self._user = username
        self._pass = password
@@ -63,10 +63,11 @@ class OpenstackControl (object):
            return self
        if fn in self._hijack:
           return getattr(self.get_api(self._hijack[fn]), fn)
-       try:
-           api = self._apis[self.select_api]
-       except KeyError:
-           api = self.get_api(self.select_api)
+       #try:
+       #    api = self._apis[self.select_api]
+       #except KeyError:
+       #    api = self.get_api(self.select_api)
+       api = self.get_api(self.select_api)
        try:
            return getattr(api, fn)
        except AttributeError:
@@ -74,12 +75,27 @@ class OpenstackControl (object):
 
    @property
    def select_api (self):
-       return self._select_api
+       return self._select_api[0]
 
    @select_api.setter
    def select_api (self, api):
        assert api in self._supported, 'Unsupported api %s' % api
-       self._select_api = api
+       self._select_api[0] = api
+
+   def push_api_for_type (self, arg):
+       api = self.get_api(self.select_api)
+       if api.is_supported_type(arg):
+           self._select_api.insert(0, self.select_api)
+           return
+       for api_type in self._supported:
+           api = self.get_api(api_type)
+           if api.is_supported_type(arg):
+               self._select_api.insert(0, api_type)
+               return
+       assert ValueError, "Unsupported argument type %s" % arg
+
+   def pop_api (self):
+       self._select_api.pop()
 
    @property
    def select_lb (self):

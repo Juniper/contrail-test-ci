@@ -2,6 +2,24 @@ import copy
 import os
 import fixtures
 
+def set_api ():
+   def inner (f):
+       def caller (self):
+           if self._args:
+               self._ctrl.push_api_for_type(self._args['type'])
+           f()
+           if self._args:
+               self._ctrl.pop_api()
+
+def _get_arg_type (atype):
+   x = atype.split('::')[1]
+   if x == 'ContrailV2':
+       return 'ContrailV2'
+   elif x in ['Neutron', 'Nova']:
+       return 'Openstack'
+   else:
+       raise ValueError("Unknown arg type %s", atype)
+
 def _process_refs_to (val, objs):
    if ':' in val:
        return val.split(':')
@@ -49,7 +67,6 @@ class ContrailFixture (fixtures.Fixture):
            self.uuid = self._vnc.fqn_to_id(self.type_name, uuid)
        else:
            self.uuid = uuid
-       self._args_type = None
        self._vnc_obj = None
        self._obj = None
        self._name = None
@@ -72,13 +89,12 @@ class ContrailFixture (fixtures.Fixture):
    def _handle_args (self, params):
        if not params:
            return None
-       res_type = params['type']
-       if 'OS::ContrailV2' in res_type and getattr(self, 'ref_fields', None):
+       res_type = _get_arg_type(params['type'])
+       params['type'] = res_type
+       if 'ContrailV2' == res_type and getattr(self, 'ref_fields', None):
            args = process_refs(params, self.ref_fields, self.fixs)
        else:
            args = copy.deepcopy(params)
-       self._args_type = args['type']
-       del args['type']
        return args
 
    def _update_args (self, params):
@@ -139,6 +155,8 @@ class ContrailFixture (fixtures.Fixture):
        else:
            self._update_args(self._handle_args(params))
            self._update()
+           if self._vnc_obj:
+               self._read()
 
    def assert_on_cleanup (self, flag, msg):
        assert flag, msg
