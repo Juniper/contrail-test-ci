@@ -105,7 +105,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         stack = vn_hs_obj.heat_client_obj
         vn_fix = self.verify_vn(stack, env, stack_name)
         self.logger.info(
-            'VN %s launched successfully with ID %s' % (vn_fix.vn_name, vn_fix.vn_id))
+            'VN %s launched successfully with ID %s' % (vn_fix.vn_name, vn_fix.uuid))
         return vn_fix, vn_hs_obj
     # end config_vn
 
@@ -125,7 +125,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         env = self.get_env('fip_pool')
         env['parameters']['floating_pool'] = get_random_name(
             env['parameters']['floating_pool'])
-        env['parameters']['vn'] = vn.get_vn_fq_name()
+        env['parameters']['vn'] = vn.fq_name_str
         fip_pool_hs_obj = self.config_heat_obj(stack_name, template, env)
         return fip_pool_hs_obj
 
@@ -158,7 +158,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         env = self.get_env('single_vm')
         env['parameters']['vm_name'] = get_random_name(
             env['parameters']['vm_name'])
-        env['parameters']['net_id'] = vn.vn_id
+        env['parameters']['net_id'] = vn.uuid
         vm_hs_obj = self.config_heat_obj(stack_name, template, env)
         vm_fix = self.useFixture(VMFixture(project_name=self.inputs.project_name,
                                            vn_obj=vn.obj, vm_name=str(env['parameters']['vm_name']), connections=self.connections))
@@ -172,8 +172,8 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         env = self.get_env('vms')
         env['parameters']['right_vm_name'] = get_random_name(env['parameters']['right_vm_name'])
         env['parameters']['left_vm_name'] = get_random_name(env['parameters']['left_vm_name'])
-        env['parameters']['right_net_id'] = vn_list[1].vn_id
-        env['parameters']['left_net_id'] = vn_list[0].vn_id
+        env['parameters']['right_net_id'] = vn_list[1].uuid
+        env['parameters']['left_net_id'] = vn_list[0].uuid
         if os.environ.has_key('ci_image'):
             env['parameters']['image'] = os.environ['ci_image']
         if self.inputs.availability_zone:

@@ -170,13 +170,15 @@ class VncWrap:
 
    def _update (self, resource, obj=None, uuid=None, **kwargs):
        fn = self._get_vnc_fn(resource, 'update')
-       self._set_parent_type(resource, kwargs)
        obj = obj or self._get(resource, uuid)       
+       if not kwargs:
+           return fn(obj)
+       self._set_parent_type(resource, kwargs)
        kwargs['fq_name'] = obj.fq_name
        kwargs['uuid'] = obj.uuid
        obj_upd = _RESOURCES[resource].from_dict(**kwargs)
        obj_upd._pending_field_updates.update(
-               _RESOURCES[resource].ref_fields)
+                   _RESOURCES[resource].ref_fields)
        return fn(obj_upd)
 
    def _export_fns (self):
@@ -185,3 +187,7 @@ class VncWrap:
            setattr(self, 'create_%s' % r, functools.partial(self._create, r))
            setattr(self, 'update_%s' % r, functools.partial(self._update, r))
            setattr(self, 'delete_%s' % r, functools.partial(self._delete, r))
+
+   def is_supported_type (self, arg):
+       return arg in ['ContrailV2']
+

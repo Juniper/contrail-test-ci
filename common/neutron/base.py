@@ -639,7 +639,7 @@ class BaseNeutronTest(GenericTestBase):
     def extend_vn_to_physical_router(self, vn_fixture, phy_router_fixture):
         # Attach VN to router in Contrail API so that Device manager
         # can configure the device
-        phy_router_fixture.add_virtual_network(vn_fixture.vn_id)
+        phy_router_fixture.add_virtual_network(vn_fixture.uuid)
         self.addCleanup(self.delete_vn_from_physical_router, vn_fixture,
                         phy_router_fixture)
     # end extend_vn_to_physical_router
@@ -647,7 +647,7 @@ class BaseNeutronTest(GenericTestBase):
     def delete_vn_from_physical_router(self, vn_fixture, phy_router_fixture):
         # Disassociate VN from the physical router so that Device manager
         # can delete corresponding configs from the device
-        phy_router_fixture.delete_virtual_network(vn_fixture.vn_id)
+        phy_router_fixture.delete_virtual_network(vn_fixture.uuid)
     # end delete_vn_from_physical_router
 
     def get_subnets_count(self, project_uuid):

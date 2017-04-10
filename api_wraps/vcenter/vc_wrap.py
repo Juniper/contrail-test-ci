@@ -104,6 +104,9 @@ try:
                                [_vimtype_dict[vimtype]], True)
            return [obj for obj in view.view]
 
+       def is_supported_type (self, arg):
+           return arg in ['ContrailV2', 'Openstack']
+
        def get_datacenter (self, name):
            return self._find_obj(self._content.rootFolder, 'dc',
                                  {'name' : name})

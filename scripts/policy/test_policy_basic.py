@@ -138,9 +138,9 @@ class TestBasicPolicy(BasePolicyTest):
                 connections=self.connections))
         vn1_fixture = self.create_vn(vn1_name, vn1_subnets)
         vn1_fixture.bind_policies(
-            [policy_fixture.policy_fq_name], vn1_fixture.vn_id)
+            [policy_fixture.policy_fq_name], vn1_fixture.uuid)
         self.addCleanup(vn1_fixture.unbind_policies,
-                        vn1_fixture.vn_id, [policy_fixture.policy_fq_name])
+                        vn1_fixture.uuid, [policy_fixture.policy_fq_name])
         assert vn1_fixture.verify_on_setup()
 
         vn1_vm1_name = get_random_name('vn1_vm1')
@@ -318,7 +318,7 @@ class TestBasicPolicyModify(BasePolicyTest):
         new_vn_policy_list.append(new_policy_to_add)
         new_policy_vn_list.append(test_vn)
         test_vn_fix = config_topo['vn'][test_vn]
-        test_vn_id = test_vn_fix.vn_id
+        test_vn_id = test_vn_fix.uuid
         # configure new policy
         config_topo['policy'][new_policy_to_add] = self.useFixture(
             PolicyFixture(
@@ -430,7 +430,7 @@ class TestDetailedPolicy0(BasePolicyTest):
         test_vm = topo.vmc_list[0]
         test_vn = topo.vn_of_vm[test_vm]
         test_vn_fix = config_topo['vn'][test_vn]
-        test_vn_id = test_vn_fix.vn_id
+        test_vn_id = test_vn_fix.uuid
         for policy in topo.policy_list:
             # set new policy for test_vn to policy
             test_policy_fq_names = []
