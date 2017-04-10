@@ -64,6 +64,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
            svc_img_name = 'ubuntu-in-net'
         if self.inputs.pcap_on_vm:
             svc_img_name='ubuntu-traffic'
+            image_name = 'ubuntu-traffic'
         self.st_fixture, self.si_fixtures = self.config_st_si(self.st_name,
                                                               self.si_prefix, si_count, left_vn=None, svc_type='analyzer', svc_mode=svc_mode, project=self.inputs.project_name, svc_img_name=svc_img_name, st_version=st_version)
         self.action_list = self.chain_si(
