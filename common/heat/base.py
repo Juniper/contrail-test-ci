@@ -176,6 +176,8 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         env['parameters']['left_net_id'] = vn_list[0].vn_id
         if os.environ.has_key('ci_image'):
             env['parameters']['image'] = os.environ['ci_image']
+        if self.ns_agilio_vrouter_data:
+            env['parameters']['image'] = 'ubuntu-traffic'
         if self.inputs.availability_zone:
             env['parameters']['availability_zone'] = self.inputs.availability_zone
         env['parameters']['flavor'] = self.nova_h.get_default_image_flavor(env['parameters']['image'])
@@ -237,6 +239,8 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
                 env['parameters']['image'] = 'tiny_nat_fw'
             else:
                 raise Exception('Unsupported ST mode %s'%(mode))
+            if self.ns_agilio_vrouter_data:
+                env['parameters']['image'] = 'vsrx'
             env['parameters']['service_scaling'] = scaling
             if scaling:
                 if self.heat_api_version == 2:
@@ -341,6 +345,8 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
                 env['parameters']['image'] = 'tiny_nat_fw'
             else:
                 raise Exception('Unsupported ST mode %s'%(st_fix.svc_mode))
+            if self.ns_agilio_vrouter_data:
+                env['parameters']['image'] = 'vsrx'
             env['parameters']['flavor'] = self.nova_h.get_default_image_flavor(env['parameters']['image'])
             self.nova_h.get_image(env['parameters']['image'])
             self.nova_h.get_flavor(env['parameters']['flavor'])
