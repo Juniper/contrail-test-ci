@@ -58,6 +58,7 @@ class PodFixture(fixtures.Fixture):
     def _populate_attr(self):
         self.uuid = self.obj.metadata.uid
         self.status = self.obj.status.phase
+        self.labels = self.obj.metadata.labels
 
     def read(self):
         try:
@@ -86,6 +87,11 @@ class PodFixture(fixtures.Fixture):
         if not self.already_exists:
             resp = self.k8s_client.delete_pod(self.namespace, self.name)
     # end delete
+
+    def set_labels(self, label_dict):
+        return self.k8s_client.set_pod_label(self.namespace, self.name,
+            label_dict)
+    # end set_labels
 
     @retry(delay=5, tries=60)
     def verify_pod_is_running(self, name, namespace):
@@ -143,6 +149,13 @@ class PodFixture(fixtures.Fixture):
             output = self.run_kubectl_cmd_on_master(self.name, cmd, shell)
         return output
     # run_cmd_on_pod
+
+    @retry(delay=1, tries=10)
+    def ping_with_certainty(self, *args, **kwargs):
+        expectation = kwargs.get('expectation', True)
+        ret_val = self.ping_to_ip(*args, **kwargs)
+        return ret_val == expectation
+    # end ping_with_certainty
 
     def ping_to_ip(self, ip, return_output=False, count='5', expectation=True):
         """Ping from a POD to an IP specified.
