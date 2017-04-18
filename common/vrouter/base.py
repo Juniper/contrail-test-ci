@@ -362,8 +362,14 @@ class BaseVrouterTest(BaseNeutronTest):
 
         for vm in vm_fix_list:
             vrf_id = vm.agent_vrf_id[vm.vn_fq_name]
-            route_list = self.agent_inspect[vm.vm_node_ip].get_vna_route(vrf_id,
-                prefix_split[0], prefix_split[1])
+            route_list = self.get_vna_route_with_retry(
+                self.agent_inspect[vm.vm_node_ip], vrf_id,
+                prefix_split[0], prefix_split[1])[1]
+
+            if not route_list:
+                self.logger.error("Route itself could not be found in agent for IP %s, test failed"
+                    % (prefix_split[0]))
+                return False
 
             for route in route_list['routes']:
                 for path in route['path_list']:
