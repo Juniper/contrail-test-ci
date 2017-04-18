@@ -87,6 +87,10 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
     if username == 'cirros':
         shell = '/bin/sh -l -c'
 
+    # For tiny images, running the commnads in sudo requires this
+    if username == 'tc' and with_sudo:
+        shell = False
+
     _run = sudo if with_sudo else run
 
     # with hide('everything'), settings(host_string=host_string,
@@ -103,9 +107,9 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
         output = None
         while tries > 0:
             try:
-                output = _run(cmd, timeout=timeout, pty=not as_daemon)
-            except (CommandTimeout, NetworkError, SystemExit) as e:
-                logger.exception('Unable to run command %s: %s' % (cmd, str(e)))
+                output = _run(cmd, timeout=timeout, pty=not as_daemon, shell=shell)
+            except (CommandTimeout, NetworkError) as e:
+                logger.warn('Unable to run command %s: %s' % (cmd, str(e)))
                 tries -= 1
                 time.sleep(5)
                 continue
