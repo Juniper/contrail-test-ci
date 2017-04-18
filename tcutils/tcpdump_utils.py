@@ -21,7 +21,7 @@ def stop_tcpdump_for_intf(session, pcap, logger=None):
     execute_cmd(session, cmd, logger)
     return True
 
-def start_tcpdump_for_vm_intf(obj, vm_fix, vn_fq_name, filters='-v', pcap_on_vm=False, vm_intf='eth0'):
+def start_tcpdump_for_vm_intf(obj, vm_fix, vn_fq_name, filters='-v', pcap_on_vm=False, vm_intf='eth0', svm=False):
     if not pcap_on_vm:
         compute_ip = vm_fix.vm_node_ip
         compute_user = obj.inputs.host_data[compute_ip]['username']
@@ -31,7 +31,10 @@ def start_tcpdump_for_vm_intf(obj, vm_fix, vn_fq_name, filters='-v', pcap_on_vm=
             compute_password, vm_tapintf, filters, logger=obj.logger)
     else:
         pcap = '/tmp/%s.pcap' % (get_random_name())
-        cmd_to_tcpdump = [ 'tcpdump -ni %s -U %s -w %s 1>/dev/null 2>/dev/null' % (vm_intf, filters, pcap) ]
+        tcpdump_cmd = 'tcpdump -ni %s -U %s -w %s 1>/dev/null 2>/dev/null'
+        if svm:
+            tcpdump_cmd = '/usr/local/sbin/' + tcpdump_cmd
+        cmd_to_tcpdump = [ tcpdump_cmd % (vm_intf, filters, pcap) ]
         pidfile = pcap + '.pid'
         vm_fix_pcap_pid_files =[]
         for vm_fixture in vm_fix:
@@ -40,21 +43,31 @@ def start_tcpdump_for_vm_intf(obj, vm_fix, vn_fq_name, filters='-v', pcap_on_vm=
         return vm_fix_pcap_pid_files
 # end start_tcpdump_for_vm_intf
 
-def stop_tcpdump_for_vm_intf(obj, session, pcap, vm_fix_pcap_pid_files=[], filters='', verify_on_all=False):
+def stop_tcpdump_for_vm_intf(obj, session, pcap, vm_fix_pcap_pid_files=[], filters='', verify_on_all=False, svm=False):
     if not vm_fix_pcap_pid_files:
         return stop_tcpdump_for_intf(session, pcap, logger=obj.logger)
     else:
         output = []
         pkt_count = []
         for vm_fix, pcap, pidfile in vm_fix_pcap_pid_files:
-            cmd_to_output  = 'tcpdump -nr %s %s' % (pcap, filters)
+            tcpdump_cmd = 'tcpdump -nr %s %s'
+            if svm:
+                tcpdump_cmd = '/usr/local/sbin/' + tcpdump_cmd
+            cmd_to_output  = tcpdump_cmd % (pcap, filters)
             cmd_to_kill = 'cat %s | xargs kill ' % (pidfile)
             count = cmd_to_output + '| wc -l'
+            if svm:
+                cmd_to_kill = 'kill -9 $(cat ' + pidfile + ')'
             vm_fix.run_cmd_on_vm(cmds=[cmd_to_kill], as_sudo=True)
             vm_fix.run_cmd_on_vm(cmds=[cmd_to_output], as_sudo=True)
             output.append(vm_fix.return_output_cmd_dict[cmd_to_output])
-            vm_fix.run_cmd_on_vm(cmds=[count], as_sudo=True)
-            pkts = int(vm_fix.return_output_cmd_dict[count].split('\n')[2])
+            if not svm:
+                vm_fix.run_cmd_on_vm(cmds=[count], as_sudo=True)
+            else:
+                count = 'sudo ' + count
+                vm_fix.run_cmd_on_vm(cmds=[count])
+            pkt_list = vm_fix.return_output_cmd_dict[count].split('\n')
+            pkts = int(pkt_list[len(pkt_list)-1])
             pkt_count.append(pkts)
             total_pkts = sum(pkt_count)
         if not verify_on_all:
