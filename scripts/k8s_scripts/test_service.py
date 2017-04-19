@@ -22,14 +22,14 @@ class TestService(BaseK8sTest):
         '''
         app = 'http_test'
         namespace = self.setup_namespace()
-        assert namespace.verify_on_setup()
+        #assert namespace.verify_on_setup()
 
         service = self.setup_http_service(namespace=namespace.name,
                                           app=app)
         pod1 = self.setup_nginx_pod(namespace=namespace.name,
-                                   app=app)
+                                   labels={'app':app})
         pod2 = self.setup_nginx_pod(namespace=namespace.name,
-                                   app=app)
+                                   labels={'app':app})
         pod3 = self.setup_busybox_pod(namespace=namespace.name)
 
         assert pod1.verify_on_setup()

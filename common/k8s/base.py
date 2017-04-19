@@ -36,13 +36,12 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
         cls.logger = cls.connections.logger
         cls.k8s_client = cls.connections.k8s_client
 
-#        cls.public_vn = create_public_vn.PublicVn(connections=cls.connections,
-#                                 public_vn=K8S_PUBLIC_VN_NAME,
-#                                 public_tenant=cls.inputs.admin_tenant,
-#                                 logger=cls.logger,
-#                                 fip_pool_name=K8S_PUBLIC_FIP_POOL_NAME,
-#                                 api_option='contrail',
-#                                 ipam_fq_name=K8S_SERVICE_IPAM)
+        cls.public_vn = create_public_vn.PublicVn(connections=cls.connections,
+                                 public_vn=K8S_PUBLIC_VN_NAME,
+                                 public_tenant=cls.inputs.admin_tenant,
+                                 logger=cls.logger,
+                                 fip_pool_name=K8S_PUBLIC_FIP_POOL_NAME,
+                                 api_option='contrail')
 
     # end setUpClass
 
@@ -258,8 +257,8 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
                           lb_pods,
                           service_ip,
                           test_pod=None,
-                          path='',
                           host=None,
+                          path='',
                           port=80):
         '''
         From test_pod , run wget on http://<service_ip>:<port> and check
@@ -275,9 +274,13 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
             hit[x.name] = 0
 
         if host:
-            host_str = '--header "Host:%s" ' % (host)
-        cmd = 'wget http://%s:%s/%s %s -O -' % (service_ip, port, path,
-                                                host_str)
+            host_str = '--header "Host:%s" ' %(host)
+            
+            cmd = 'wget http://%s:%s/%s %s -O -' % (service_ip, port, path,
+            host_str)
+        else :
+            cmd = 'wget http://%s:%s/%s -O -' % (service_ip, port, path)
+
         for i in range(0, attempts):
             if test_pod:
                 output = test_pod.run_cmd(cmd, shell='/bin/sh -l -c')
