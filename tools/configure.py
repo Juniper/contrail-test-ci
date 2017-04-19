@@ -638,7 +638,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
                              'token', 'expiration',
                              '86400','keystone')
         update_js_config('openstack', '/etc/contrail/config.global.js',
-                         'contrail-webui')
+                         'contrail-webui', container="webui")
 
 def testbed_format_conversion(path='/opt/contrail/utils'):
     tb_file = path + '/fabfile/testbeds/testbed.py'
