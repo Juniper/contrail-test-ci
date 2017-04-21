@@ -2535,15 +2535,17 @@ class VMFixture(fixtures.Fixture):
             self,
             prefix='111.1.0.0/16',
             tenant_name=None,
-            api_server_ip='127.0.0.1',
-            api_server_port='8082',
+            api_server_ip=None,
+            api_server_port=None,
             oper='add',
             virtual_machine_interface_id='',
             route_table_name='my_route_table',
             user='admin',
             password='contrail123'):
 
-        api_server_port = self.inputs.api_server_port
+        api_server_ip = api_server_ip or self.inputs.api_server_ip or \
+            self.inputs.contrail_external_vip or self.inputs.cfgm_ip
+        api_server_port = api_server_port or self.inputs.api_server_port
         if not tenant_name:
             tenant_name = self.inputs.stack_tenant
         cmd = "python /usr/share/contrail-utils/provision_static_route.py --prefix %s \
