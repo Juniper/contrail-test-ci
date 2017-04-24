@@ -239,11 +239,6 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
                 env['parameters']['image'] = 'tiny_nat_fw'
             else:
                 raise Exception('Unsupported ST mode %s'%(mode))
-            if self.inputs.ns_agilio_vrouter_data:
-                if mode == 'transparent':
-                    env['parameters']['image'] = 'vsrx-bridge'
-                else:
-                    env['parameters']['image'] = 'vsrx'
             env['parameters']['service_scaling'] = scaling
             if scaling:
                 if self.heat_api_version == 2:
@@ -348,11 +343,6 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
                 env['parameters']['image'] = 'tiny_nat_fw'
             else:
                 raise Exception('Unsupported ST mode %s'%(st_fix.svc_mode))
-            if self.inputs.ns_agilio_vrouter_data:
-                if mode == 'transparent':
-                    env['parameters']['image'] = 'vsrx-bridge'
-                else:
-                    env['parameters']['image'] = 'vsrx'
             env['parameters']['flavor'] = self.nova_h.get_default_image_flavor(env['parameters']['image'])
             self.nova_h.get_image(env['parameters']['image'])
             self.nova_h.get_flavor(env['parameters']['flavor'])

@@ -441,7 +441,7 @@ class BaseVrouterTest(BaseNeutronTest):
                         self.trans_left_vn_fixture.vn_fq_name, filters = filters)
                 else:
                     vm_fix_pcap_pid_files[vm] = start_tcpdump_for_vm_intf(
-                        None, [vm], None, filters=filters, pcap_on_vm=True, svm=True)
+                        None, [vm], None, filters=filters, pcap_on_vm=True, vm_intf='eth1', svm=True)
 
             #Send the traffic
             for i in xrange(try_count):
@@ -452,7 +452,7 @@ class BaseVrouterTest(BaseNeutronTest):
                 if not self.inputs.pcap_on_vm:
                     ret = verify_tcpdump_count(self, session[vm], pcap[vm])
                 else:
-                    ret = verify_tcpdump_count(self, None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files[vm], svm=True)
+                    ret = verify_tcpdump_count(self, None, 'eth1', vm_fix_pcap_pid_files=vm_fix_pcap_pid_files[vm], svm=True)
                 if not ret:
                     self.logger.error("Tcpdump verification on VM %s failed" %
                                         vm.vm_ip)
