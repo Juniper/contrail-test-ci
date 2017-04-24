@@ -61,11 +61,7 @@ def stop_tcpdump_for_vm_intf(obj, session, pcap, vm_fix_pcap_pid_files=[], filte
             vm_fix.run_cmd_on_vm(cmds=[cmd_to_kill], as_sudo=True)
             vm_fix.run_cmd_on_vm(cmds=[cmd_to_output], as_sudo=True)
             output.append(vm_fix.return_output_cmd_dict[cmd_to_output])
-            if not svm:
-                vm_fix.run_cmd_on_vm(cmds=[count], as_sudo=True)
-            else:
-                count = 'sudo ' + count
-                vm_fix.run_cmd_on_vm(cmds=[count])
+            vm_fix.run_cmd_on_vm(cmds=[count], as_sudo=True)
             pkt_list = vm_fix.return_output_cmd_dict[count].split('\n')
             pkts = int(pkt_list[len(pkt_list)-1])
             pkt_count.append(pkts)
