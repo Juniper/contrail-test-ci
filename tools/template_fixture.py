@@ -8,8 +8,6 @@ orch_read_fn = string.Template(
    @retry(delay=1, tries=5)
    def _read_orch_obj (self):
        obj = self._ctrl.get_$__object_type__(self.uuid)
-       found = 'not' if not obj else ''
-       self.logger.debug('%s %s found in orchestrator' % (self, found))
        return obj != None, obj
 ''')
 
@@ -21,40 +19,17 @@ orch_read_call = (
 orch_read_nocall = (
 '''       self._obj = self._vnc_obj''')
 
-orch_verify_fns = string.Template(
-'''
-   def _verify_in_orch (self):
-       if not self._read_orch_obj()[0]:
-           return False, '%s not found in orchestrator' % self
-       return True, None
-
-   @retry(delay=5, tries=6)
-   def _verify_not_in_orch (self):
-       if self._ctrl.get_$__object_type__(self.uuid):
-           msg = '%s not removed from orchestrator' % self
-           self.logger.debug(msg)
-           return False, msg
-       self.logger.debug('%s removed from orchestrator' % self)
-       return True, None
-''')
-
-verify_in_orch_call = (
-'''       self.assert_on_setup(*self._verify_in_orch())''')
-
-verify_not_in_orch_call = (
-'''       self.assert_on_cleanup(*self._verify_not_in_orch())''')
-
 base = string.Template(
 '''from contrail_fixtures import ContrailFixture
 from tcutils.util import retry
 from vnc_api.vnc_api import $__vnc_class__
 
-class $__fixture__ (ContrailFixture):
+class $__fixturev2__ (ContrailFixture):
 
    vnc_class = $__vnc_class__
 
    def __init__ (self, connections, uuid=None, params=None, fixs=None):
-       super($__fixture__, self).__init__(
+       super($__fixturev2__, self).__init__(
            uuid=uuid,
            connections=connections,
            params=params,
@@ -80,8 +55,6 @@ class $__fixture__ (ContrailFixture):
    @retry(delay=1, tries=5)
    def _read_vnc_obj (self):
        obj = self._vnc.get_$__object_type__(self.uuid)
-       found = 'not' if not obj else ''
-       self.logger.debug('%s %s found in api-server' % (self, found))
        return obj != None, obj
 $__orch_read_fn__
    def _read (self):
@@ -106,29 +79,56 @@ $__orch_read_call__
            obj=self._obj, uuid=self.uuid, **self.args)
 
    def verify_on_setup (self):
-       self.assert_on_setup(*self._verify_in_api_server())
-$__verify_in_orch__
-       #TODO: check if more verification is needed
+       #TODO: add verification code
+       pass
 
    def verify_on_cleanup (self):
-       self.assert_on_cleanup(*self._verify_not_in_api_server())
-$__verify_not_in_orch__
-       #TODO: check if more verification is needed
+       #TODO: add verification code
+       pass
 
-   def _verify_in_api_server (self):
-       if not self._read_vnc_obj()[0]:
-           return False, '%s not found in api-server' % self
-       return True, None
+from tcutils.util import get_random_name
 
-   @retry(delay=5, tries=6)
-   def _verify_not_in_api_server (self):
-       if self._vnc.get_$__object_type__(self.uuid):
-           msg = '%s not removed from api-server' % self
-           self.logger.debug(msg)
-           return False, msg
-       self.logger.debug('%s removed from api-server' % self)
-       return True, None
-$__orch_verify_fns__''')
+class $__fixture__ ($__fixturev2__):
+
+   """ Fixture for backward compatiblity """
+
+   def __init__ (self, connections, **kwargs):
+       #TODO: add init
+       domain = connections.domain_name
+       prj = kwargs.get('project_name') or connections.project_name
+       prj_fqn = domain + ':' + prj
+       name = None #TODO: kwargs.get()
+
+       if name:
+           uid = self._check_if_present(connections, name, [domain, prj])
+           if uid:
+               super($__fixture__, self).__init__(connections=connections,
+                                           uuid=uid)
+               return
+       else:
+           name = get_random_name(prj)
+
+       self._params = {}
+       super($__fixture__, self).__init__(
+               connections=connections, params=self._params)
+
+   def _check_if_present (self, conn, name, prj_fqn):
+       uid = prj_fqn + [name]
+       obj = conn.get_orch_ctrl().get_api('vnc').get_$__vnc_class__(uid)
+       if not obj:
+           return None
+       return uid
+
+   def setUp (self):
+       super($__fixture__, self).setUp()
+       #TODO: placeholder for additional code, if not required
+       #      delete this method
+
+   def cleanUp (self):
+       super($__fixture__, self).cleanUp()
+       #TODO: placeholder for additional code, if not required
+       #      delete this method
+''')
 
 ap = argparse.ArgumentParser(description='Generate fixture boilerplate code')
 ap.add_argument('--vnc-class', type=str, required=True,
@@ -145,6 +145,7 @@ args =  ap.parse_args()
 params = {
    '__vnc_class__': args.vnc_class,
    '__fixture__': args.fixture,
+   '__fixturev2__': args.fixture + '_v2',
    '__object_type__': args.object_type,
 }
 
@@ -152,17 +153,11 @@ if args.orch_api:
    orch = {
        '__orch_read_fn__': orch_read_fn.substitute(params),
        '__orch_read_call__': orch_read_call,
-       '__verify_in_orch__': verify_in_orch_call,
-       '__verify_not_in_orch__': verify_not_in_orch_call,
-       '__orch_verify_fns__': orch_verify_fns.substitute(params)
    }
 else:
    orch = {
        '__orch_read_fn__': '',
        '__orch_read_call__': orch_read_nocall,
-       '__verify_in_orch__': '',
-       '__verify_not_in_orch__': '',
-       '__orch_verify_fns__': '',
    }
 params.update(orch)
 

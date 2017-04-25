@@ -3,6 +3,8 @@ import functools
 from vnc_api.vnc_api import *
 from tcutils.util import get_random_name, retry
 
+supported_types = ['contrail_v2']
+
 _RESOURCES = {
    'access_control_list':  AccessControlList,
    'alarm':  Alarm,
@@ -65,9 +67,9 @@ _RESOURCES = {
    'virtual_router':  VirtualRouter,
 }
 
-class VncWrap:
+class VncDriver:
 
-   ''' Wrapper class for VNC Api
+   ''' Api Driver class for VNC Api
 
        Provides create, read, update, delete methods for contrail resources.
        Methods create & update, expect the resource desc (kwargs) to be
@@ -118,7 +120,7 @@ class VncWrap:
        except NoIdError:
            try:
                return fn(id=fq_name_or_id)
-           except NoIdError:
+           except (NoIdError, TypeError):
                return None
 
    def _delete (self, resource, obj=None, uuid=None):
@@ -157,6 +159,9 @@ class VncWrap:
            kwargs['fq_name'] = [name]
 
    def _create (self, resource, **kwargs):
+       assert kwargs['type'] in supported_types, \
+               "Unsupported type:" + kwargs['type']
+       del kwargs['type']
        fn = self._get_vnc_fn(resource, 'create')
        self._set_parent_type(resource, kwargs)
        if not kwargs.get('fq_name', None):
@@ -169,6 +174,9 @@ class VncWrap:
        return fn(obj)
 
    def _update (self, resource, obj=None, uuid=None, **kwargs):
+       assert kwargs['type'] in supported_types, \
+              "Unsupported type:" + kwargs['type']
+       del kwargs['type']
        fn = self._get_vnc_fn(resource, 'update')
        obj = obj or self._get(resource, uuid)       
        if not kwargs:
@@ -187,7 +195,4 @@ class VncWrap:
            setattr(self, 'create_%s' % r, functools.partial(self._create, r))
            setattr(self, 'update_%s' % r, functools.partial(self._update, r))
            setattr(self, 'delete_%s' % r, functools.partial(self._delete, r))
-
-   def is_supported_type (self, arg):
-       return arg in ['ContrailV2']
 

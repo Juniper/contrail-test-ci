@@ -1,7 +1,8 @@
 import test_v1
 from netaddr import *
 from vnc_api.vnc_api import *
-from vn_test import VNFixture
+#from vn_test import VNFixture
+from vn_fixture import VNFixture
 from vm_test import VMFixture
 from policy_test import PolicyFixture
 from port_fixture import PortFixture

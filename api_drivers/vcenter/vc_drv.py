@@ -1,9 +1,12 @@
 # TODO: This module replaces
 # fixtures/vcenter.py
+# fixtures/vcenter_gateway.py
 # common/vcenter_libs.py
 import time
 from netaddr import IPNetwork
 from tcutils.util import retry
+
+supported_types = ['contrail_v2']
 
 try:
    from pyVmomi import vim, vmodl
@@ -75,7 +78,7 @@ try:
        attr = attrs[-1]
        return hasattr(obj, attr) and getattr(obj, attr) == param.values()[0]
 
-   class VcenterWrap:
+   class VcenterDriver:
 
        def __init__ (self, host, port, username, password, logger):
            self.logger = logger
@@ -103,9 +106,6 @@ try:
            view = self._content.viewManager.CreateContainerView(root,
                                [_vimtype_dict[vimtype]], True)
            return [obj for obj in view.view]
-
-       def is_supported_type (self, arg):
-           return arg in ['ContrailV2', 'Openstack']
 
        def get_datacenter (self, name):
            return self._find_obj(self._content.rootFolder, 'dc',
