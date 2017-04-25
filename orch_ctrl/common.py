@@ -246,3 +246,28 @@ class RoundRobinZoneRestricted (RoundRobin):
        for h in zones[self._restrict_zone]['hosts']:
            host[h] = hosts[h]
        super(RoundRobinZoneRestricted, self).set_zones_and_hosts(zone, host)
+
+class ApiContextManager:
+
+   def __init__ (self, orch, rtype):
+       self._push_api = None
+       if not rtype:
+           return
+       apis = orch.get_supported_apis()
+       if rtype in apis[orch.select_api]:
+           return
+       for k,v in apis.items():
+           if rtype in v:
+               self._push_api = k
+               self._ctrl = orch
+               break;
+       else:
+           raise Exception(rtype + ' args not supported in %s' % orch)
+
+   def __enter__ (self):
+       if self._push_api:
+           self._ctrl.push_api(self._push_api)
+
+   def __exit__ (self, exc_type, exc_value, exc_tb):
+       if self._push_api:
+           self._ctrl.pop_api()

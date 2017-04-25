@@ -3,17 +3,21 @@
 # fixtures/nova.py
 # fixtures/quantum.py
 # common/openstack_libs.py
-import os
-import ast
+#TODO: move keystone_tests under api_drivers/openstack/
+
+supported_types = ['contrail_v2', 'openstack']
 
 try:
    from neutronclient.neutron import client as neuc
    from novaclient import client as novac
    from novaclient import exceptions as novaException
+   from keystone_tests import KeystoneCommands
+   from os_vm import OsVmMixin
+   from os_vn_subnet import OsVnSubnetMixin
 
-   class OpenstackWrap:
+   class OpenstackDriver (OsVmMixin, OsVnSubnetMixin):
 
-       ''' Wrapper class for Openstack Apis.
+       ''' Api Driver class for Openstack Apis.
 
            This class wraps/abstracts all openstack apis, nova, neutron, etc.
            Any and all openstack libs calls must be added in this class.
@@ -24,25 +28,28 @@ try:
        '''
 
        def __init__ (self, username, password, project_id, project_name,
-                     auth_url, endpoint_type, region_name, logger):
+                     auth_url, endpoint_type, region_name, cert, key, cacert,
+                     domain_name, insecure, logger):
            self.logger = logger
            prj = project_id.replace('-', '')
-           insecure = bool(os.getenv('OS_INSECURE', True))
-           self._qh = neuc.Client('2.0',
+           self._ks = KeystoneCommands(
                                 username=username,
                                 password=password,
-                                project_id=prj,
+                                tenant=project_name,
+                                domain_name=domain_name,
                                 auth_url=auth_url,
                                 region_name=region_name,
-                                insecure=insecure)
+                                cert=cert,
+                                key=key,
+                                cacert=cacert,
+                                insecure=insecure,
+                                logger=logger)
+           self._qh = neuc.Client('2.0',
+                                session=self._ks.get_session(),
+                                region_name=region_name)
            self._nh = novac.Client('2',
-                                username=username,
-                                api_key=password,
-                                project_id=project_name,
-                                auth_url=auth_url,
-                                endpoint_type=endpoint_type,
-                                region_name=region_name,
-                                insecure=insecure)
+                                session=self._ks.get_session(),
+                                region_name=region_name)
 
        @property
        def quantum_handle (self):
@@ -51,9 +58,6 @@ try:
        @property
        def nova_handle (self):
            return self._nh
-
-       def is_supported_type (self, arg):
-           return arg in ['ContrailV2', 'Openstack']
 
        def get_zones (self):
            try:
@@ -106,32 +110,7 @@ try:
                except novaException.NotFound:
                    return None
 
-       def create_virtual_machine (self, **kwargs):
-           lst = []
-           for nic in kwargs['networks']:
-               if nic.keys()[0] == 'port':
-                   lst.append({'port-id': nic.values()[0]})
-               else:
-                   lst.append({'net-id': nic.values()[0]})
-           kwargs['nics'] = lst
-           del kwargs['networks']
-           obj = self._nh.servers.create(**kwargs)
-           return obj.id
-
-       def get_virtual_machine (self, uuid):
-           ret = self._nh.servers.list(search_opts={'uuid':uuid})
-           if ret:
-               return ret[0]
-           return None
-
-       def delete_virtual_machine (self, obj=None, uuid=None):
-           uuid = uuid or obj.id
-           return self._nh.servers.delete(uuid)
-
-       #TODO get/create/delete/update virtual_machine
        #TODO get/create/delete/update virtual_machine_interface
-       #TODO get/create/delete/update virtual_network
-       #TODO get/create/delete/update subnet
        #TODO get/create/delete/update security_group
        #TODO get/create/delete/update security_group_rule
        #TODO get/create/delete/update floating_ip

@@ -1,34 +1,37 @@
 import os
 import copy
 from tcutils.util import get_random_name
-from api_wraps.heat import parser
-import vn_fix
-import policy_fix
-import vm_fix, vmi_fix
-from instance_ip_fixture import InstanceIpFixture
-from svc_template_fixture import SvcTemplateFixture
-from svc_instance_fixture import SvcInstanceFixture
-from port_tuple_fixture import PortTupleFixture
-from bgp_router_fixture import BgpRouterFixture
-from interface_route_table_fixture import InterfaceRouteTableFixture
-from ipam_fixture import IPAMFixture
-from lif_fixture import LogicalInterfaceFixture_v2
-from floating_ip_pool_fixture import FloatingIpPoolFixture
-from floating_ip_fixture import FloatingIpFixture
-from alarm_fixture import AlarmFixture_v2
+from api_drivers.heat import parser
+from vn_fixture import VNFixture_v2
+from subnet_fixture import SubnetFixture
+#import policy_fix
+#import vm_fix, vmi_fix
+#from instance_ip_fixture import InstanceIpFixture
+#from svc_template_fixture import SvcTemplateFixture
+#from svc_instance_fixture import SvcInstanceFixture
+#from port_tuple_fixture import PortTupleFixture
+#from bgp_router_fixture import BgpRouterFixture
+#from interface_route_table_fixture import InterfaceRouteTableFixture
+#from ipam_fixture import IPAMFixture
+#from lif_fixture import LogicalInterfaceFixture_v2
+#from floating_ip_pool_fixture import FloatingIpPoolFixture
+#from floating_ip_fixture import FloatingIpFixture
+#from alarm_fixture import AlarmFixture_v2
 
 # Map: heat resource type -> fixture
 _HEAT_2_FIXTURE = {
-   'OS::ContrailV2::VirtualNetwork': vn_fix.VNFixture,
-   'OS::ContrailV2::NetworkPolicy': policy_fix.PolicyFixture,
-   'OS::ContrailV2::ServiceTemplate': SvcTemplateFixture,
-   'OS::ContrailV2::ServiceInstance': SvcInstanceFixture,
-   'OS::ContrailV2::PortTuple': PortTupleFixture,
-   'OS::ContrailV2::InstanceIp': InstanceIpFixture,
-   'OS::ContrailV2::Alarm': AlarmFixture_v2,
-   'OS::ContrailV2::LogicalInterface': LogicalInterfaceFixture_v2,
-   'OS::ContrailV2::VirtualMachineInterface': vmi_fix.PortFixture_v2,
-   'OS::Nova::Server': vm_fix.VMFixture,
+   'OS::ContrailV2::VirtualNetwork': VNFixture_v2,
+   'OS::Neutron::Subnet': SubnetFixture,
+   'OS::Neutron::Net': VNFixture_v2,
+   #'OS::ContrailV2::NetworkPolicy': policy_fix.PolicyFixture,
+   #'OS::ContrailV2::ServiceTemplate': SvcTemplateFixture,
+   #'OS::ContrailV2::ServiceInstance': SvcInstanceFixture,
+   #'OS::ContrailV2::PortTuple': PortTupleFixture,
+   #'OS::ContrailV2::InstanceIp': InstanceIpFixture,
+   #'OS::ContrailV2::Alarm': AlarmFixture_v2,
+   #'OS::ContrailV2::LogicalInterface': LogicalInterfaceFixture_v2,
+   #'OS::ContrailV2::VirtualMachineInterface': vmi_fix.PortFixture_v2,
+   #'OS::Nova::Server': vm_fix.VMFixture,
 }
 
 def verify_on_setup (objs):
@@ -38,6 +41,14 @@ def verify_on_setup (objs):
 def verify_on_cleanup (objs):
    for res in objs['fixtures']:
        objs['fixtures'][res].verify_on_cleanup()
+
+def _add_to_objs (objs, res_name, obj, args=None):
+   objs['fixtures'][res_name] = obj
+   objs['id-map'][obj.uuid] = obj
+   if args:
+       objs['args'][res_name] = args
+   if obj.fq_name_str:
+       objs['fqn-map'][obj.fq_name_str] = obj
 
 def _create_via_heat (test, tmpl, params):
 
@@ -66,7 +77,7 @@ def _create_via_heat (test, tmpl, params):
    st = wrap.stack_create(get_random_name(), tmpl_first, params)
    objs = {'heat_wrap': wrap, 'stack': st,
            'fixture_cleanup': test.connections.inputs.fixture_cleanup,
-           'fixtures': {}, 'id-map': {}, 'fqn-map': {}}
+           'fixtures': {}, 'id-map': {}, 'fqn-map': {}, 'args': {}}
    test.addCleanup(_delete_via_heat, objs)
    for out in st.outputs:
        key = out['output_key']
@@ -79,9 +90,10 @@ def _create_via_heat (test, tmpl, params):
        test.logger.debug('Reading %s - %s' % (res_name,
              tmpl_first['resources'][res_name]['properties'].get('name', None)))
        obj = test.useFixture(res_type(test.connections, uuid=res_id, fixs=objs))
-       objs['fixtures'][res_name] = obj
-       objs['id-map'][obj.uuid] = obj
-       objs['fqn-map'][obj.fq_name_str] = obj
+       _add_to_objs(objs, res_name, obj)
+       #objs['fixtures'][res_name] = obj
+       #objs['id-map'][obj.uuid] = obj
+       #objs['fqn-map'][obj.fq_name_str] = obj
    if tmpl_to_update:
        parser.fix_fwd_refs(objs, tmpl_to_update, refs)
        wrap.stack_update(st, tmpl_to_update, params, {})
@@ -95,7 +107,7 @@ def _delete_via_heat (objs):
        return
    wrap = objs['heat_wrap']
    wrap.stack_delete(objs['stack'])
-   if os.getenv('VERIFY_ON_CLEANUP'):
+   if int(os.getenv('VERIFY_ON_CLEANUP')):
        verify_on_cleanup(objs)
 
 def _update_via_heat (test, objs, tmpl, params):
@@ -130,9 +142,10 @@ def _update_via_heat (test, objs, tmpl, params):
                                                                    None)))
            obj = test.useFixture(res_type(test.connections, uuid=res_id,
                                           fixs=objs))
-           objs['fixtures'][res_name] = obj
-           objs['id-map'][obj.uuid] = obj
-           objs['fqn-map'][obj.fq_name_str] = obj
+           _add_to_objs(objs, res_name, obj)
+           #objs['fixtures'][res_name] = obj
+           #objs['id-map'][obj.uuid] = obj
+           #objs['fqn-map'][obj.fq_name_str] = obj
    if tmpl_to_update:
        parser.fix_fwd_refs(objs, tmpl_to_update, refs)
        wrap.stack_update(st, tmpl_to_update, params, {})
@@ -171,10 +184,11 @@ def _create_via_fixture (test, tmpl, params):
            args = parser.parse_resource(res_tmpl, params, objs)
            obj = test.useFixture(res_type(test.connections, params=args,
                                           fixs=objs))
-           objs['fixtures'][res_name] = obj
-           objs['args'][res_name] = args
-           objs['id-map'][obj.uuid] = obj
-           objs['fqn-map'][obj.fq_name_str] = obj
+           _add_to_objs(objs, res_name, obj, args)
+           #objs['fixtures'][res_name] = obj
+           #objs['args'][res_name] = args
+           #objs['id-map'][obj.uuid] = obj
+           #objs['fqn-map'][obj.fq_name_str] = obj
    if tmpl_to_update:
        parser.fix_fwd_refs(objs, tmpl_to_update, refs)
        for res_name in refs:
@@ -210,15 +224,18 @@ def _update_via_fixture (test, objs, tmpl, params):
                args = parser.parse_resource(res_tmpl, params, objs)
                obj = test.useFixture(res_type(test.connections, params=args,
                                               fixs=objs))
-               objs['fixtures'][res_name] = obj
-               objs['args'][res_name] = args
-               objs['id-map'][obj.uuid] = obj
-               objs['fqn-map'][obj.fq_name_str] = obj
+               _add_to_objs(objs, res_name, obj, args)
+               #objs['fixtures'][res_name] = obj
+               #objs['args'][res_name] = args
+               #objs['id-map'][obj.uuid] = obj
+               #objs['fqn-map'][obj.fq_name_str] = obj
            else:
                check_for_update.append(res_name)
 
    if tmpl_to_update:
        parser.fix_fwd_refs(objs, tmpl_to_update, refs)
+   else:
+       tmpl_to_update = tmpl_first
 
    check_for_update = list(set(check_for_update + refs.keys()))
    for res_name in check_for_update:

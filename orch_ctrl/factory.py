@@ -19,11 +19,15 @@ def _setup_1 (conn):
        conn.logger.debug('load-balance-algo: default')
        lb_class = RoundRobin()
 
-   args = {'username':conn.username,
-           'password':conn.password,
-           'auth_ip':conn.inputs.auth_ip,
-           'auth_url':conn.inputs.auth_url,
+   args = {'username': conn.username,
+           'password': conn.password,
+           'auth_ip': conn.inputs.auth_ip,
+           'auth_url': conn.inputs.auth_url,
+           'cert': conn.inputs.keystonecertfile,
+           'key': conn.inputs.keystonekeyfile,
+           'cacert': conn.inputs.certbundle,
            'project_name': conn.project_name,
+           'domain_name': conn.domain_name,
            'project_id': conn.get_project_id(),
            'openstack_ip': conn.inputs.openstack_ip,
            'endpoint': conn.inputs.endpoint_type,
@@ -31,6 +35,7 @@ def _setup_1 (conn):
            'api_server_ip': cfgm_ip,
            'api_server_port': conn.inputs.api_server_port,
            'lb_class': lb_class,
+           'insecure': conn.inputs.insecure,
            'inputs': conn.inputs,
            'logger': conn.logger}
    return OpenstackControl(**args)

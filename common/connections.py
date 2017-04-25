@@ -110,6 +110,7 @@ class ContrailConnections():
 
     def get_auth_h(self, refresh=False, project_name=None,
                    username=None, password=None):
+        #TODO: consider moving this method to appropriate orch_ctrl class
         project_name = project_name or self.project_name
         username = username or self.username
         password = password or self.password

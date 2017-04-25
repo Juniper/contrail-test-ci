@@ -3,6 +3,8 @@ import re
 from fabric.context_managers import settings
 from fabric.operations import sudo, put
 from common import FlavorMgr, ImageMgr, RoundRobin
+from api_drivers.openstack.os_drv import supported_types as os_arg_types
+from api_drivers.vnc.vnc_drv import supported_types as vnc_arg_types
 
 #TODO: logging
 
@@ -13,14 +15,16 @@ class OpenstackControl (object):
 
    def __init__ (self, username, password, project_name, project_id,
                  auth_ip, auth_url, api_server_ip, api_server_port,
-                 openstack_ip, endpoint, region, lb_class, inputs, logger):
+                 openstack_ip, endpoint, region, lb_class, logger,
+                 cert, key, cacert, insecure, domain_name, inputs):
        self.inputs = inputs
        self._apis = {}
-       self._select_api = [0]
+       self._select_api = ['vnc']
        self._select_lb = None
        self._user = username
        self._pass = password
        self._prjname = project_name
+       self._dmnname = domain_name
        self._prjid = project_id
        self._auth_ip = auth_ip
        self._auth_url = auth_url
@@ -29,8 +33,17 @@ class OpenstackControl (object):
        self._os_ip = openstack_ip
        self._endpoint = endpoint
        self._region = region
+       self._cert = cert
+       self._key = key
+       self._cacert = cacert
+       self._insecure = insecure
        self.logger = logger
-       self._supported = ['orch', 'heat', 'vnc', 'openstack']
+       self._supported = {
+           'orch': os_arg_types,
+           'heat': [],
+           'vnc': vnc_arg_types,
+           'openstack': os_arg_types,
+       }
        self._hijack = { # overides user selected api route
            'get_virtual_machine': 'openstack',
            'delete_virtual_machine': 'openstack',
@@ -38,19 +51,19 @@ class OpenstackControl (object):
        self._flavor_mgr = FlavorMgr(self._install_flavor, logger)
        self._img_mgr = ImageMgr(self._install_image, logger)
        self._namespaces = ['qemu', 'docker']
-       self.oswrap = self.get_api('openstack')
+       self._osapi = self.get_api('openstack')
        self._read_zones_and_nodes()
        self.select_api = 'orch' # api route selector
        self.select_lb = None if os.getenv('NO_LB', 0) else lb_class
 
    def _read_zones_and_nodes (self):
-       zones = self.oswrap.get_zones()
+       zones = self._osapi.get_zones()
        self.zones = {}
        self.hosts = {}
        for z in zones:
            self.zones[z.zoneName] = {'hosts': list(z.hosts.keys())}
            for h in z.hosts:
-               self.hosts[h] = self.oswrap.get_hypervisor(hypervisor_hostname=h)
+               self.hosts[h] = self._osapi.get_hypervisor(hypervisor_hostname=h)
 
    def __getattr__ (self, fn):
 
@@ -63,10 +76,6 @@ class OpenstackControl (object):
            return self
        if fn in self._hijack:
           return getattr(self.get_api(self._hijack[fn]), fn)
-       #try:
-       #    api = self._apis[self.select_api]
-       #except KeyError:
-       #    api = self.get_api(self.select_api)
        api = self.get_api(self.select_api)
        try:
            return getattr(api, fn)
@@ -82,20 +91,15 @@ class OpenstackControl (object):
        assert api in self._supported, 'Unsupported api %s' % api
        self._select_api[0] = api
 
-   def push_api_for_type (self, arg):
-       api = self.get_api(self.select_api)
-       if api.is_supported_type(arg):
-           self._select_api.insert(0, self.select_api)
-           return
-       for api_type in self._supported:
-           api = self.get_api(api_type)
-           if api.is_supported_type(arg):
-               self._select_api.insert(0, api_type)
-               return
-       assert ValueError, "Unsupported argument type %s" % arg
+   def push_api (self, api):
+       assert api in self._supported, 'Unsupported api %s' % api
+       self._select_api.insert(0, api)
 
    def pop_api (self):
-       self._select_api.pop()
+       self._select_api.pop(0)
+
+   def get_supported_apis (self):
+       return self._supported
 
    @property
    def select_lb (self):
@@ -126,34 +130,39 @@ class OpenstackControl (object):
            return self._apis[api]
 
    def _get_heat_api (self):
-       from api_wraps.heat.heat_wrap import HeatWrap
-       return HeatWrap(username=self._user,
-                       password=self._pass,
-                       project_name=self._prjname,
-                       server_ip=self._os_ip,
-                       auth_url=self._auth_url,
-                       logger=self.logger)
+       from api_drivers.heat.heat_drv import HeatDriver
+       return HeatDriver(username=self._user,
+                         password=self._pass,
+                         project_name=self._prjname,
+                         server_ip=self._os_ip,
+                         auth_url=self._auth_url,
+                         logger=self.logger)
 
    def _get_vnc_api (self):
-       from api_wraps.vnc.vnc_wrap import VncWrap
-       return VncWrap(username=self._user,
-                      password=self._pass,
-                      project_name=self._prjname,
-                      project_id=self._prjid,
-                      server_ip=self._api_ip,
-                      server_port=self._api_port,
-                      auth_server_ip=self._auth_ip)
+       from api_drivers.vnc.vnc_drv import VncDriver
+       return VncDriver(username=self._user,
+                        password=self._pass,
+                        project_name=self._prjname,
+                        project_id=self._prjid,
+                        server_ip=self._api_ip,
+                        server_port=self._api_port,
+                        auth_server_ip=self._auth_ip)
 
    def _get_openstack_api (self):
-       from api_wraps.openstack.os_wrap import OpenstackWrap
-       return OpenstackWrap(username=self._user,
-                            password=self._pass,
-                            project_id=self._prjid,
-                            project_name=self._prjname,
-                            auth_url=self._auth_url,
-                            endpoint_type=self._endpoint,
-                            region_name=self._region,
-                            logger=self.logger)
+       from api_drivers.openstack.os_drv import OpenstackDriver
+       return OpenstackDriver(username=self._user,
+                              password=self._pass,
+                              project_id=self._prjid,
+                              project_name=self._prjname,
+                              domain_name=self._dmnname,
+                              auth_url=self._auth_url,
+                              endpoint_type=self._endpoint,
+                              region_name=self._region,
+                              cert=self._cert,
+                              key=self._key,
+                              cacert=self._cacert,
+                              insecure=self._insecure,
+                              logger=self.logger)
 
    def _get_orch_api (self):
        return self.get_api('openstack')
@@ -218,18 +227,18 @@ class OpenstackControl (object):
            sudo(cmd)
 
    def _install_flavor (self, name, **kwargs):
-       ctx = self.oswrap.get_flavor(name)
+       ctx = self._osapi.get_flavor(name)
        if ctx:
            return ctx
        self.logger.debug('Adding flavor %s' % name)
-       ctx = self.oswrap.create_flavor(name=name, **kwargs)
+       ctx = self._osapi.create_flavor(name=name, **kwargs)
        if self.inputs.dpdk_data:
            ctx.set_keys({'hw:mem_page_size': 'any'})
        return ctx
 
    def _install_image (self, ns, img_info, img_url):
        #TODO: check if docker requires special handling
-       ctx = self.oswrap.get_image(img_info['name'])
+       ctx = self._osapi.get_image(img_info['name'])
        if ctx:
            return ctx
        self.logger.debug('Installing image %s' % img_info['name'])
@@ -240,7 +249,7 @@ class OpenstackControl (object):
                password=password, warn_only=True, abort_on_prompts=False):
            img_url = self._download_image(img_url)
            self._glance_image(img_url, img_info)
-       return self.oswrap.get_image(img_info['name'])
+       return self._osapi.get_image(img_info['name'])
 
    def _download_image(self, image_url):
 
@@ -278,7 +287,7 @@ class OpenstackControl (object):
        else:
            public_arg = "--visibility public"
 
-       insecure = '--insecure' if bool(os.getenv('OS_INSECURE', True)) else ''
+       insecure = '--insecure' if self._insecure else ''
        cmd = '(glance %s --os-username %s --os-password %s \
                --os-tenant-name %s --os-auth-url %s \
                --os-region-name %s image-create --name "%s" \

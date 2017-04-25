@@ -1,6 +1,7 @@
 import copy
 import os
 import fixtures
+from orch_ctrl.common import ApiContextManager
 
 def set_api ():
    def inner (f):
@@ -14,9 +15,9 @@ def set_api ():
 def _get_arg_type (atype):
    x = atype.split('::')[1]
    if x == 'ContrailV2':
-       return 'ContrailV2'
+       return 'contrail_v2'
    elif x in ['Neutron', 'Nova']:
-       return 'Openstack'
+       return 'openstack'
    else:
        raise ValueError("Unknown arg type %s", atype)
 
@@ -26,7 +27,7 @@ def _process_refs_to (val, objs):
    else:
        return objs['id-map'][val].fq_name
 
-def process_refs (args, refs, objs):
+def _process_refs (args, refs, objs):
 
    ''' Helper routine to handle refs, converts
        - [fqdn...] to [{"to":fqdn}...]
@@ -74,8 +75,10 @@ class ContrailFixture (fixtures.Fixture):
        # ownership flag, set if fixture creates the resource and is
        # responsible cleanup
        self._owned = False if uuid else True
-       self._args = self._handle_args(params)
-       self._verify_on_cleanup = os.getenv('VERIFY_ON_CLEANUP') or False
+       self._args = self._handle_args(copy.deepcopy(params))
+       self._api_ctx = ApiContextManager(self._ctrl,
+               self._args['type'] if self._args else None)
+       self._verify_on_cleanup = int(os.getenv('VERIFY_ON_CLEANUP')) or False
        self._minimal_read()
 
    def _setup_ref_fields (self):
@@ -91,11 +94,10 @@ class ContrailFixture (fixtures.Fixture):
            return None
        res_type = _get_arg_type(params['type'])
        params['type'] = res_type
-       if 'ContrailV2' == res_type and getattr(self, 'ref_fields', None):
-           args = process_refs(params, self.ref_fields, self.fixs)
+       if 'contrail_v2' == res_type and getattr(self, 'ref_fields', None):
+           return _process_refs(params, self.ref_fields, self.fixs)
        else:
-           args = copy.deepcopy(params)
-       return args
+           return params
 
    def _update_args (self, params):
        self._args.update(params) #TODO: delete all entries set to None/[]/{}
@@ -125,8 +127,12 @@ class ContrailFixture (fixtures.Fixture):
    def _minimal_read (self):
        if self.uuid:
            self._fq_name = self._vnc.id_to_fqn(self.uuid)
-           self._name = self._fq_name[-1]
-           self._fq_name_str = ':'.join(self._fq_name)
+           if self._fq_name:
+               self._name = self._fq_name[-1]
+               self._fq_name_str = ':'.join(self._fq_name)
+           else:
+               self._name = None
+               self._fq_name_str = None
 
    def setUp (self):
        super(ContrailFixture, self).setUp()

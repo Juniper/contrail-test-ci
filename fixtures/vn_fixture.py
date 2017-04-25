@@ -31,8 +31,6 @@ class VNFixture_v2 (ContrailFixture):
        self.agent_inspect = connections.agent_inspect
        self.cn_inspect = connections.cn_inspect
        self.analytics_obj = connections.analytics_obj
-       self._interested_computes = []
-       self._vrf_ids = {}
 
    def get_attr (self, lst):
        if lst == ['fq_name']:
@@ -53,15 +51,12 @@ class VNFixture_v2 (ContrailFixture):
    @retry(delay=1, tries=5)
    def _read_vnc_obj (self):
        obj = self._vnc.get_virtual_network(self.uuid)
-       found = 'not' if not obj else ''
-       self.logger.warn('%s %s found in api-server' % (self, found))
        return obj != None, obj
 
    @retry(delay=1, tries=5)
    def _read_orch_obj (self):
-       obj = self._ctrl.get_virtual_network(self.uuid)
-       found = 'not' if not obj else ''
-       self.logger.warn('%s %s found in orchestrator' % (self, found))
+       with self._api_ctx:
+           obj = self._ctrl.get_virtual_network(self.uuid)
        return obj != None, obj
 
    def _read (self):
@@ -74,18 +69,21 @@ class VNFixture_v2 (ContrailFixture):
 
    def _create (self):
        self.logger.info('Creating %s' % self)
-       self.uuid = self._ctrl.create_virtual_network(
-           **self._args)
+       with self._api_ctx:
+           self.uuid = self._ctrl.create_virtual_network(
+                           **self._args)
 
    def _delete (self):
        self.logger.info('Deleting %s' % self)
-       self._ctrl.delete_virtual_network(
-           obj=self._obj, uuid=self.uuid)
+       with self._api_ctx:
+           self._ctrl.delete_virtual_network(
+               obj=self._obj, uuid=self.uuid)
 
    def _update (self):
        self.logger.info('Updating %s' % self)
-       self._ctrl.update_virtual_network(
-           obj=self._obj, uuid=self.uuid, **self.args)
+       with self._api_ctx:
+           self._ctrl.update_virtual_network(
+               obj=self._obj, uuid=self.uuid, **self.args)
 
    @property
    def ri_name (self):
@@ -132,10 +130,10 @@ class VNFixture_v2 (ContrailFixture):
    def get_allowed_peer_vns_by_policy (self):
        # This is allowed list and not actual peer list, which is
        # based on action by both peers
-       domain, project, name = *self.fq_name
+       domain, project, name = self.fq_name
        pol_name_list = []
        allowed_peer_vns = []
-       pol_list_ref = self._vnc_obj.get_network_policy_refs()
+       pol_list_ref = self.vnc_obj.get_network_policy_refs()
        if pol_list_ref:
            for pol in pol_list_ref:
                pol_name_list.append(str(pol['to'][2]))
@@ -170,7 +168,7 @@ class VNFixture_v2 (ContrailFixture):
        # Verify basic VN network id allocation
        # Currently just checks if it is not 0
        try:
-           vn_network_id = self._vnc_obj.virtual_network_network_id
+           vn_network_id = self.vnc_obj.virtual_network_network_id
        except AttributeError:
            return False, 'VN id not seen in api-server for Vn %s' % self
        if int(vn_network_id) == int(0):
@@ -230,13 +228,16 @@ class VNFixture_v2 (ContrailFixture):
                return False, msg
 
    def _verify_in_opserver (self):
-       return self.analytics_obj.verify_vn_link(self.fq_name_str)
+       if self.analytics_obj.verify_vn_link(self.fq_name_str):
+           return True, None
+       else:
+           return False, 'Failed verify_vn_link'
 
    @retry(delay=5, tries=30)
    def _verify_not_in_agent (self):
        for compute_ip in self.inputs.compute_ips:
            inspect_h = self.agent_inspect[compute_ip]
-           domain, project, name = *self.fq_name
+           domain, project, name = self.fq_name
            vn = inspect_h.get_vna_vn(domain=domain, project=project,
                                      vn_name=name)
            if vn:
@@ -246,13 +247,13 @@ class VNFixture_v2 (ContrailFixture):
                             project=project, vn_name=name)
            if len(vrf_objs['vrf_list']) != 0:
                msg = 'VRF %s for VN %s is still found in agent %s' % (str(
-                      self.ri_name), self.name, compute_ip))
+                      self.ri_name), self.name, compute_ip)
                return False, msg
-        return True, None
+       return True, None
 
    @retry(delay=5, tries=10)
    def _verify_in_api_server (self):
-       domain, project, name = *self.fq_name
+       domain, project, name = self.fq_name
        api_s_vn_obj = self.api_s_inspect.get_cs_vn(domain=domain,
                project=project, vn=name, refresh=True)
        if not api_s_vn_obj:
@@ -262,18 +263,23 @@ class VNFixture_v2 (ContrailFixture):
            msg = "VN %s ID mismatch in API-Server" % self.uuid
            return False, msg
 
-       subnets = api_s_vn_obj['virtual-network']['network_ipam_refs'][0][
+       if getattr(self, '_subnets', None) is not None:
+           subnets = api_s_vn_obj['virtual-network']['network_ipam_refs'][0][
                               'attr']['ipam_subnets']
-       for vn_subnet in self._subnets:
-           subnet_found = False
-           vn_subnet_cidr = str(IPNetwork(vn_subnet).ip)
-           for subnet in subnets:
-               if subnet['subnet']['ip_prefix'] == vn_subnet_cidr:
-                   subnet_found = True
-           if not subnet_found:
-               msg = "Subnet IP %s not found in API-Server for VN %s" % (
-                      vn_subnet_cidr, self.vn_name)
+           if len(subnets) != len(self._subnets):
+               msg = 'Subnets numbers mismatch expect:%d, got:%d' % (
+                       len(self._subnets), len(subnets))
                return False, msg
+           for vn_subnet in self._subnets:
+               subnet_found = False
+               vn_subnet_cidr = str(IPNetwork(vn_subnet).ip)
+               for subnet in subnets:
+                   if subnet['subnet']['ip_prefix'] == vn_subnet_cidr:
+                       subnet_found = True
+               if not subnet_found:
+                   msg = "Subnet IP %s not found in API-Server for VN %s" % (
+                          vn_subnet_cidr, self.vn_name)
+                   return False, msg
 
        api_s_route_targets = self.api_s_inspect.get_cs_route_targets(
                vn_id=self.uuid)
@@ -286,7 +292,7 @@ class VNFixture_v2 (ContrailFixture):
            msg = 'RT names not yet present for VN %s' % self.vn_name
            return False, msg
 
-       if self._rt_number:
+       if getattr(self, '_rt_number', None) is not None:
            if not any(item.endswith(self.rt_number) for item in rt_names):
                msg = 'RT %s is not found in API Server RT list %s' % (
                       self._rt_number, rt_names)
@@ -305,10 +311,12 @@ class VNFixture_v2 (ContrailFixture):
 
    @retry(delay=5, tries=3)
    def _verify_not_in_api_server (self):
-       if self.api_s_inspect.get_cs_ri_by_id(self._ri_ref['uuid']):
-           msg = "RI %s is still found in API-Server" % self.ri_ref['name']
-           return False, msg
-       domain, project, name = *self.fq_name
+       if getattr(self, '_ri_ref', None):
+           if self.api_s_inspect.get_cs_ri_by_id(self._ri_ref['uuid']):
+               msg = "RI %s is still found in API-Server" % (
+                       self.ri_ref['name'])
+               return False, msg
+       domain, project, name = self.fq_name
        if self.api_s_inspect.get_cs_vn(domain=domain, project=project,
                                        vn=name, refresh=True):
            msg = "VN %s is still found in API-Server" % self.name
@@ -328,7 +336,7 @@ class VNFixture_v2 (ContrailFixture):
    def _verify_in_control_nodes (self):
        api_s_route_targets = self.api_s_inspect.get_cs_route_targets(
                vn_id=self.uuid)
-       domain, project, name = *self.fq_name
+       domain, project, name = self.fq_name
        for cn in self.inputs.bgp_ips:
            cn_config_vn_obj = self.cn_inspect[cn].get_cn_config_vn(
                vn_name=name, project=project, domain=domain)
@@ -338,7 +346,7 @@ class VNFixture_v2 (ContrailFixture):
                return False, msg
            if self.fq_name_str not in cn_config_vn_obj['node_name']:
                msg = 'VN %s not found in IFMAP View of Control-node' % (
-                      self.fq_name_str))
+                      self.fq_name_str)
                return False, msg
            # TODO UUID verification to be done once the API is available
            cn_object = self.cn_inspect[cn].get_cn_routing_instance(
@@ -357,7 +365,7 @@ class VNFixture_v2 (ContrailFixture):
            except Exception as e:
                msg = "Got exception from control verification as %s" % e
                return False, msg
-        return True, None
+       return True, None
 
    @retry(delay=5, tries=20)
    def _verify_not_in_control_nodes (self):
@@ -367,12 +375,12 @@ class VNFixture_v2 (ContrailFixture):
            if cn_object:
                msg = "Routing instance (VN %s) still found in Control%s" % (
                      self.name, cn)
-       domain, project, name = *self.fq_name
+       domain, project, name = self.fq_name
        if self.cn_inspect[cn].get_cn_config_vn(vn_name=name,
                project=project, domain=domain):
-            msg = "Control-node config DB still has VN %s" % (self.name)
-            return False, msg
-        return True, None
+           msg = "Control-node config DB still has VN %s" % (self.name)
+           return False, msg
+       return True, None
 
    @retry(delay=2, tries=20)
    def _verify_not_in_vrouter (self):
@@ -383,6 +391,8 @@ class VNFixture_v2 (ContrailFixture):
        if not compute_ips:
            self.logger.debug('No interested compute node info present.'
                              ' Skipping VN cleanup check in vrouter')
+           return True, None
+       if not getattr(self, '_vrf_ids', None):
            return True, None
        for compute_ip in compute_ips:
            if not compute_ip in self._vrf_ids.keys():
@@ -413,7 +423,10 @@ class VNFixture_v2 (ContrailFixture):
        return True, None
 
    def _verify_policy_in_api_server (self):
-       domain, project, name = *self.fq_name
+       if getattr(self, '_policies', None) is not None:
+           return True, None
+
+       domain, project, name = self.fq_name
        api_s_vn_obj = self.api_s_inspect.get_cs_vn(domain=domain,
                project=project, vn=name, refresh=True)
        try:
@@ -422,30 +435,30 @@ class VNFixture_v2 (ContrailFixture):
            # VN has no policy to be verified
            return True, None
 
-        # vn_pol is a list of dicts with policy info
-        # check no. of policies in api-s and user given
-        if len(vn_pol) != len(self._policies):
-            msg = "Mis-match in number of policies %d - %d" % (len(vn_pol),
-                   len(self._policies))
-            self.logger.error(msg)
-            self.logger.error("Data in API-S: \n")
-            for policy in vn_pol:
-                self.logger.error('%s' % policy['to'])
-            self.logger.error("User specified: \n")
-            for policy in self._policies:
-                self.logger.error('%s' % policy)
-            return False, msg
-        return True, None
+       # vn_pol is a list of dicts with policy info
+       # check no. of policies in api-s and user given
+       if len(vn_pol) != len(self._policies):
+           msg = "Mis-match in number of policies %d - %d" % (len(vn_pol),
+                  len(self._policies))
+           self.logger.error(msg)
+           self.logger.error("Data in API-S: \n")
+           for policy in vn_pol:
+               self.logger.error('%s' % policy['to'])
+           self.logger.error("User specified: \n")
+           for policy in self._policies:
+               self.logger.error('%s' % policy)
+           return False, msg
+       return True, None
 
 
-from tcutils.util import get_random_cidrs, get_af_from_cidrs, get_af_type,
+from tcutils.util import get_random_cidrs, get_af_from_cidrs, get_af_type,\
                          get_random_name, is_v6
-from vnc_api.vnc_api import VirtualNetworkType, RouteTargetList,
+from vnc_api.vnc_api import VirtualNetworkType, RouteTargetList,\
                             NetworkIpam
 
 class VNFixture (VNFixture_v2):
 
-    ''' Fixture for backward compatiblity '''
+   ''' Fixture for backward compatiblity '''
 
    @property
    def vn_fq_name (self):
@@ -457,7 +470,7 @@ class VNFixture (VNFixture_v2):
 
    @property
    def vn_subnet_objs (self):
-       if getattr(self, '_subnet_objs') and self._subnet_objs:
+       if getattr(self, '_subnet_objs', None) and self._subnet_objs:
            return self._subnet_objs
        else:
            return self.get_subnets()
@@ -465,17 +478,15 @@ class VNFixture (VNFixture_v2):
    #TODO:
    def __init__ (self, connections,
                  **kwargs):
-       domain = self.connections.domain_name
-       prj = kwargs.get('project_name') or self.connections.project_name
+       domain = connections.domain_name
+       prj = kwargs.get('project_name') or connections.project_name
        prj_fqn = domain + ':' + prj
        name = kwargs.get('vn_name')
-       self._api = kwargs('option', 'quantum')
-
-       if self._api == 'quantum':
-           self._qh = self._ctrl.get_api('openstack').quantum_handle
+       self._api = kwargs.get('option', 'quantum')
+       self.inputs = connections.inputs
 
        if name:
-           uid = self._check_if_present(name, [domain, prj])
+           uid = self._check_if_present(connections, name, [domain, prj])
            if uid:
                super(VNFixture, self).__init__(connections=connections,
                                                uuid=uid)
@@ -493,42 +504,44 @@ class VNFixture (VNFixture_v2):
        super(VNFixture, self).__init__(connections=connections,
                                        params=self._params)
 
-   def _check_if_present (self, vn_name, prj_fqn):
-       uid = prj_fqn + vn_name
-       obj = self._ctrl.get_virtual_network(uid)
+   def _check_if_present (self, conn, vn_name, prj_fqn):
+       uid = prj_fqn + [vn_name]
+       obj = conn.get_orch_ctrl().get_api('vnc').get_virtual_network(uid)
        if not obj:
            return None
        return uid
 
    def setUp (self):
        super(VNFixture, self).setUp()
-       if self._read_on_setup:
+       if self._api == 'quantum':
+           self._qh = self._ctrl.get_api('openstack').quantum_handle
+       if getattr(self, '_read_on_setup', False):
            self._fetch_info()
-       if self._subnets_pending:
-           self._create_subnets()
+       self._create_subnets()
 
    def cleanUp (self):
-       if self._subnet_ids:
-           self._delete_subnets()
+       self._delete_subnets()
        super(VNFixture, self).cleanUp()
 
    def _fetch_info (self):
        # policies
        self._policies = []
-       for policy in self._vnc_obj.get_network_policy_refs():
-           self._policies.append(policy['to'].split(':'))
+       refs = self.vnc_obj.get_network_policy_refs()
+       if refs:
+           for policy in refs:
+               self._policies.append(policy['to'].split(':'))
 
-   def _construct_contrail_params (self, name, prj_fqn, kwargs)
-       self.params = {
-           'type': 'OS::ContrailV2::VirtualNetwork'
+   def _construct_contrail_params (self, name, prj_fqn, kwargs):
+       self._params = {
+           'type': 'OS::ContrailV2::VirtualNetwork',
            'name' : name,
            'project': prj_fqn,
-           'is_shared': kwargs.get('shared', False)
+           'is_shared': kwargs.get('shared', False),
            'router_external' : kwargs.get('router_external', False),
        }
 
-       ipam_fqn = kwargs.get('ipam_fq_name') or NetworkIpam().get_fq_name()
-       dhcp = kwargs.get('enable_dhcp', True),
+       ipam_fqn = kwargs.get('ipam_fq_name') or NetworkIpam().get_fq_name_str()
+       dhcp = kwargs.get('enable_dhcp', True)
        dhcp_opts = kwargs.get('dhcp_option_list')
        ipam_fqn = ipam_fqn or prj_fqn + ':' + 'default-network-ipam'
        subnets = kwargs.get('subnets', [])
@@ -543,30 +556,30 @@ class VNFixture (VNFixture_v2):
                  'dhcp_option_list': dhcp_opts,
                 }
            lst.append(dd)
-       self.params['network_ipam_refs'] = [ipam_fqn]
-       self.params['network_ipam_refs_data'] = [{'ipam_subnets':lst}]
+       self._params['network_ipam_refs'] = [ipam_fqn]
+       self._params['network_ipam_refs_data'] = [{'ipam_subnets':lst}]
 
        ecmp_hash = kwargs.get('ecmp_hash')
        if ecmp_hash:
-           self.params['ecmp_hashing_include_fields'] = ecmp_hash.copy()
+           self._params['ecmp_hashing_include_fields'] = ecmp_hash.copy()
 
        vxlan_id = kwargs.get('vxlan_id')
        if vxlan_id:
-           props = self.params.get('virtual_network_properties', {})
+           props = self._params.get('virtual_network_properties', {})
            props['vxlan_network_identifier'] = vxlan_id
-           self.params['virtual_network_properties'] = props
+           self._params['virtual_network_properties'] = props
 
        mode = kwargs.get('forwarding_mode')
        if mode:
-           props = self.params.get('virtual_network_properties', {})
+           props = self._params.get('virtual_network_properties', {})
            props['forwarding_mode'] = mode
-           self.params['virtual_network_properties'] = props
+           self._params['virtual_network_properties'] = props
 
        asn, tgt = kwargs.get('router_asn'), kwargs.get('rt_number')
        self._rt_number = tgt
        if asn and tgt:
            lst = ["target:%s:%s" % (asn, tgt)]
-           self.params['route_target_list']['route_target'] = lst
+           self._params['route_target_list']['route_target'] = lst
 
        policy_refs = []
        policy_refs_data = []
@@ -577,41 +590,39 @@ class VNFixture (VNFixture_v2):
                    'major': seq,
                    'minor':0
                }})
-       self.params['network_policy_refs'] = policy_refs
-       self.params['network_policy_refs_data'] = policy_refs_data
+       self._params['network_policy_refs'] = policy_refs
+       self._params['network_policy_refs_data'] = policy_refs_data
        self._policies = policy_refs
 
-   def _construct_quantum_params (self, name, prj_fqn, kwargs)
-       self.params = {
+   def _construct_quantum_params (self, name, prj_fqn, kwargs):
+       self._params = {
            'type': 'OS::Neutron::Net',
            'name': name,
            'shared': kwargs.get('shared', False),
-           'value_specs': {
-               'router:external': kwargs.get('router_external', False),
-           },
+           'router:external': kwargs.get('router_external', False),
        }
 
        if kwargs.get('sriov_enable'):
-           dd = self.params['value_specs']
-           dd['provider:physical_network'] = kwargs['sriov_provider_network']
-           dd['provider:segmentation_id'] = kwargs['sriov_vlan']
-
+           self._params['provider:physical_network'] = \
+                   kwargs['sriov_provider_network']
+           self._params['provider:segmentation_id'] = kwargs['sriov_vlan']
 
        policy_refs = []
        for policy in kwargs.get('policy_objs', []):
            policy_refs.append(policy.fq_name)
-       self.params['contrail:policys'] = policy_refs
+       if policy_refs:
+           self._params['contrail:policys'] = policy_refs
        self._policies = policy_refs
 
        ipam_fqn = kwargs.get('ipam_fq_name') or NetworkIpam().get_fq_name()
        gw = kwargs.get('disable_gateway')
-       dhcp = kwargs.get('enable_dhcp', True),
+       dhcp = kwargs.get('enable_dhcp', True)
        ipam_fqn = ipam_fqn or prj_fqn + ':' + 'default-network-ipam'
        self._subnets = kwargs.get('subnets', [])
        self._subnets_pending = []
        for subnet in self._subnets:
            dd = {
-               'enable_dhcp': enable_dhcp,
+               'enable_dhcp': dhcp,
                'ip_version': '6' if is_v6(subnet) else '4',
                'cidr': subnet,
                'contrail:ipam_fq_name': ipam_fqn,
@@ -622,7 +633,7 @@ class VNFixture (VNFixture_v2):
 
    def _create_subnets (self):
        self._subnet_ids = []
-       for subnet in self._subnets_pending:
+       for subnet in getattr(self, '_subnets_pending', []):
            subnet['network_id'] = self.uuid
            rsp = self._qh.create_subnet({'subnet': subnet})
            self._subnet_ids.append(rsp['subnet']['id'])
@@ -645,7 +656,7 @@ class VNFixture (VNFixture_v2):
 
    def get_cidrs (self, af=None):
        subnets = []
-       for ipam in self._vnc_obj.get_network_ipam_refs():
+       for ipam in self.vnc_obj.get_network_ipam_refs():
            for subnet in ipam['attr'].ipam_subnets:
                subnets.append(str(subnet.subnet.ip_prefix) + '/' +
                           str(subnet.subnet.ip_prefix_len))
@@ -654,7 +665,7 @@ class VNFixture (VNFixture_v2):
        return [x for x in subnets if af == get_af_type(x)]
 
    def get_dns_ip (self, ipam_fq_name=None, sub_idx=0):
-       ipams = self._vnc_obj.get_network_ipam_refs()
+       ipams = self.vnc_obj.get_network_ipam_refs()
        if not ipams:
            self.logger.error("No IPAM associated with VN")
            return None
@@ -670,132 +681,97 @@ class VNFixture (VNFixture_v2):
        return dns
 
    def set_unknown_unicast_forwarding (self, enable=True):
-       #self.params['flood_unknown_unicast'] = enable
-       #self.update(self.params)
-       self._vnc_obj.set_flood_unknown_unicast(enable)
-       self._vnc.update_virtual_network(self._vnc_obj)
+       self.vnc_obj.set_flood_unknown_unicast(enable)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_mac_aging_time (self, mac_aging_time):
-       #self.params['mac_aging_time'] = mac_aging_time
-       #self.update(self.params)
-       self._vnc_obj.set_mac_aging_time(mac_aging_time)
-       self._vnc.update_virtual_network(self._vnc_obj)
+       self.vnc_obj.set_mac_aging_time(mac_aging_time)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_mac_move_control (self, mac_move_control):
-       #self.params['mac_move_control'] = {
-       #    'mac_move_limit': mac_move_control.get_mac_move_limit(),
-       #    'mac_move_time_window': mac_move_control.get_mac_move_time_window(),
-       #    'mac_limit_action': mac_move_control.get_mac_limit_action()
-       #}
-       #self.update(self.params)
-       self._vnc_obj.set_mac_move_control(mac_move_control)
-       self._vnc.update_virtual_network(self._vnc_obj)
+       self.vnc_obj.set_mac_move_control(mac_move_control)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_mac_limit_control (self, mac_limit_control):
-       #self.params['mac_limit_control'] = {
-       #    'mac_limit': mac_limit_control.get_mac_limit(),
-       #    'mac_limit_action': mac_limit_control.get_mac_limit_action(),
-       #}
-       #self.update(self.params)
-       self._vnc_obj.set_mac_limit_control(mac_limit_control)
-       self._vnc.update_virtual_network(self._vnc_obj)
+       self.vnc_obj.set_mac_limit_control(mac_limit_control)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_mac_learning_enabled (self, mac_learning_enabled=True):
-       #self.params['mac_learning_enabled'] = mac_learning_enabled
-       #self.update(self.params)
-       self._vnc_obj.set_mac_learning_enabled(mac_learning_enabled)
-       self._vnc.update_virtual_network(self._vnc_obj)
+       self.vnc_obj.set_mac_learning_enabled(mac_learning_enabled)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_pbb_evpn_enable (self, pbb_evpn_enable=True):
-       #self.params['pbb_evpn_enable'] = pbb_evpn_enable
-       #self.update(self.params)
-       self._vnc_obj.set_pbb_evpn_enable(pbb_evpn_enable)
-       self._vnc.update_virtual_network(self._vnc_obj)
+       self.vnc_obj.set_pbb_evpn_enable(pbb_evpn_enable)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_pbb_etree_enable (self, pbb_etree_enable=True):
-       #self.params['pbb_etree_enable'] = pbb_etree_enable
-       #self.update(self.params)
-       self._vnc_obj.set_pbb_etree_enable(pbb_etree_enable)
-       self._vnc.update_virtual_network(self._vnc_obj)
+       self.vnc_obj.set_pbb_etree_enable(pbb_etree_enable)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_forwarding_mode (self, forwarding_mode):
-       #self._set_forwarding_mode(forwarding_mode)
-       #self.update(self.params)
-       props = self._vnc_obj.get_virtual_network_properties()
+       props = self.vnc_obj.get_virtual_network_properties()
        props = props if props else VirtualNetworkType()
        props.set_forwarding_mode(forwarding_mode)
-       self._vnc_obj.set_virtual_network_properties(props)
-       self._vnc.update_virtual_network(self._vnc_obj)
+       self.vnc_obj.set_virtual_network_properties(props)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_ecmp_hash (self, ecmp_hash):
-       #self._set_ecmp_hash(ecmp_hash)
-       #self.update(self.params)
-       self._vnc_obj.set_ecmp_hashing_include_fields(ecmp_hash)
-       self._vnc.update_virtual_network(self._vnc_obj)
+       self.vnc_obj.set_ecmp_hashing_include_fields(ecmp_hash)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_vxlan_id (self, vxlan_id):
-       #self._set_vxlan_id(vxlan_id)
-       #self.update(self.params)
-       props = self._vnc_obj.get_virtual_network_properties()
+       props = self.vnc_obj.get_virtual_network_properties()
        props = props if props else VirtualNetworkType()
        props.set_vlan_network_identifier(int(vxlan_id))
-       self._vnc_obj.set_virtual_network_properties(props)
-       self._vnc.update_virtual_network(self._vnc_obj)
+       self.vnc_obj.set_virtual_network_properties(props)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def get_vxlan_id (self):
        if self.connections.vnc_lib_fixture.get_vxlan_mode() == 'automatic':
-           return self._vnc_obj.get_virtual_network_network_id()
+           return self.vnc_obj.get_virtual_network_network_id()
        else:
-           return self._vnc_obj.get_virtual_network_properties()\
+           return self.vnc_obj.get_virtual_network_properties()\
                   ['vxlan_network_identifier']
 
    def add_route_target (self, router_asn, route_target_number):
-       #self._add_route_target(router_asn, route_target_number)
-       #self.update(self.params)
        val = 'target:%s:%s' % (router_asn, route_target_number)
-       tgts = self._vnc_obj.get_route_target_list()
+       tgts = self.vnc_obj.get_route_target_list()
        if tgts:
            if val not in tgts.get_route_target():
                tgts.add_route_target(val)
        else:
            tgts = RouteTargetList([val])
-       self._vnc_obj.set_route_target_list(tgts)
-       self._vnc.update_virtual_network(self._vnc_obj)
+       self.vnc_obj.set_route_target_list(tgts)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def del_route_target (self, router_asn, route_target_number):
-       #dd = self.params.get('route_target_list', {})
-       #lst = dd.get('route_target', [])
-       #if lst:
-       #    lst.remove("target:%s:%s" % (router_asn, route_target_number))
-       #self.params['route_target_list'] = lst
-       #self.update(self.params)
        val = 'target:%s:%s' % (router_asn, route_target_number)
-       tgts = self._vnc_obj.get_route_target_list()
+       tgts = self.vnc_obj.get_route_target_list()
        if not tgts:
            return
        if val not in tgts.get_route_target():
            return
        tgts.delete_route_target(val)
        if tgts.get_route_target():
-           self._vnc_obj.set_route_target_list(tgts)
+           self.vnc_obj.set_route_target_list(tgts)
        else:
-           self._vnc_obj.set_route_target_list(None)
-       self._vnc.update_virtual_network(self._vnc_obj)
+           self.vnc_obj.set_route_target_list(None)
+       self._vnc.update_virtual_network(self.vnc_obj)
        self.update()
 
    def get_an_ip (self, index=2):
-       x = self._vnc_obj.get_network_ipam_refs()[0]['attr']
+       x = self.vnc_obj.get_network_ipam_refs()[0]['attr']
        pfx = x.subnets[0].subnet.ip_prefix
        pfx_len = x.subnets[0].subnet.ip_prefix_len
        cidr = str(prf) + '/' + str(pfx_len)
@@ -834,33 +810,33 @@ class VNFixture (VNFixture_v2):
 
    def bind_policies (self, policy_fq_names):
        if self._api == 'contrail':
-           self._vnc_obj.set_network_policy_list([], True)
-           self._vnc.update_virtual_network(self._vnc_obj)
+           self.vnc_obj.set_network_policy_list([], True)
+           self._vnc.update_virtual_network(self.vnc_obj)
            for seq, policy in enumerate(policy_fq_names):
                policy_obj = self._vnc.get_network_policy(policy)
                seq_obj = SequenceType(major=seq, minor=0)
-               self._vnc_obj.add_network_policy(poilcy_obj,
+               self.vnc_obj.add_network_policy(poilcy_obj,
                                VirtualNetworkPolicyType(sequence=seq_obj))
-            self._vnc.update_virtual_network(self._vnc_obj)
+           self._vnc.update_virtual_network(self.vnc_obj)
        else:
-            net_req = {'contrail:policys': policy_fq_names}
-            self._qh.update_network(self.uuid, {'network': net_req})
+           net_req = {'contrail:policys': policy_fq_names}
+           self._qh.update_network(self.uuid, {'network': net_req})
        self.update()
        self._policies = policy_fq_names
 
    def unbind_policies (self, policy_fq_names=[]):
        if self._api == 'contrail':
            if policy_fq_names == []:
-               self._vnc_obj.set_network_policy_list([],True)
-               self._vnc.update_virtual_network(self._vnc_obj)
+               self.vnc_obj.set_network_policy_list([],True)
+               self._vnc.update_virtual_network(self.vnc_obj)
                policys_to_remain = []
            else:
                policys_to_remain = copy.copy(self._policies)
                for policy in policy_fq_names:
                    policy_obj = self._vnc.get_network_policy(policy)
-                   self._vnc_obj.del_network_policy(policy_obj)
+                   self.vnc_obj.del_network_policy(policy_obj)
                    policys_to_remain.remove(policy)
-               self._vnc.update_virtual_network(self._vnc_obj)
+               self._vnc.update_virtual_network(self.vnc_obj)
        else:
            if policy_fq_names == []:
                policys_to_remain = []
@@ -879,18 +855,20 @@ class NotPossibleToSubnet(Exception):
    """Raised when a given network/prefix is not possible to be subnetted to
       required numer of subnets.
    """
-    pass
+   pass
 
+
+import fixtures
 
 class MultipleVNFixture(fixtures.Fixture):
 
-    """ Fixture to create, verify and delete multiple VNs and multiple subnets
-        each.
+   """ Fixture to create, verify and delete multiple VNs and multiple subnets
+       each.
 
-        Deletion of the VN upon exit can be disabled by setting
-        fixtureCleanup=no. If a VN with the vn_name is already present, it is
-        not deleted upon exit. Use fixtureCleanup=force to force a delete.
-    """
+       Deletion of the VN upon exit can be disabled by setting
+       fixtureCleanup=no. If a VN with the vn_name is already present, it is
+       not deleted upon exit. Use fixtureCleanup=force to force a delete.
+   """
 
    def __init__ (self, connections, inputs, vn_count=1, subnet_count=1,
                  vn_name_net={},  project_name=None, af=None):
@@ -926,13 +904,13 @@ class MultipleVNFixture(fixtures.Fixture):
        self._vn_subnets = {}
        self._find_subnets()
 
-    def _subnet (self, af='v4', network=None, roll_over=False):
+   def _subnet (self, af='v4', network=None, roll_over=False):
        if not network:
            while True:
                network=get_random_cidr(af=af, mask=SUBNET_MASK[af]['min'])
                for rand_net in self.random_networks:
                    if not cidr_exclude(network, rand_net):
-                      break
+                       break
                else:
                    break
        net, plen = network.split('/')
@@ -990,4 +968,3 @@ class MultipleVNFixture(fixtures.Fixture):
 
    def get_all_fixture_obj (self):
        return map(lambda (name, fixture): (name, fixture.obj), self._vn_fixtures)
-

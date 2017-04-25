@@ -5,9 +5,9 @@ try:
    from keystoneclient.v2_0 import client as ksc
    from heatclient import client as hc
 
-   class HeatWrap:
+   class HeatDriver:
 
-       ''' Wrapper class for Heat Api.
+       ''' Api Driver class for Heat Api.
 
            Provides methods for creation, updation and deletion of heat stacks
        '''
