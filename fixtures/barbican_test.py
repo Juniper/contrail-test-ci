@@ -5,7 +5,7 @@ class BarbicanHelper(object):
 
     def __init__(self, **kwargs):
         self.connections = kwargs.get('connections', None)
-        self.barbican = barbican_client.Client(session=self.connections.auth.get_session(),
+        self.barbican = barbican_client.Client(session=self.connections.auth.get_session(scope='project'),
                                                region_name=self.connections.inputs.region_name)
 
     def create_secrets(self, name, payload, payload_content_type):
