@@ -186,11 +186,8 @@ class ContrailConnections():
 
     def get_opserver_inspect_handle(self, host):
         #ToDo: WA till scripts are modified to use ip rather than hostname
-        ip = host if is_v4(host) else self.inputs.get_host_ip(host)
-        collector_ip = self.inputs.analytics_api_ip or \
-                       self.inputs.contrail_external_vip
-        if collector_ip:
-            ip = collector_ip
+        ip = self.inputs.analytics_api_ip or host if is_v4(host) \
+             else self.inputs.get_host_ip(host)
         if ip not in self.ops_inspects:
             self.ops_inspects[ip] = VerificationOpsSrv(ip,
                                         port=self.inputs.analytics_api_port,
