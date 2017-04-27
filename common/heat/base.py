@@ -273,8 +273,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         st_fix = self.useFixture(SvcTemplateFixture(
             connections=self.connections,
             st_name=st_name, svc_img_name=svc_img_name, service_type=svc_type, version=ver,
-            if_details=if_details, service_mode=svc_mode, svc_scaling=svc_scaling, flavor=flavor,
-            domain_name=self.domain_name))
+            if_details=if_details, service_mode=svc_mode, svc_scaling=svc_scaling, flavor=flavor))
         assert st_fix.verify_on_setup()
         return st_fix
     # end verify_st
