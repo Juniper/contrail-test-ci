@@ -24,6 +24,9 @@ else
     EXTRAS="http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1-dev_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libpython2.7-dev_2.7.6-8ubuntu0.2_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/python2.7-dev_2.7.6-8ubuntu0.2_amd64.deb"
     PACKAGES_REQUIRED_RALLY="libssl-dev libffi-dev python-dev libxml2-dev libxslt1-dev libpq-dev libpq5=9.3.15-0ubuntu0.14.04"
 fi
+#registry server from which ubuntu build images are pulled
+registry_server="10.84.34.155:5000"
+
 
 usage () {
     cat <<EOF
@@ -315,12 +318,13 @@ exit $rv_run_test
 EOT
 }
 
+
 function make_dockerfile {
     type=$1
     if [[ ${BUILD_PLATFORM} == "16.04" ]]; then
-        base_image=${2:-hkumar/ubuntu:16.04}
+        base_image=${2:-$registry_server/ubuntu:16.04}
     else
-        base_image=${2:-hkumar/ubuntu-14.04.2}
+        base_image=${2:-$registry_server/ubuntu-14.04.2}
     fi
     cat <<EOF
 FROM $base_image
@@ -534,9 +538,9 @@ EOF
         image_tag=${1:-$PREP_IMAGE}
         BUILD_DIR=`mktemp -d`
         if [ ${BUILD_PLATFORM} = "16.04" ]; then
-            make_dockerfile prep 'hkumar/ubuntu:16.04' > $BUILD_DIR/Dockerfile
+            make_dockerfile prep '$registry_server/ubuntu:16.04' > $BUILD_DIR/Dockerfile
         else
-            make_dockerfile prep 'hkumar/ubuntu-14.04.2' > $BUILD_DIR/Dockerfile
+            make_dockerfile prep '$registry_server/ubuntu-14.04.2' > $BUILD_DIR/Dockerfile
         fi
 
         if [[ -n $scp_package ]]; then
