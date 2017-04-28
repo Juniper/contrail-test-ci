@@ -536,9 +536,9 @@ EOF
         image_tag=${1:-$PREP_IMAGE}
         BUILD_DIR=`mktemp -d`
         if [ ${BUILD_PLATFORM} = "16.04" ]; then
-            make_dockerfile prep '$registry_server/ubuntu:16.04' > $BUILD_DIR/Dockerfile
+            make_dockerfile prep "$registry_server/ubuntu:16.04" > $BUILD_DIR/Dockerfile
         else
-            make_dockerfile prep '$registry_server/ubuntu-14.04.2' > $BUILD_DIR/Dockerfile
+            make_dockerfile prep "$registry_server/ubuntu-14.04.2" > $BUILD_DIR/Dockerfile
         fi
 
         if [[ -n $scp_package ]]; then
