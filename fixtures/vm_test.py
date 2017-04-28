@@ -2615,8 +2615,8 @@ class VMFixture(fixtures.Fixture):
                 --route_table_name %s \
                 --api_server_use_ssl %s" % (prefix,
                                           tenant_name,
-                                          api_server_ip,
-                                          api_server_port,
+                                          self.inputs.cfgm_ip,
+                                          self.inputs.api_server_port,
                                           oper,
                                           virtual_machine_interface_id,
                                           user,
