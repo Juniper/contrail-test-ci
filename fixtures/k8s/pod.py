@@ -284,11 +284,11 @@ class PodFixture(fixtures.Fixture):
             self.logger.warn("Ping check to IP %s from pod %s failed. "
                 "Expectation: %s, Got: %s" %(ip, self.name,
                 expectation, result, ))
-            return (False, output)
+            return False
         else:
             self.logger.info('Ping check to IP %s from pod %s with '
                 'expectation %s passed' %(ip, self.name, expectation))
-        return (True, output)
+        return True
     # end ping_to_ip
 
     def modify_pod_label(self, label_name, label_value):
