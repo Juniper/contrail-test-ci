@@ -53,7 +53,8 @@ class ServiceFixture(fixtures.Fixture):
 
         # While creating the object it is not getting updated with external IP
         # So reading it again . Will try to read it couple of times
-        if self.type == 'LoadBalancer':
+        import pdb;pdb.set_trace()
+        if self.type == 'LoadBalancer' or 'external_i_ps' in self.spec:
             self.get_external_ips()
 
     def read(self):
