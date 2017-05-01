@@ -13,6 +13,7 @@ class Client():
         self.v1_h = client.CoreV1Api(self.api_client)
         self.v1_h.read_namespace('default')
         self.v1_beta_h = client.ExtensionsV1beta1Api(self.api_client)
+        self.apps_v1_beta1_h = client.AppsV1beta1Api(self.api_client)
 
         self.logger = logger or contrail_logging.getLogger(__name__)
     # end __init__
@@ -32,7 +33,8 @@ class Client():
     # end delete_namespace
 
     def _get_metadata(self, mdata_dict):
-        return client.V1ObjectMeta(**mdata_dict)
+        if mdata_dict:
+            return client.V1ObjectMeta(**mdata_dict)
 
     def _get_ingress_backend(self, backend_dict={}):
         return client.V1beta1IngressBackend(backend_dict.get('service_name'),
@@ -99,7 +101,8 @@ class Client():
 
     def _get_label_selector(self, match_labels={}, match_expressions=[]):
         # TODO match_expressions
-        return client.UnversionedLabelSelector(match_labels=match_labels)
+        #return client.UnversionedLabelSelector(match_labels=match_labels)
+        return client.V1LabelSelector(match_labels=match_labels)
 
     def _get_network_policy_peer_list(self, _from):
         peer_list = []
@@ -338,17 +341,19 @@ class Client():
         return client.V1Container(**kwargs)
     # end _get_container
 
-    def _get_pod_spec(self, name, spec_dict):
+    def _get_pod_spec(self, name=None, spec=None):
         '''
         return V1PodSpec object
         '''
         container_objs = []
-        containers = spec_dict.get('containers', [])
+        container_name = None
+        containers = spec.get('containers', [])
         for item in containers:
-            container_name = '%s_%s' % (name, containers.index(item))
-            container_objs.append(self._get_container(name, item))
-        spec_dict['containers'] = container_objs
-        spec = client.V1PodSpec(**spec_dict)
+            if name:
+                container_name = '%s-%s' % (name, containers.index(item))
+            container_objs.append(self._get_container(container_name, item))
+        spec['containers'] = container_objs
+        spec_obj = client.V1PodSpec(**spec)
         return spec
     # end create_spec
 
@@ -411,6 +416,87 @@ class Client():
             return False
     # end is_namespace_present
 
+    def _get_rollback_config(self, rollback_to=None):
+        if rollback_to:
+            return client.AppsV1beta1RollbackConfig(rollback_to)
+
+    def _get_r_u_deployment(self, rolling_update):
+        if rolling_update:
+            return client.AppsV1beta1RollingUpdateDeployment(
+                max_surge=rolling_update.get('max_surge'),
+                max_unavailable=rolling_update.get('max_unavailable'))
+
+    def _get_deploment_strategy(self, strategy):
+        if strategy:
+            rolling_update_obj = self._get_r_u_deployment(
+                strategy.get('rolling_update', {}))
+            return rolling_update_obj
+
+    def _get_pod_metadata(self, metadata_dict):
+        if metadata_dict:
+            return client.V1ObjectMeta(metadata_dict)
+
+    def _get_pod_template(self, template):
+        if template:
+            metadata = self._get_metadata(template.get('metadata'))
+            spec = self._get_pod_spec(spec=template.get('spec', {}))
+            return client.V1PodTemplateSpec(metadata=metadata, spec=spec)
+    # end _get_pod_template
+
+    def _get_deployment_spec(self, spec_dict):
+        if not spec_dict:
+            return None
+        replicas = spec_dict.get('replicas')
+        min_ready_seconds = spec_dict.get('min_ready_seconds')
+        paused = spec_dict.get('paused')
+        progress_deadline_seconds = spec_dict.get('progress_deadline_seconds')
+        revision_history_limit = spec_dict.get('revision_history_limit')
+        rollback_to = self._get_rollback_config(spec_dict.get('rollback_to'))
+        strategy = self._get_deploment_strategy(spec_dict.get('strategy'))
+        template = self._get_pod_template(spec_dict.get('template'))
+
+        spec_obj = client.AppsV1beta1DeploymentSpec(
+            min_ready_seconds=min_ready_seconds,
+            paused=paused,
+            progress_deadline_seconds=progress_deadline_seconds,
+            replicas=replicas,
+            revision_history_limit=revision_history_limit,
+            rollback_to=rollback_to,
+            strategy=strategy,
+            template=template)
+        return spec_obj
+    # end _get_deployment_spec
+
+    def create_deployment(self,
+                          namespace='default',
+                          name=None,
+                          metadata={},
+                          spec={}):
+        '''
+        Returns AppsV1beta1Deployment object
+        '''
+        metadata_obj = self._get_metadata(metadata)
+        if name:
+            metadata_obj.name = name
+
+        spec_obj = self._get_deployment_spec(spec)
+        body = client.AppsV1beta1Deployment(
+            metadata=metadata_obj,
+            spec=spec_obj)
+        self.logger.info('Creating Deployment %s' % (metadata_obj.name))
+        resp = self.apps_v1_beta1_h.create_namespaced_deployment(namespace, body)
+        return resp
+    # end create_deployment
+
+    def delete_deployment(self,
+                       namespace,
+                       name):
+        self.logger.info('Deleting Deployment : %s' % (name))
+        body = client.V1DeleteOptions()
+        return self.apps_v1_beta1_h.delete_namespaced_deployment(name,
+            namespace, body)
+    # end delete_deployment
+
 if __name__ == '__main__':
     c1 = Client()
     pods = c1.get_pods()
@@ -421,25 +507,45 @@ if __name__ == '__main__':
 
     import pdb
     pdb.set_trace()
+    dep = c1.create_deployment(
+        metadata={'name': 'test-deployment'},
+        spec={
+            'replicas': 3,
+            'template': {
+                'metadata': {
+                    'labels': {
+                        'app': 'nginx'
+                    }
+                },
+                'spec': {
+                    'containers': [
+                        { 'image': 'nginx:1.7.9' }
+                    ]
+                }
+            }
+        })
+    import pdb; pdb.set_trace()
+
+
 #    ing1 = c1.create_ingress(name='test1',
 #                             default_backend={'service_name': 'my-nginx',
 #                                              'service_port': 80})
 #    import pdb
 #    pdb.set_trace()
-    pol = c1.create_network_policy(
-        name='test4',
-        spec={
-            'pod_selector': {'match_labels': {'role': 'db'}},
-            'ingress': [
-                {
-                    'from': [
-                        {'pod_selector': {'match_labels': {'role': 'frontend'}}
-                         }
-                    ],
-                    'ports': [{'protocol': 'tcp', 'port': '30'}]
-                }
-            ]
-        })
+#    pol = c1.create_network_policy(
+#        name='test4',
+#        spec={
+#            'pod_selector': {'match_labels': {'role': 'db'}},
+#            'ingress': [
+#                {
+#                    'from': [
+#                        {'pod_selector': {'match_labels': {'role': 'frontend'}}
+#                         }
+#                    ],
+#                    'ports': [{'protocol': 'tcp', 'port': '30'}]
+#                }
+#            ]
+#        })
 
     import pdb
     pdb.set_trace()

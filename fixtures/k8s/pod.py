@@ -36,6 +36,7 @@ class PodFixture(fixtures.Fixture):
         self.api_vm_obj = None
         self.vmi_objs = []
         self.tap_intfs = []
+        self.host_ip = None
     # end __init__
 
     def setUp(self):
@@ -124,6 +125,11 @@ class PodFixture(fixtures.Fixture):
 
     @retry(delay=5, tries=10)
     def verify_pod_not_in_contrail_agent(self):
+        if not self.host_ip:
+            self.logger.debug('Pod %s may not have launched at all..no need to '
+                'check further in agent' % (self.name))
+            return True
+
         inspect_h = self.agent_inspect[self.host_ip]
 
         # Check that VM object is removed in agent

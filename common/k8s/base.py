@@ -1,4 +1,4 @@
-from fabric.api import local
+from fabric.api import local, settings
 
 import test
 import ipaddress
@@ -241,7 +241,7 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
 
     @retry(delay=1, tries=5)
     def validate_wget(self, pod, link, expectation=True, **kwargs):
-        ret_val = self.do_wget(pod, link, **kwargs)
+        ret_val = self.do_wget(link, pod=pod, **kwargs)
         result = ret_val == expectation
         if result:
             self.logger.info('wget check of of %s from %s passed' % (link,
@@ -252,23 +252,38 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
         return result
     # end validate_wget
 
-    def do_wget(self, pod, link, output_file='/dev/null', host='',
-                timeout=5):
+    def do_wget(self, link, pod=None, output_file='/dev/null', host='',
+                timeout=5, return_output=False, tries=1):
+        '''
+        Returns boolean by default
+        Returns (boolean, output) if return_output is True
+        '''
         host_str = ''
+        output = ''
         if host:
             host_str = '--header "Host:%s" ' % (host)
-        cmd = 'wget %s %s -O %s -T %s' % (link, host_str, output_file,
-                                          timeout)
-        output = pod.run_cmd(cmd, shell='/bin/sh -l -c')
-        if '100%' in output:
-            self.logger.debug('[Pod %s] Cmd %s passed' % (pod.name, cmd))
-            self.logger.debug('[Pod %s] Cmd output: %s' % (pod.name, output))
-            return True
+        cmd = 'wget %s %s -O %s -T %s -t %s' % (link, host_str, output_file,
+                                              timeout, tries)
+        if not pod:
+            with settings(warn_only=True):
+                output = local(cmd, capture=True)
+            pod_str = 'local'
         else:
-            self.logger.debug('[Pod %s] Cmd %s failed. Output :%s' % (pod.name,
+            output = pod.run_cmd(cmd, shell='/bin/sh -l -c')
+            pod_str = 'Pod %s' %(pod.name)
+        if '100%' in output:
+            self.logger.debug('[Pod %s] Cmd %s passed' % (pod_str, cmd))
+            self.logger.debug('[Pod %s] Cmd output: %s' % (pod_str, output))
+            result = True
+        else:
+            self.logger.debug('[Pod %s] Cmd %s failed. Output :%s' % (pod_str,
                                                                       cmd, output))
-            self.logger.debug('[Pod %s] Cmd output: %s' % (pod.name, output))
-            return False
+            self.logger.debug('[Pod %s] Cmd output: %s' % (pod_str, output))
+            result = False
+        if return_output:
+            return (result, output)
+        else:
+            return result
     # end do_wget
 
     @retry(delay=1, tries=5)
@@ -297,19 +312,11 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
         for x in barred_pods:
             hit_me_not[x.name] = 0
 
-        if host:
-            host_str = '--header "Host:%s" ' % (host)
-        else:
-            host_str = ''
-
-        cmd = 'wget http://%s:%s/%s %s -O -' % (service_ip, port, path,
-                                                host_str)
-
+        link = 'http://%s:%s/%s' %(service_ip, port, path)
         for i in range(0, attempts):
-            if test_pod:
-                output = test_pod.run_cmd(cmd, shell='/bin/sh -l -c')
-            else:
-                output = local(cmd, capture=True)
+            (ret_val, output) = self.do_wget(link, pod=test_pod, host=host,
+                                             output_file='-',
+                                             return_output=True)
             for pod in lb_pods:
                 if pod.name in output:
                     hit[pod.name] += 1
@@ -520,3 +527,97 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
         # available ip from public subnet list 
         # Will not be a problem in serial run  
         return str(list(ipaddress.ip_network(unicode(fip_subnets[0])).hosts())[3])
+
+    def setup_deployment(self,
+                         name=None,
+                         namespace='default',
+                         metadata=None,
+                         spec=None,
+                         min_ready_seconds=None,
+                         paused=None,
+                         progress_deadline_seconds=None,
+                         replicas=None,
+                         revision_history_limit=None,
+                         rollback_to=None,
+                         selector=None,
+                         strategy=None,
+                         template=None):
+        '''
+        A helper method to create a deployment
+
+        Ref https://github.com/kubernetes-incubator/client-python/blob/master/kubernetes/docs/AppsV1beta1DeploymentSpec.md
+
+        '''
+        metadata = metadata or {}
+        spec = spec or {}
+        name = name or get_random_name('dep-')
+        metadata.update({'name': name})
+
+        if min_ready_seconds:
+            spec.update({'min_ready_seconds': min_ready_seconds})
+        if paused:
+            spec.update({'paused': paused})
+        if progress_deadline_seconds:
+            spec.update({'progress_deadline_seconds': progress_deadline_seconds})
+        if replicas:
+            spec.update({'replicas': replicas})
+        if revision_history_limit:
+            spec.update({'revision_history_limit': revision_history_limit})
+        if revision_history_limit:
+            spec.update({'revision_history_limit': revision_history_limit})
+        if rollback_to:
+            spec.update({'rollback_to': rollback_to})
+        if strategy:
+            spec.update({'strategy': strategy})
+        if template:
+            spec.update({'template': template})
+
+        obj = self.k8s_client.create_deployment(
+            namespace=namespace,
+            name=name,
+            metadata=metadata,
+            spec=spec)
+        return obj
+    # end setup_deployment
+
+    def setup_nginx_deployment(self,
+        name=None,
+        replicas=1,
+        pod_labels=None,
+        container_port=80,
+        metadata=None,
+        spec=None,
+        template_metadata=None,
+        template_spec=None):
+
+        metadata = metadata or {}
+        spec = spec or {}
+        pod_labels = pod_labels or {}
+        name = name or get_random_name('nginx-dep')
+        template_metadata = template_metadata or {}
+
+        if pod_labels:
+            template_metadata['labels'] = template_metadata.get('labels', {})
+            template_metadata['labels'].update(pod_labels)
+        template_spec = template_spec or {
+            'containers': [
+                {'image': 'nginx',
+                 'ports': [
+                     {'container_port': int(container_port)}
+                 ],
+                 }
+            ]
+        }
+        if replicas:
+            spec.update({'replicas': replicas})
+        spec.update({
+            'template': {
+                'metadata': template_metadata,
+                'spec': template_spec
+            }
+        })
+        return self.setup_deployment(name=name,
+                                     namespace=namespace,
+                                     metadata=metadata,
+                                     spec=spec)
+    # end setup_nginx_deployment
