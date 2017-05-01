@@ -335,6 +335,12 @@ ENV SKU=$openstack_release
 EOF
     if [[ ${BUILD_PLATFORM} == "16.04" ]]; then
         cat <<EOF
+RUN echo "deb http://nova.clouds.archive.ubuntu.com/ubuntu xenial main" >> /etc/apt/sources.list
+RUN echo "deb http://nova.clouds.archive.ubuntu.com/ubuntu xenial universe" >> /etc/apt/sources.list
+RUN echo "deb http://nova.clouds.archive.ubuntu.com/ubuntu xenial-updates main" >> /etc/apt/sources.list
+RUN echo "deb http://nova.clouds.archive.ubuntu.com/ubuntu xenial-updates universe" >> /etc/apt/sources.list
+RUN echo "deb http://nova.clouds.archive.ubuntu.com/ubuntu xenial-security main" >> /etc/apt/sources.list
+RUN echo "deb http://nova.clouds.archive.ubuntu.com/ubuntu xenial-security universe" >> /etc/apt/sources.list
 RUN apt-get update; apt-get install -y bzip2 wget sudo perl-modules-5.22
 RUN apt-get install -y $EXTRAS
 EOF
