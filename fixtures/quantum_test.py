@@ -261,6 +261,21 @@ class QuantumHelper():
         return result
     # end _delete_vn
 
+
+    def delete_sn(self, sn_id):
+        result = True
+        try:
+            rsp = self.obj.delete_subnet(sn_id)
+            self.logger.debug('Response for deleting subnet %s' %
+                              (str(rsp)))
+        except CommonNetworkClientException as e:
+            self.logger.exception(
+                'Neutron exception while deleting a subnet %s' % (sn_id))
+            result = False
+
+        return result
+    # end _delete_sn
+
     def delete_quota(self, project_id):
         result = True
         try:
