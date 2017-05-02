@@ -1,8 +1,8 @@
 import os
 from time import sleep
-from tcutils.util import get_random_cidr
+from tcutils.util import get_random_cidr,get_random_cidrs
 from tcutils.util import get_random_name
-from tcutils.util import retry
+from tcutils.util import retry,get_ip_for_af
 from tcutils.commands import ssh, execute_cmd, execute_cmd_out
 
 from common.servicechain.mirror.verify import VerifySvcMirror
@@ -264,11 +264,14 @@ class VerifyIntfMirror(VerifySvcMirror):
         analyzer_compute = compute_nodes[2]
 
         self.analyzer_port = 8099
-        image_name = 'cirros'
+        if self.inputs.get_af() == 'v4':
+            image_name = 'cirros'
+        else:
+            image_name = 'ubuntu'
 
-        self.vn1_subnets = [get_random_cidr(af=self.inputs.get_af())]
-        self.vn2_subnets = [get_random_cidr(af=self.inputs.get_af())]
-        self.vn3_subnets = [get_random_cidr(af=self.inputs.get_af())]
+        self.vn1_subnets = get_random_cidrs([self.inputs.get_af()])
+        self.vn2_subnets = get_random_cidrs([self.inputs.get_af()])
+        self.vn3_subnets = get_random_cidrs([self.inputs.get_af()])
 
 
         self.vn1_fq_name = self.connections.domain_name +":"  + self.inputs.project_name + \
@@ -507,10 +510,6 @@ class VerifyIntfMirror(VerifySvcMirror):
         assert self.dst_vm_fixture.verify_on_setup()
         assert self.analyzer_vm_fixture.verify_on_setup()
 
-        self.nova_h.wait_till_vm_is_up(self.src_vm_fixture.vm_obj)
-        self.nova_h.wait_till_vm_is_up(self.dst_vm_fixture.vm_obj)
-        self.nova_h.wait_till_vm_is_up(self.analyzer_vm_fixture.vm_obj)
-
         if vn1_vmi_ref:
             result, msg = self.validate_vn(
                 self.vn1_name, project_name=self.inputs.project_name)
@@ -524,9 +523,15 @@ class VerifyIntfMirror(VerifySvcMirror):
                 self.vn3_name, project_name=self.inputs.project_name)
             assert result, msg
 
-        self.src_vm_ip = self.src_vm_fixture.get_vm_ips(self.src_vn_fq_name)[0]
-        self.dst_vm_ip = self.dst_vm_fixture.get_vm_ips(self.dst_vn_fq_name)[0]
-        self.analyzer_vm_ip = self.analyzer_vm_fixture.get_vm_ips(self.analyzer_vn_fq_name)[0]
+        if self.inputs.get_af() == 'v4':
+            self.src_vm_ip = self.src_vm_fixture.get_vm_ips(self.src_vn_fq_name)[0]
+            self.dst_vm_ip = self.dst_vm_fixture.get_vm_ips(self.dst_vn_fq_name)[0]
+            self.analyzer_vm_ip = self.analyzer_vm_fixture.get_vm_ips(self.analyzer_vn_fq_name)[0]
+        else:
+            self.src_vm_ip = get_ip_for_af(self.src_vm_fixture.get_vm_ips(self.src_vn_fq_name), 'v6')
+            self.dst_vm_ip = get_ip_for_af(self.dst_vm_fixture.get_vm_ips(self.dst_vn_fq_name), 'v6')
+            self.analyzer_vm_ip = get_ip_for_af(self.orch.get_vm_ip(self.analyzer_vm_fixture.vm_obj, self.analyzer_vn_name), 'v4')
+        ##self.orch.get_vm_ip(vm_obj, vn_name)
 
         self.logger.info("Compute/VM: SRC: %s / %s, -> DST: %s / %s => ANALYZER: %s / %s" %
             (src_compute, self.src_vm_ip, dst_compute, self.dst_vm_ip, analyzer_compute, self.analyzer_vm_ip))

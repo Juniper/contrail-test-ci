@@ -597,6 +597,14 @@ def is_valid_af(af):
     return False
 
 
+def get_ip_for_af(ip_list, af):
+    if is_valid_af(af):
+        for ip in ip_list:
+            if af == get_af_type(ip):
+                return ip
+    else:
+        return none
+
 def update_reserve_cidr(cidr):
     if not cidr:
         return

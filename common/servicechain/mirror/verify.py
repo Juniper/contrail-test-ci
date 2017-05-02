@@ -563,18 +563,18 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                if not tapintf: # For Svc V2
                    tapintf = self.get_svm_tapintf(svm_name)
             session = ssh(host['host_ip'], host['username'], host['password'])
-            cmd = 'tcpdump -nni %s -c 5 > /tmp/%s_out.log' % (tapintf, tapintf)
+            cmd = 'tcpdump -nni %s -c 25 > /tmp/%s_out.log' % (tapintf, tapintf)
             execute_cmd(session, cmd, self.logger)
             assert src_vm.ping_with_certainty(dst_vm.vm_ip)
             sleep(10)
             output_cmd = 'cat /tmp/%s_out.log' % tapintf
             out, err = execute_cmd_out(session, output_cmd, self.logger)
-            print out
             if '8099' in out:
                 self.logger.info('Mirroring action verified')
             else:
                 result = False
                 self.logger.warning('No mirroring action seen')
+                self.logger.debug('packet dump: %s, err %s' % (out, err))
         return result
 
 
@@ -588,7 +588,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             tapintf = self.get_svm_tapintf(svm_name)
         session = ssh(host['host_ip'], host['username'], host['password'])
         pcap = self.start_tcpdump(session, tapintf)
-        assert src_vm.ping_with_certainty(dst_vm.vm_ip, count=5, size='1400')
+        assert src_vm.ping_with_certainty(dst_vm.vm_ip, count=5, size='1350')
         self.logger.info('Ping from %s to %s executed with c=5, expected mirrored packets 5 Ingress,5 Egress count = 10'
             % (src_vm.vm_ip, dst_vm.vm_ip))
         exp_count = 10
