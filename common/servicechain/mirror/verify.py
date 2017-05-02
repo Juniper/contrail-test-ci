@@ -588,7 +588,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             tapintf = self.get_svm_tapintf(svm_name)
         session = ssh(host['host_ip'], host['username'], host['password'])
         pcap = self.start_tcpdump(session, tapintf)
-        assert src_vm.ping_with_certainty(dst_vm.vm_ip, count=5, size='1400')
+        assert src_vm.ping_with_certainty(dst_vm.vm_ip, count=5, size='1350')
         self.logger.info('Ping from %s to %s executed with c=5, expected mirrored packets 5 Ingress,5 Egress count = 10'
             % (src_vm.vm_ip, dst_vm.vm_ip))
         exp_count = 10
