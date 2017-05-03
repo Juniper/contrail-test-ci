@@ -5080,16 +5080,22 @@ class WebuiTest:
                         'value', 'class', browser = rows_detail[detail]).text
                     if key_arry == '# Instance(s)':
                         key_arry = 'Number of instances'
+                    if '\n' in value_arry:
+                        value_arry = str(value_arry).split('\n')
+                        dom_arry_basic.append({'key': key_arry, 'value': value_arry})
+                    else:
+                        dom_arry_basic.append({'key': key_arry, 'value': value_arry})
                     if key_arry == 'Instance Status':
                         dom_arry_basic1 = []
                         complete_api_data1 = []
                         network_list = []
                         virtual_net_list = []
-                        val_match = re.search('.*\n(\w+) (\w+) (\w+) ((.*\n)+)', value_arry)
-                        vm_name = val_match.group(1)
-                        status = val_match.group(2)
-                        power = val_match.group(3)
-                        network_list = val_match.group(4).split('\n')[:-1]
+                        vm_name = value_arry[1].split()[0]
+                        status = value_arry[1].split()[1]
+                        power = value_arry[1].split()[2]
+                        network_list.append(value_arry[1].split()[3])
+                        for x in range(2, len(value_arry)):
+                            network_list.append(value_arry[x])
                         self.ui.keyvalue_list(
                             dom_arry_basic1,
                             Virtual_machine=vm_name,
@@ -5143,11 +5149,6 @@ class WebuiTest:
                             self.logger.error(
                                 "Service instance %s config details not matched on Config->Services->Service Instances page" %
                                     (vm1))
-                    if '\n' in value_arry:
-                        value_arry = str(value_arry).split('\n')
-                        dom_arry_basic.append({'key': key_arry, 'value': value_arry})
-                    else:
-                        dom_arry_basic.append({'key': key_arry, 'value': value_arry})
                 service_inst_api_data = self.ui.get_details(
                     service_instance_list_api['service-instances'][instance]['href'])
                 complete_api_data = []
