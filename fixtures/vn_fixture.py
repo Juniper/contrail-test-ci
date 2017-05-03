@@ -513,6 +513,7 @@ class VNFixture (VNFixture_v2):
 
    def setUp (self):
        super(VNFixture, self).setUp()
+       self.vnc_api = self._vnc._vnc # direct handle to vnc library
        if self._api == 'quantum':
            self._qh = self._ctrl.get_api('openstack').quantum_handle
        if getattr(self, '_read_on_setup', False):
@@ -682,37 +683,37 @@ class VNFixture (VNFixture_v2):
 
    def set_unknown_unicast_forwarding (self, enable=True):
        self.vnc_obj.set_flood_unknown_unicast(enable)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_mac_aging_time (self, mac_aging_time):
        self.vnc_obj.set_mac_aging_time(mac_aging_time)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_mac_move_control (self, mac_move_control):
        self.vnc_obj.set_mac_move_control(mac_move_control)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_mac_limit_control (self, mac_limit_control):
        self.vnc_obj.set_mac_limit_control(mac_limit_control)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_mac_learning_enabled (self, mac_learning_enabled=True):
        self.vnc_obj.set_mac_learning_enabled(mac_learning_enabled)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_pbb_evpn_enable (self, pbb_evpn_enable=True):
        self.vnc_obj.set_pbb_evpn_enable(pbb_evpn_enable)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_pbb_etree_enable (self, pbb_etree_enable=True):
        self.vnc_obj.set_pbb_etree_enable(pbb_etree_enable)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_forwarding_mode (self, forwarding_mode):
@@ -720,12 +721,12 @@ class VNFixture (VNFixture_v2):
        props = props if props else VirtualNetworkType()
        props.set_forwarding_mode(forwarding_mode)
        self.vnc_obj.set_virtual_network_properties(props)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_ecmp_hash (self, ecmp_hash):
        self.vnc_obj.set_ecmp_hashing_include_fields(ecmp_hash)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def set_vxlan_id (self, vxlan_id):
@@ -733,7 +734,7 @@ class VNFixture (VNFixture_v2):
        props = props if props else VirtualNetworkType()
        props.set_vlan_network_identifier(int(vxlan_id))
        self.vnc_obj.set_virtual_network_properties(props)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def get_vxlan_id (self):
@@ -752,7 +753,7 @@ class VNFixture (VNFixture_v2):
        else:
            tgts = RouteTargetList([val])
        self.vnc_obj.set_route_target_list(tgts)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def del_route_target (self, router_asn, route_target_number):
@@ -767,7 +768,7 @@ class VNFixture (VNFixture_v2):
            self.vnc_obj.set_route_target_list(tgts)
        else:
            self.vnc_obj.set_route_target_list(None)
-       self._vnc.update_virtual_network(self.vnc_obj)
+       self.vnc_api.update_virtual_network(self.vnc_obj)
        self.update()
 
    def get_an_ip (self, index=2):
@@ -811,13 +812,13 @@ class VNFixture (VNFixture_v2):
    def bind_policies (self, policy_fq_names):
        if self._api == 'contrail':
            self.vnc_obj.set_network_policy_list([], True)
-           self._vnc.update_virtual_network(self.vnc_obj)
+           self.vnc_api.update_virtual_network(self.vnc_obj)
            for seq, policy in enumerate(policy_fq_names):
                policy_obj = self._vnc.get_network_policy(policy)
                seq_obj = SequenceType(major=seq, minor=0)
                self.vnc_obj.add_network_policy(poilcy_obj,
                                VirtualNetworkPolicyType(sequence=seq_obj))
-           self._vnc.update_virtual_network(self.vnc_obj)
+           self.vnc_api.update_virtual_network(self.vnc_obj)
        else:
            net_req = {'contrail:policys': policy_fq_names}
            self._qh.update_network(self.uuid, {'network': net_req})
@@ -828,7 +829,7 @@ class VNFixture (VNFixture_v2):
        if self._api == 'contrail':
            if policy_fq_names == []:
                self.vnc_obj.set_network_policy_list([],True)
-               self._vnc.update_virtual_network(self.vnc_obj)
+               self.vnc_api.update_virtual_network(self.vnc_obj)
                policys_to_remain = []
            else:
                policys_to_remain = copy.copy(self._policies)
@@ -836,7 +837,7 @@ class VNFixture (VNFixture_v2):
                    policy_obj = self._vnc.get_network_policy(policy)
                    self.vnc_obj.del_network_policy(policy_obj)
                    policys_to_remain.remove(policy)
-               self._vnc.update_virtual_network(self.vnc_obj)
+               self.vnc_api.update_virtual_network(self.vnc_obj)
        else:
            if policy_fq_names == []:
                policys_to_remain = []

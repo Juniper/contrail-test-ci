@@ -4,12 +4,12 @@ from tcutils.util import get_random_name
 from api_drivers.heat import parser
 from vn_fixture import VNFixture_v2
 from subnet_fixture import SubnetFixture
-#import policy_fix
+#from svc_template_fixture_new import SvcTemplateFixture_v2
+#from svc_instance_fixture_new import SvcInstanceFixture_v2
+#from port_tuple_fixture import PortTupleFixture
+#from policy_fixture import PolicyFixture_v2
 #import vm_fix, vmi_fix
 #from instance_ip_fixture import InstanceIpFixture
-#from svc_template_fixture import SvcTemplateFixture
-#from svc_instance_fixture import SvcInstanceFixture
-#from port_tuple_fixture import PortTupleFixture
 #from bgp_router_fixture import BgpRouterFixture
 #from interface_route_table_fixture import InterfaceRouteTableFixture
 #from ipam_fixture import IPAMFixture
@@ -21,12 +21,12 @@ from subnet_fixture import SubnetFixture
 # Map: heat resource type -> fixture
 _HEAT_2_FIXTURE = {
    'OS::ContrailV2::VirtualNetwork': VNFixture_v2,
+   #'OS::ContrailV2::ServiceTemplate': SvcTemplateFixture_v2,
+   #'OS::ContrailV2::ServiceInstance': SvcInstanceFixture_v2,
+   #'OS::ContrailV2::PortTuple': PortTupleFixture,
    'OS::Neutron::Subnet': SubnetFixture,
    'OS::Neutron::Net': VNFixture_v2,
-   #'OS::ContrailV2::NetworkPolicy': policy_fix.PolicyFixture,
-   #'OS::ContrailV2::ServiceTemplate': SvcTemplateFixture,
-   #'OS::ContrailV2::ServiceInstance': SvcInstanceFixture,
-   #'OS::ContrailV2::PortTuple': PortTupleFixture,
+   #'OS::ContrailV2::NetworkPolicy': PolicyFixture_v2,
    #'OS::ContrailV2::InstanceIp': InstanceIpFixture,
    #'OS::ContrailV2::Alarm': AlarmFixture_v2,
    #'OS::ContrailV2::LogicalInterface': LogicalInterfaceFixture_v2,

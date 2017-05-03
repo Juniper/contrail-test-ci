@@ -121,6 +121,7 @@ class $__fixture__ ($__fixturev2__):
 
    def setUp (self):
        super($__fixture__, self).setUp()
+       self.vnc_api = self._vnc._vnc # direct handle to vnc library
        #TODO: placeholder for additional code, if not required
        #      delete this method
 

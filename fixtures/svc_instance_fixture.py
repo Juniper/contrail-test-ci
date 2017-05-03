@@ -1,134 +1,31 @@
-from contrail_fixtures import ContrailFixture
-from tcutils.util import retry
-from vnc_api.vnc_api import ServiceInstance
-
-class SvcInstanceFixture_v2 (ContrailFixture):
-
-   vnc_class = ServiceInstance
-
-   def __init__ (self, connections, uuid=None, params=None, fixs=None):
-       super(SvcInstanceFixture, self).__init__(
-           uuid=uuid,
-           connections=connections,
-           params=params,
-           fixs=fixs)
-       self.api_inspect = connections.api_server_inspect
-
-   def get_attr (self, lst):
-       if lst == ['fq_name']:
-           return self.fq_name
-       return None
-
-   def get_resource (self):
-       return self.uuid
-
-   def __str__ (self):
-       #TODO: __str__
-       if self._args:
-           info = ''
-       else:
-           info = ''
-       return '%s:%s' % (self.type_name, info)
-
-   @retry(delay=2, tries=10)
-   def _read_vnc_obj (self):
-       obj = self._vnc.get_service_instance(self.uuid)
-       found = 'not' if not obj else ''
-       self.logger.debug('%s %s found in api-server' % (self, found))
-       return obj != None, obj
-
-   def _read (self):
-       ret, obj = self._read_vnc_obj()
-       if ret:
-           self._vnc_obj = obj
-       self._obj = self._vnc_obj
-
-   def _create (self):
-       self.logger.info('Creating %s' % self)
-       self.uuid = self._ctrl.create_service_instance(
-           **self._args)
-
-   def _delete (self):
-       self.logger.info('Deleting %s' % self)
-       self._ctrl.delete_service_instance(
-           obj=self._obj, uuid=self.uuid)
-
-   def _update (self):
-       self.logger.info('Updating %s' % self)
-       self._ctrl.update_service_instance(
-           obj=self._obj, uuid=self.uuid, **self.args)
-
-   def verify_on_setup (self):
-       self.assert_on_setup(*self._verify_in_api_server())
-       self.assert_on_setup(*self._verify_st())
-       self.assert_on_setup(*self._verify_pt())
-       #TODO: check if more verification is needed
-
-   def verify_on_cleanup (self):
-       self.assert_on_cleanup(*self._verify_not_in_api_server())
-       #TODO: check if more verification is needed
-
-   def _verify_in_api_server (self):
-       if not self._read_vnc_obj()[0]:
-           return False, '%s not found in api-server' % self
-       return True, None
-
-   @retry(delay=5, tries=6)
-   def _verify_not_in_api_server (self):
-       if self._vnc.get_service_instance(self.uuid):
-           msg = '%s not removed from api-server' % self
-           self.logger.debug(msg)
-           return False, msg
-       self.logger.debug('%s removed from api-server' % self)
-       return True, None
-
-   @retry(delay=2, tries=10)
-   def _verify_st (self):
-       project, si = self.fq_name[1:]
-       self.cs_si = self.api_inspect.get_cs_si(project=project, si=si,
-                                                  refresh=True)
-       try:
-           st_refs = self.cs_si['service-instance']['service_template_refs']
-       except KeyError:
-           st_refs = None
-       if not st_refs:
-           errmsg = "%s has no service template refs" % self
-           return False, errmsg
-
-       self.st_fix = self.fixs['id-map'][st_refs[0]['uuid']]
-       if self._args:
-           expected = set([st['to'][-1]
-                           for st in self._args['service_template_refs']])
-           got = set([st_ref['to'][-1] for st_ref in st_refs])
-           if expected - got:
-               errmsg = "%s fails service template ref check" % self
-               return False, errmsg
-       return True, None
-
-   @retry(delay=5, tries=5)
-   def _verify_pt (self):
-       try:
-           pt_refs = self.cs_si['service-instance']['port_tuples']
-       except KeyError:
-           pt_refs = None
-       if not pt_refs:
-           errmsg = "%s has no port tuple refs" % self
-           return False, errmsg
-       return True, None
-
-#TODO
-=======
+import fixtures
+from vnc_api.vnc_api import *
 from tcutils.util import retry, get_random_name
+from time import sleep
+from tcutils.services import get_status
 from vm_test import VMFixture
 from svc_hc_fixture import HealthCheckFixture
+try:
+    from webui_test import *
+except ImportError:
+    pass
 
-class SvcInstanceFixture (SvcInstanceFixture_v2):
 
-   ''' Fixture for backward compatibility '''
+class SvcInstanceFixture(fixtures.Fixture):
 
-   def __init__ (self, connections, si_name, svc_template,
-                 static_route=None, hc_list=None,
+    def __init__(self,
+                 connections,
+                 si_name,
+                 svc_template,
+                 if_details,
+                 max_inst=1,
+                 static_route=None,
+                 availability_zone = None,
+                 hc_list=None,
                  port_tuples_props=[]):
+        '''
+        svc_template : instance of ServiceTemplate
+        '''
         self.static_route = static_route or { 'management':None,
                                               'left' : None,
                                               'right': None}
@@ -166,7 +63,7 @@ class SvcInstanceFixture (SvcInstanceFixture_v2):
         if self.inputs.verify_thru_gui():
             self.browser = connections.browser
             self.browser_openstack = connections.browser_openstack
-            self.webui = WebuiTest(connections, inputs)
+            self.webui = WebuiTest(connections, self.inputs)
 
         self.si_v2 = self.si_version == 2 or False
         self.si_v1 = self.si_version == 1 or False
@@ -179,6 +76,32 @@ class SvcInstanceFixture (SvcInstanceFixture_v2):
             'management', {}).get('vn_name', None)
         self.intf_rt_table = []
     # end __init__
+
+    def setUp(self):
+        super(SvcInstanceFixture, self).setUp()
+        self._create_si()
+    # end setUp
+
+    def cleanUp(self):
+        super(SvcInstanceFixture, self).cleanUp()
+        do_cleanup = True
+        if self.inputs.fixture_cleanup == 'no':
+            do_cleanup = False
+        if self.already_present:
+            do_cleanup = False
+        if self.inputs.fixture_cleanup == 'force':
+            do_cleanup = True
+        if do_cleanup:
+            if self.inputs.is_gui_based_config():
+                self.webui.delete_svc_instance(self)
+            else:
+                self._delete_si()
+            self.logger.info("Deleted SI %s" % (self.si_fq_name))
+            assert self.verify_on_cleanup()
+        else:
+            self.logger.debug('Skipping deletion of SI %s' %
+                              (self.si_fq_name))
+    # end cleanUp
 
     def _create_si(self):
         try:
@@ -254,28 +177,33 @@ class SvcInstanceFixture (SvcInstanceFixture_v2):
         self._vnc.disassoc_intf_rt_table_from_si(self.si_fq_name, irt_uuid)
 
     def associate_hc(self, hc_uuid, intf_type):
-        self.logger.debug("Associating hc(%s) to si (%s)"%(hc_uuid, self.uuid))
-        self._vnc.assoc_health_check_to_si(self.uuid, hc_uuid, intf_type)
+        self.logger.debug("Associating hc(%s) to si (%s)" %
+                          (hc_uuid, self.si_fq_name))
+        self._vnc.assoc_health_check_to_si(self.si_fq_name, hc_uuid, intf_type)
         d = {'uuid': hc_uuid, 'intf_type': intf_type}
         if d not in self.hc_list:
             self.hc_list.append(d) 
 
     def disassociate_hc(self, hc_uuid):
-        self.logger.debug("Disassociating hc(%s) from si (%s)"%(hc_uuid, self.uuid))
-        self._vnc.disassoc_health_check_from_si(self.uuid, hc_uuid)
+        self.logger.debug(
+            "Disassociating hc(%s) from si (%s)" % (hc_uuid, self.si_fq_name))
+        self._vnc.disassoc_health_check_from_si(self.si_fq_name, hc_uuid)
+        assert self.verify_hc_ref_not_in_vmi()
         for hc in list(self.hc_list):
             if hc['uuid'] == hc_uuid:
                 self.hc_list.remove(hc)
 
     def _get_vn_of_intf_type(self, intf_type):
         if (intf_type == 'left'):
-            return self.left_vn_name
+            return self.left_vn_fq_name
         elif (intf_type == 'right'):
-            return self.right_vn_name
+            return self.right_vn_fq_name
         elif (intf_type == 'management'):
-            return self.management_vn_name
+            return self.management_vn_fq_name
 
     def get_hc_status(self):
+        if self.hc_list == []:
+            return False
         for svm in self.svm_list:
             inspect_h = self.connections.agent_inspect[svm.vm_node_ip]
             for hc in self.hc_list:
@@ -295,6 +223,24 @@ class SvcInstanceFixture (SvcInstanceFixture_v2):
     @retry(delay=2, tries=10)
     def verify_hc_is_not_active(self):
         return not self.get_hc_status()
+
+    @retry(delay=2, tries=10)
+    def verify_hc_ref_not_in_vmi(self):
+        for svm in self.svm_list:
+            inspect_h = self.connections.agent_inspect[svm.vm_node_ip]
+            for hc in self.hc_list:
+                virtual_network = self._get_vn_of_intf_type(hc['intf_type'])
+                vmi_id = svm.get_vmi_id(virtual_network)
+                vmi_obj = self.vnc_lib.virtual_machine_interface_read(
+                    id=vmi_id)
+                hc_refs = vmi_obj.get_service_health_check_refs()
+                if hc_refs:
+                    for hc_ref in hc_refs:
+                        if hc_ref['uuid'] == hc['uuid']:
+                            self.logger.info('VMI has SHC refs')
+                            return False
+        return True
+    # end verify_hc_ref_in_vmi
 
     @retry(delay=2, tries=10)
     def verify_hc_in_agent(self):
@@ -420,7 +366,7 @@ class SvcInstanceFixture (SvcInstanceFixture_v2):
         try:
             vm_refs = self.cs_si[
                 'service-instance']['virtual_machine_back_refs']
-            self.svm_ids = [vm_ref['to'][0] for vm_ref in self.vm_refs]
+            self.svm_ids = [vm_ref['to'][0] for vm_ref in vm_refs]
         except KeyError:
             vm_refs = None
 
@@ -791,4 +737,3 @@ class SvcInstanceFixture (SvcInstanceFixture_v2):
 
 
 # end SvcInstanceFixture
->>>>>>> 3b776c491a83c64918c02094d58833fac1e9b3fd
