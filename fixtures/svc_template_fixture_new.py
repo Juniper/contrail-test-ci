@@ -1,13 +1,13 @@
 from contrail_fixtures import ContrailFixture
 from tcutils.util import retry
-from vnc_api.vnc_api import PortTuple
+from vnc_api.vnc_api import ServiceTemplate
 
-class PortTupleFixture (ContrailFixture):
+class SvcTemplateFixture_v2 (ContrailFixture):
 
-   vnc_class = PortTuple
+   vnc_class = ServiceTemplate
 
    def __init__ (self, connections, uuid=None, params=None, fixs=None):
-       super(PortTupleFixture, self).__init__(
+       super(SvcTemplateFixture_v2, self).__init__(
            uuid=uuid,
            connections=connections,
            params=params,
@@ -31,9 +31,7 @@ class PortTupleFixture (ContrailFixture):
 
    @retry(delay=1, tries=5)
    def _read_vnc_obj (self):
-       obj = self._vnc.get_port_tuple(self.uuid)
-       found = 'not' if not obj else ''
-       self.logger.debug('%s %s found in api-server' % (self, found))
+       obj = self._vnc.get_service_template(self.uuid)
        return obj != None, obj
 
    def _read (self):
@@ -44,39 +42,35 @@ class PortTupleFixture (ContrailFixture):
 
    def _create (self):
        self.logger.info('Creating %s' % self)
-       self.uuid = self._ctrl.create_port_tuple(
+       self.uuid = self._ctrl.create_service_template(
            **self._args)
 
    def _delete (self):
        self.logger.info('Deleting %s' % self)
-       self._ctrl.delete_port_tuple(
+       self._ctrl.delete_service_template(
            obj=self._obj, uuid=self.uuid)
 
    def _update (self):
        self.logger.info('Updating %s' % self)
-       self._ctrl.update_port_tuple(
+       self._ctrl.update_service_template(
            obj=self._obj, uuid=self.uuid, **self.args)
 
    @property
    def if_details (self):
-       if getattr(self, '_if_details', None):
-           return self._if_details
-       ifs = self._vnc_obj.get_virtual_machine_interface_back_refs()
-       if self.fixs:
-           self._if_details =  [self.fixs['fqn-map'][intf] for intf in ifs]
-       else:
-           self._if_details =  [fixture.useFixture(
-               PortFixture(connections=self.connections,
-                   uuid=intf)) for intf in ifs]
-       return self._if_details
+       ifs = self._vnc_obj.service_template_properties.get_interface_type()
+       return [intf.exportDict() for intf in infs]
 
    def verify_on_setup (self):
        self.assert_on_setup(*self._verify_in_api_server())
-       #TODO: check if more verification is needed
+
+       if self._args:
+           ver = self.vnc_obj.service_template_properties.version
+           exp_ver = self._args['service_template_properties']['version']
+           msg = '%s version mismatch expected:%d got:%d' % (self, exp_ver, ver)
+           self.assert_on_setup(ver==exp_ver, msg)
 
    def verify_on_cleanup (self):
        self.assert_on_cleanup(*self._verify_not_in_api_server())
-       #TODO: check if more verification is needed
 
    def _verify_in_api_server (self):
        if not self._read_vnc_obj()[0]:
@@ -85,26 +79,32 @@ class PortTupleFixture (ContrailFixture):
 
    @retry(delay=5, tries=6)
    def _verify_not_in_api_server (self):
-       if self._vnc.get_port_tuple(self.uuid):
+       if self._vnc.get_service_template(self.uuid):
            msg = '%s not removed from api-server' % self
            self.logger.debug(msg)
            return False, msg
        self.logger.debug('%s removed from api-server' % self)
        return True, None
 
-   def verify_if_details (self, ifs):
-       if len(ifs) != len(self.if_details):
-           msg = "Mismatch in number of interfaces: port-tuple vs template"
-           return False, msg
-       for intf in ifs:
-           found = False
-           for intf_obj in self.if_details:
-               if intf['interface_type'] == \
-                       intf_obj.virtual_machine_interface_properties.\
-                       service_interface_type:
-                   found = True
-                   break
-           if not found:
-               msg = "intf type %s not found" % intf['interface_type']
-               return False, msg
-       return True, None
+class SvcTemplateFixture (SvcTemplateFixture_v2):
+
+   """ Fixture for backward compatiblity """
+
+   def __init__ (self, connections, st_name, service_type, if_details,
+           version=2, service_mode='transparent', **kwargs):
+       assert version != 1, 'V1 services not supported'
+       lst = []
+       for intf in if_details:
+           lst.append({'service_interface_type': intf})
+       self._params = {
+           'type': 'OS::ContrailV2::ServiceTemplate',
+           'name': st_name,
+           'service_template_properties': {
+               'version': version,
+               'service_mode': service_mode,
+               'service_type': service_type,
+               'interface_type': lst
+           }
+       }
+       super(SvcTemplateFixture, self).__init__(connections=connections,
+               params=self._params)
