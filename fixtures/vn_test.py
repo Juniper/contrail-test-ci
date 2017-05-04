@@ -11,7 +11,7 @@ from common.policy import policy_test_utils
 import threading
 import sys
 from quantum_test import NetworkClientException
-from tcutils.test_lib.contrail_utils import get_interested_computes
+from tcutils.test_lib.contrail_utils import get_interested_computes, get_free_ips
 from cfgm_common.exceptions import PermissionDenied
 try:
     from webui_test import *
@@ -1733,6 +1733,16 @@ class VNFixture(fixtures.Fixture):
             self.vn_fq_name, mac_aging_time))
         return mac_aging_time
     # end get_mac_aging_time
+
+    def get_free_ips(self, cidr, count=1):
+        return get_free_ips(cidr, self.vnc_lib_h, self.vn_id, count=count)
+
+    def get_free_ip(self, cidr):
+        ips = self.get_free_ips(cidr, count=1)
+        if ips:
+            return ips[0]
+        return None
+    # end get_free_ip
 
 # end VNFixture
 

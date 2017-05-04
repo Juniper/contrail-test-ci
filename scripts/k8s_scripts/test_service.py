@@ -4,6 +4,7 @@ from common.k8s.base import BaseK8sTest
 from k8s.namespace import NamespaceFixture
 from k8s.service import ServiceFixture
 from tcutils.wrappers import preposttest_wrapper
+from tcutils.util import get_lock
 
 
 class TestService(BaseK8sTest):
@@ -90,17 +91,19 @@ class TestService(BaseK8sTest):
         labels = {'app': app}
         namespace = self.setup_namespace()
         #assert namespace.verify_on_setup()
-        # Get a specific IP as external IP from public pool
-        external_ip = self.get_external_ip_for_k8s_object()
-
-        service = self.setup_http_service(namespace=namespace.name,
-                                          labels=labels, external_ips=[external_ip])
+        # Make sure that no other test can use the external ip by accident
+        with get_lock(self.inputs.fip_pool):
+            external_ip = str(self.public_vn.get_free_ip())
+            assert external_ip, 'No free IP available to use in public VN'
+            service = self.setup_http_service(namespace=namespace.name,
+                                              labels=labels,
+                                              external_ips=[external_ip])
         pod1 = self.setup_nginx_pod(namespace=namespace.name,
                                     labels=labels)
         pod2 = self.setup_nginx_pod(namespace=namespace.name,
                                     labels=labels)
         pod3 = self.setup_busybox_pod(namespace=namespace.name)
-        
+
         assert self.verify_nginx_pod(pod1)
         assert self.verify_nginx_pod(pod2)
         assert pod3.verify_on_setup()

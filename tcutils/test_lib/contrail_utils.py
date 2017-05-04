@@ -1,7 +1,10 @@
 '''
 Contrail feature specific utility methods
 '''
+import threading
+from netaddr import *
 
+from tcutils.util import Lock
 
 def get_ri_name(vn_fq_name):
     '''
@@ -34,3 +37,24 @@ def get_interested_computes(connections, vn_fq_names=[]):
                                  for x in computes ]
     return interested_computes
 # end get_interested_computes
+
+def get_free_ips(cidr, vnc_api_h, vn_id, count=1):
+    '''
+    Returns a list of IPAddress objects
+
+    Get one or more free IPs from a CIDR in a VN (as seen by contrail-api)
+    Note that this helps only in contrail test environment
+
+    You may also want to use tcutils.util.get_lock() along with this
+    '''
+    vn_obj = vnc_api_h.virtual_network_read(id=vn_id)
+    available_ips = list(IPNetwork(cidr).iter_hosts())
+    ip_uuids = [x['uuid'] for x in vn_obj.get_instance_ip_back_refs() or []]
+    for x in ip_uuids:
+        ip_obj = vnc_api_h.instance_ip_read(id=x)
+        available_ips.remove(IPAddress(ip_obj.instance_ip_address))
+    if available_ips:
+        return available_ips[:count]
+    else:
+        return None
+# end get_free_ips
