@@ -265,12 +265,14 @@ class SvcInstanceFixture(fixtures.Fixture):
 
     def _delete_si(self):
         curr_hc_list = list(self.hc_list)
-        for hc in curr_hc_list:
-            self.disassociate_hc(hc['uuid'])
-        self.verify_hc_not_in_agent(curr_hc_list)
+        if curr_hc_list:
+            for hc in curr_hc_list:
+                self.disassociate_hc(hc['uuid'])
+            self.verify_hc_not_in_agent(curr_hc_list)
         intf_rt_table_list = list(self.intf_rt_table)
-        for irt in intf_rt_table_list:
-            self.disassociate_static_route_table(irt['uuid'])
+        if intf_rt_table_list:
+            for irt in intf_rt_table_list:
+                self.disassociate_static_route_table(irt['uuid'])
         self.logger.debug("Deleting service instance: %s", self.si_fq_name)
         self.vnc_lib.service_instance_delete(fq_name=self.si_fq_name)
     # end _delete_si
