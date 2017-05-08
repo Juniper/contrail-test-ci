@@ -92,7 +92,6 @@ def create_sg_quantum(self):
             msg = []
             self.secgrp_fixture[sg_name] = self.useFixture(
                 SecurityGroupFixture(
-                    inputs=self.inputs,
 		    connections=self.project_connections,
                     domain_name=self.topo.domain,
                     project_name=self.topo.project,
@@ -115,7 +114,6 @@ def create_sg_contrail(self):
             msg = []
             self.secgrp_fixture[sg_name] = self.useFixture(
                 SecurityGroupFixture(
-                    inputs=self.inputs,
                     connections=self.project_connections,
                     domain_name=self.topo.domain,
                     project_name=self.topo.project,
