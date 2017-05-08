@@ -2577,7 +2577,7 @@ class VMFixture(fixtures.Fixture):
             password='contrail123'):
 
         api_server_ip = api_server_ip or self.inputs.api_server_ip or \
-                  self.inputs.contrail_external_vip or self.inputs.cfgm_ip
+            self.inputs.contrail_external_vip or self.inputs.cfgm_ip
         api_server_port = api_server_port or self.inputs.api_server_port
         if not tenant_name:
             tenant_name = self.inputs.stack_tenant
