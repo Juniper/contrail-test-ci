@@ -1,5 +1,4 @@
 #!/bin/bash -x
-
 BUILD_PLATFORM=$(cat /etc/lsb-release | grep DISTRIB_RELEASE | cut -d '=' -f2)
 CONTRAIL_TEST_CI_REPO=https://github.com/juniper/contrail-test-ci
 CONTRAIL_TEST_CI_REF=master
