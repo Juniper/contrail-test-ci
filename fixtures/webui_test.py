@@ -1458,8 +1458,8 @@ class WebuiTest:
                     vrouters_list_ops[n]['href'])
                 new_list = []
                 element_list = [
-                    ('dns_server_list_cfg', 7), ('self_ip_list', 6),
-                    ('vhost_cfg', 3)]
+                    ('dns_server_list_cfg', 7), ('self_ip_list', 5),
+                    ('vhost_cfg', 6)]
                 agent_name = 'VrouterAgent'
                 for element in element_list:
                     key1, val1, flag = self.ui.get_advanced_view_list(
@@ -1470,12 +1470,13 @@ class WebuiTest:
                 dom_arry = self.ui.parse_advanced_view()
                 dom_arry_str = self.ui.get_advanced_view_str()
                 dom_arry_num = self.ui.get_advanced_view_num()
+                dom_arry_obj = self.ui.get_advanced_view_obj()
                 dom_arry_num_new = []
                 for item in dom_arry_num:
                     dom_arry_num_new.append(
                         {'key': item['key'].replace('\\', '"').replace(' ', ''), 'value': item['value']})
                 dom_arry_num = dom_arry_num_new
-                merged_arry = dom_arry + dom_arry_str + dom_arry_num
+                merged_arry = dom_arry + dom_arry_str + dom_arry_num + dom_arry_obj
                 if new_list:
                     merged_arry+= new_list
                 if 'VrouterStatsAgent' in vrouters_ops_data:
@@ -2567,22 +2568,20 @@ class WebuiTest:
         self.logger.info(
             "Verifying instance opsserver advance data on Monitor->Networking->Instances->Instances summary(Advance view) page......")
         self.logger.debug(self.dash)
-        if not self.ui.click_monitor_instances():
-            result = result and False
-        self.ui.select_project(self.project_name_input)
-        self.ui.select_network(network_name)
-        rows = self.ui.get_rows()
         vm_list_ops = self.ui.get_vm_list_ops()
         result = True
         for k in range(len(vm_list_ops)):
             ops_uuid = vm_list_ops[k]['name']
             vm_ops_data = self.ui.get_details(vm_list_ops[k]['href'])
-            if not self.ui.click_monitor_instances():
-                result = result and False
-            rows = self.ui.get_rows()
             self.logger.info(
                 "Vm %s exists in opserver..checking if exists in webui as well" %
                 (ops_uuid))
+            if not self.ui.click_monitor_instances():
+                result = result and False
+            self.ui.select_project(self.project_name_input)
+            self.ui.select_network(network_name)
+            self.ui.wait_till_ajax_done(self.browser)
+            rows = self.ui.get_rows()
             for i in range(len(rows)):
                 if not self.ui.click_monitor_instances():
                     result = result and False
@@ -2613,7 +2612,7 @@ class WebuiTest:
                 self.logger.info(
                     "Verify advance view details for uuid %s " % (ops_uuid))
                 plus_objs = self.ui.find_element(
-                    'i.node-2.icon-plus.expander',
+                    'i.node-2.fa-plus.expander',
                     'css',
                     elements=True)
                 self.ui.click(plus_objs)
