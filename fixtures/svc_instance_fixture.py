@@ -117,15 +117,20 @@ class SvcInstanceFixture(fixtures.Fixture):
             svc_instance = ServiceInstance(self.si_name, parent_obj=project)
             si_type_args = None
             si_intf_type_args = {}
-            left_vn_name = self.left_vn_fq_name.split(':')[-1] if self.left_vn_fq_name else None
-            right_vn_name = self.right_vn_fq_name.split(':')[-1] if self.right_vn_fq_name else None
-            mgmt_vn_name = self.mgmt_vn_fq_name.split(':')[-1] if self.mgmt_vn_fq_name else None
+            #left_vn_name = self.left_vn_fq_name.split(':')[-1] if self.left_vn_fq_name else None
+            #right_vn_name = self.right_vn_fq_name.split(':')[-1] if self.right_vn_fq_name else None
+            #mgmt_vn_name = self.mgmt_vn_fq_name.split(':')[-1] if self.mgmt_vn_fq_name else None
+            left_vn_name = self.left_vn_fq_name
+            right_vn_name = self.right_vn_fq_name
+            mgmt_vn_name = self.mgmt_vn_fq_name
             si_prop = ServiceInstanceType(
                 left_virtual_network=left_vn_name,
                 right_virtual_network=right_vn_name,
                 management_virtual_network=mgmt_vn_name)
 
-            for itf in self.if_details:
+            if_details = ['left','right','management']
+            # for itf in self.if_details: interface should be in ordered way
+            for itf in if_details:
                 virtual_network = None
                 if itf == 'left':
                     virtual_network = left_vn_name
@@ -140,6 +145,9 @@ class SvcInstanceFixture(fixtures.Fixture):
                     virtual_network=virtual_network)
                 si_prop.add_interface_list(if_type)
 
+            scaleout = ServiceScaleOutType()
+            scaleout.set_max_instances(self.max_instances)
+            si_prop.set_scale_out(scaleout)
             svc_instance.set_service_instance_properties(si_prop)
             svc_instance.set_service_template(self.svc_template)
             if self.inputs.is_gui_based_config():
