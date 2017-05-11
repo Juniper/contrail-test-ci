@@ -142,12 +142,18 @@ def verify_tcpdump_count(obj, session, pcap, exp_count=None, mac=None,
         obj.logger.info(
             "%s packets are found in tcpdump output as expected",
             count)
-        stop_tcpdump_for_vm_intf(obj, session, pcap)
+        if not vm_fix_pcap_pid_files:
+            stop_tcpdump_for_vm_intf(obj, session, pcap)
     return result
 
-def search_in_pcap(session, pcap, search_string):
+def search_in_pcap(session, pcap, search_string, vm_fix_pcap_pid_files=[]):
     cmd = 'tcpdump -v -r %s | grep "%s"' % (pcap, search_string)
-    out, err = execute_cmd_out(session, cmd)
+    if not vm_fix_pcap_pid_files:
+        out, err = execute_cmd_out(session, cmd)
+    else:
+        output, count = stop_tcpdump_for_vm_intf(
+            None, None, pcap, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files)
+        out = output[0]
     if search_string in out:
         return True
     else:
