@@ -20,11 +20,12 @@ try:
 except ImportError:
     pass
 
+
 class ContrailConnections():
     def __init__(self, inputs=None, logger=None, project_name=None,
-                 username=None, password=None, domain_name=None, ini_file=None, domain_obj=None,scope='domain'):
+                 username=None, password=None, domain_name=None, ini_file=None, domain_obj=None, scope='domain'):
         self.inputs = inputs or ContrailTestInit(ini_file,
-                                stack_tenant=project_name)
+                                                 stack_tenant=project_name)
         self.project_name = project_name or self.inputs.project_name
         self.domain_name = domain_name or self.inputs.domain_name
         self.orch_domain_name = domain_name or self.inputs.domain_name
@@ -38,22 +39,22 @@ class ContrailConnections():
         self.quantum_h = None
         self.vnc_lib_fixture = None
         self.api_server_inspects = custom_dict(self.get_api_inspect_handle,
-                        'api_inspect:'+self.project_name+':'+self.username)
+                                               'api_inspect:' + self.project_name + ':' + self.username)
         self.dnsagent_inspect = custom_dict(self.get_dns_agent_inspect_handle,
                                             'dns_inspect')
         self.agent_inspect = custom_dict(self.get_vrouter_agent_inspect_handle,
                                          'agent_inspect')
         self.ops_inspects = custom_dict(self.get_opserver_inspect_handle,
-                                        'ops_inspect:'+self.project_name+':'+self.username)
+                                        'ops_inspect:' + self.project_name + ':' + self.username)
         self.cn_inspect = custom_dict(self.get_control_node_inspect_handle,
                                       'cn_inspect')
         self.k8s_client = self.get_k8s_api_client_handle()
 
         # ToDo: msenthil/sandipd rest of init needs to be better handled
         self.domain_id = None
-        if self.inputs.domain_isolation: 
-            #get admin auth to list domains and get domain_id
-            auth = self.get_auth_h(username = self.inputs.admin_username,
+        if self.inputs.domain_isolation:
+            # get admin auth to list domains and get domain_id
+            auth = self.get_auth_h(username=self.inputs.admin_username,
                                    password=self.inputs.admin_password,
                                    project_name=self.inputs.admin_tenant,
                                    domain_name=self.inputs.admin_domain)
@@ -63,7 +64,8 @@ class ContrailConnections():
         self.project_id = self.get_project_id()
         if self.inputs.orchestrator == 'openstack':
             if self.inputs.verify_thru_gui():
-                self.ui_login = UILogin(self, self.inputs, project_name, username, password)
+                self.ui_login = UILogin(
+                    self, self.inputs, project_name, username, password)
                 self.browser = self.ui_login.browser
                 self.browser_openstack = self.ui_login.browser_openstack
 
@@ -71,10 +73,10 @@ class ContrailConnections():
                                               vnclib=self.vnc_lib,
                                               logger=self.logger,
                                               auth_h=self.auth
-                                             )
+                                              )
             self.nova_h = self.orch.get_compute_handler()
             self.quantum_h = self.orch.get_network_handler()
-        elif self.inputs.orchestrator == 'vcenter': # vcenter
+        elif self.inputs.orchestrator == 'vcenter':  # vcenter
             self.orch = VcenterOrchestrator(user=self.username,
                                             pwd=self.password,
                                             host=self.inputs.auth_ip,
@@ -85,15 +87,16 @@ class ContrailConnections():
                                             logger=self.logger)
         elif self.inputs.orchestrator == 'kubernetes':
             self.orch = None
-        if self.inputs.vcenter_gw_setup: # vcenter_gateway
+        if self.inputs.vcenter_gw_setup:  # vcenter_gateway
             self.slave_orch = VcenterGatewayOrch(user=self.inputs.vcenter_username,
-                                            pwd=self.inputs.vcenter_password,
-                                            host=self.inputs.vcenter_server,
-                                            port=int(self.inputs.vcenter_port),
-                                            dc_name=self.inputs.vcenter_dc,
-                                            vnc=self.vnc_lib,
-                                            inputs=self.inputs,
-                                            logger=self.logger)
+                                                 pwd=self.inputs.vcenter_password,
+                                                 host=self.inputs.vcenter_server,
+                                                 port=int(
+                                                     self.inputs.vcenter_port),
+                                                 dc_name=self.inputs.vcenter_dc,
+                                                 vnc=self.vnc_lib,
+                                                 inputs=self.inputs,
+                                                 logger=self.logger)
     # end __init__
 
     def get_project_id(self, project_name=None):
@@ -110,28 +113,28 @@ class ContrailConnections():
         project_name = project_name or self.project_name
         username = username or self.username
         password = password or self.password
-        attr = '_auth_'+project_name+'_'+username
+        attr = '_auth_' + project_name + '_' + username
         if not getattr(env, attr, None) or refresh:
             if self.inputs.orchestrator == 'openstack':
                 env[attr] = OpenstackAuth(username, password,
-                           project_name, self.inputs, self.logger,
-                           domain_name=domain_name or self.orch_domain_name,
-                           scope=self.scope)
+                                          project_name, self.inputs, self.logger,
+                                          domain_name=domain_name or self.orch_domain_name,
+                                          scope=self.scope)
             elif self.inputs.orchestrator == 'vcenter':
                 env[attr] = VcenterAuth(username, password,
-                                       project_name, self.inputs)
+                                        project_name, self.inputs)
 #            elif self.inputs.orchestrator == 'kubernetes':
 #                env[attr] = self.get_k8s_api_client_handle()
         return env.get(attr)
-    
+
     def get_vnc_lib_h(self, refresh=False):
         attr = '_vnc_lib_fixture_' + self.project_name + '_' + self.username
         cfgm_ip = self.inputs.api_server_ip or \
-                  self.inputs.contrail_external_vip or self.inputs.cfgm_ip
+            self.inputs.contrail_external_vip or self.inputs.cfgm_ip
         if not getattr(env, attr, None) or refresh:
-            if self.inputs.orchestrator == 'openstack' :
-                domain = self.orch_domain_name     
-            else:  
+            if self.inputs.orchestrator == 'openstack':
+                domain = self.orch_domain_name
+            else:
                 domain = self.domain_name
             env[attr] = VncLibFixture(
                 username=self.username, password=self.password,
@@ -142,10 +145,10 @@ class ContrailConnections():
                 auth_server_ip=self.inputs.auth_ip,
                 orchestrator=self.inputs.orchestrator,
                 project_id=self.get_project_id(),
-                certfile = self.inputs.keystonecertfile,
-                keyfile = self.inputs.keystonekeyfile,
-                cacert = self.inputs.certbundle,
-                insecure = self.inputs.insecure,
+                certfile=self.inputs.keystonecertfile,
+                keyfile=self.inputs.keystonekeyfile,
+                cacert=self.inputs.certbundle,
+                insecure=self.inputs.insecure,
                 logger=self.logger)
             env[attr].setUp()
         self.vnc_lib_fixture = env[attr]
@@ -166,40 +169,40 @@ class ContrailConnections():
     def get_control_node_inspect_handle(self, host):
         if host not in self.cn_inspect:
             self.cn_inspect[host] = ControlNodeInspect(host,
-                                        self.inputs.bgp_port,
-                                        logger=self.logger)
+                                                       self.inputs.bgp_port,
+                                                       logger=self.logger)
         return self.cn_inspect[host]
 
     def get_dns_agent_inspect_handle(self, host):
         if host not in self.dnsagent_inspect:
             self.dnsagent_inspect[host] = DnsAgentInspect(host,
-                                              self.inputs.dns_port,
-                                              logger=self.logger)
+                                                          self.inputs.dns_port,
+                                                          logger=self.logger)
         return self.dnsagent_inspect[host]
 
     def get_vrouter_agent_inspect_handle(self, host):
         if host not in self.agent_inspect:
             self.agent_inspect[host] = AgentInspect(host,
-                                           port=self.inputs.agent_port,
-                                           logger=self.logger)
+                                                    port=self.inputs.agent_port,
+                                                    logger=self.logger)
         return self.agent_inspect[host]
 
     def get_opserver_inspect_handle(self, host):
-        #ToDo: WA till scripts are modified to use ip rather than hostname
+        # ToDo: WA till scripts are modified to use ip rather than hostname
         ip = host if is_v4(host) else self.inputs.get_host_ip(host)
         collector_ip = self.inputs.analytics_api_ip or \
-                       self.inputs.contrail_external_vip
+            self.inputs.contrail_external_vip
         if collector_ip:
             ip = collector_ip
         if ip not in self.ops_inspects:
             self.ops_inspects[ip] = VerificationOpsSrv(ip,
-                                        port=self.inputs.analytics_api_port,
-                                        logger=self.logger,
-                                        inputs=self.inputs)
+                                                       port=self.inputs.analytics_api_port,
+                                                       logger=self.logger,
+                                                       inputs=self.inputs)
         return self.ops_inspects[ip]
 
     def get_k8s_api_client_handle(self):
-        if self.inputs.orchestrator != 'kubernetes':
+        if self.inputs.orchestrator != 'kubernetes' and self.inputs.slave_orchestrator != 'kubernetes':
             return None
         if not getattr(self, 'k8s_client', None):
             self.k8s_client = Kubernetes_client(self.inputs.kube_config_file,
@@ -210,11 +213,12 @@ class ContrailConnections():
     def get_svc_mon_h(self, refresh=False):
         if not getattr(self, '_svc_mon_inspect', None) or refresh:
             for cfgm_ip in self.inputs.cfgm_ips:
-                #contrail-status would increase run time hence netstat approach
+                # contrail-status would increase run time hence netstat
+                # approach
                 cmd = 'netstat -antp | grep 8088 | grep LISTEN'
                 if self.inputs.run_cmd_on_server(cfgm_ip, cmd, container='controller') is not None:
                     self._svc_mon_inspect = SvcMonInspect(cfgm_ip,
-                                           logger=self.logger)
+                                                          logger=self.logger)
                     break
         return self._svc_mon_inspect
 
@@ -222,8 +226,9 @@ class ContrailConnections():
     def api_server_inspect(self):
         if not getattr(self, '_api_server_inspect', None):
             self._api_server_inspect = self.api_server_inspects[
-                                        self.inputs.cfgm_ips[0]]
+                self.inputs.cfgm_ips[0]]
         return self._api_server_inspect
+
     @api_server_inspect.setter
     def api_server_inspect(self, value):
         self._api_server_inspect = value
@@ -233,6 +238,7 @@ class ContrailConnections():
         if not getattr(self, '_ops_inspect', None):
             self._ops_inspect = self.ops_inspects[self.inputs.collector_ips[0]]
         return self._ops_inspect
+
     @ops_inspect.setter
     def ops_inspect(self, value):
         self._ops_inspect = value
@@ -241,9 +247,10 @@ class ContrailConnections():
     def analytics_obj(self):
         if not getattr(self, '_analytics_obj', None):
             self._analytics_obj = AnalyticsVerification(self.inputs,
-                                  self.cn_inspect, self.agent_inspect,
-                                  self.ops_inspects, logger=self.logger)
+                                                        self.cn_inspect, self.agent_inspect,
+                                                        self.ops_inspects, logger=self.logger)
         return self._analytics_obj
+
     @analytics_obj.setter
     def analytics_obj(self, value):
         self._analytics_obj = value
@@ -269,17 +276,18 @@ class ContrailConnections():
 
         try:
             # Reading Existing config
-            current_config=self.obj.global_vrouter_config_read(
-                                    fq_name=['default-global-system-config',
-                                             'default-global-vrouter-config'])
-            current_linklocal=current_config.get_linklocal_services()
+            current_config = self.obj.global_vrouter_config_read(
+                fq_name=['default-global-system-config',
+                         'default-global-vrouter-config'])
+            current_linklocal = current_config.get_linklocal_services()
         except NoIdError as e:
             self.logger.exception('No config id found. Creating new one')
-            current_linklocal=''
+            current_linklocal = ''
 
         encap_obj = EncapsulationPrioritiesType(
             encapsulation=[encap1, encap2, encap3])
-        conf_obj = GlobalVrouterConfig(linklocal_services=current_linklocal,encapsulation_priorities=encap_obj)
+        conf_obj = GlobalVrouterConfig(
+            linklocal_services=current_linklocal, encapsulation_priorities=encap_obj)
         result = self.obj.global_vrouter_config_create(conf_obj)
         return result
     # end set_vrouter_config_encap
@@ -287,16 +295,16 @@ class ContrailConnections():
     def update_vrouter_config_encap(self, encap1=None, encap2=None, encap3=None):
         '''Used to change the existing encapsulation priorities to new values'''
         self.obj = self.vnc_lib
- 
+
         try:
             # Reading Existing config
-            current_config=self.obj.global_vrouter_config_read(
-                                    fq_name=['default-global-system-config',
-                                             'default-global-vrouter-config'])
-            current_linklocal=current_config.get_linklocal_services()
+            current_config = self.obj.global_vrouter_config_read(
+                fq_name=['default-global-system-config',
+                         'default-global-vrouter-config'])
+            current_linklocal = current_config.get_linklocal_services()
         except NoIdError as e:
             self.logger.exception('No config id found. Creating new one')
-            current_linklocal=''
+            current_linklocal = ''
 
         encaps_obj = EncapsulationPrioritiesType(
             encapsulation=[encap1, encap2, encap3])

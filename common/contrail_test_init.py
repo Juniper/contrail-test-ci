@@ -51,6 +51,7 @@ if "check_output" not in dir(subprocess):  # duck punch it in!
         return output
     subprocess.check_output = f
 
+
 class TestInputs(object):
     '''
        Class that would populate testbedinfo from parsing the
@@ -59,6 +60,7 @@ class TestInputs(object):
        the same with the certain default value assumptions
     '''
     __metaclass__ = Singleton
+
     def __init__(self, ini_file=None, logger=None):
         self.jenkins_trigger = self.get_os_env('JENKINS_TRIGGERED')
         self.os_type = custom_dict(self.get_os_version, 'os_type')
@@ -70,50 +72,52 @@ class TestInputs(object):
         self.logger = logger or contrail_logging.getLogger(__name__)
         self.orchestrator = read_config_option(self.config,
                                                'Basic', 'orchestrator', 'openstack')
+        self.slave_orchestrator = read_config_option(self.config,
+                                                     'Basic', 'slave_orchestrator', None)
         self.prov_file = read_config_option(self.config,
                                             'Basic', 'provFile', None)
         self.key = read_config_option(self.config,
                                       'Basic', 'key', 'key1')
-        self.keystone_version = read_config_option(self.config,        
-                                                   'Basic',        
-                                                   'keystone_version',        
+        self.keystone_version = read_config_option(self.config,
+                                                   'Basic',
+                                                   'keystone_version',
                                                    'v2')
         self.domain_isolation = read_config_option(self.config,
-            'Basic',
-            'domain_isolation',
-            False)
+                                                   'Basic',
+                                                   'domain_isolation',
+                                                   False)
         self.cloud_admin_domain = read_config_option(self.config,
-            'Basic',
-            'cloud_admin_domain',
-            'Default')
+                                                     'Basic',
+                                                     'cloud_admin_domain',
+                                                     'Default')
         self.tenant_isolation = read_config_option(self.config,
-            'Basic',
-            'tenant_isolation',
-            True)
+                                                   'Basic',
+                                                   'tenant_isolation',
+                                                   True)
 
         self.user_isolation = read_config_option(self.config,
-            'Basic',
-            'user_isolation',
-            True)
+                                                 'Basic',
+                                                 'user_isolation',
+                                                 True)
         # Read admin credentials if any
 
         self.admin_username = read_config_option(self.config,
-            'Basic',
-            'adminUser',
-            os.getenv('OS_USERNAME', 'admin'))
+                                                 'Basic',
+                                                 'adminUser',
+                                                 os.getenv('OS_USERNAME', 'admin'))
         self.admin_password = read_config_option(self.config,
-            'Basic',
-            'adminPassword',
-            os.getenv('OS_PASSWORD', 'contrail123'))
+                                                 'Basic',
+                                                 'adminPassword',
+                                                 os.getenv('OS_PASSWORD', 'contrail123'))
         self.admin_tenant = read_config_option(self.config,
-            'Basic',
-            'adminTenant',
-            os.getenv('OS_TENANT_NAME', 'admin'))
-        
+                                               'Basic',
+                                               'adminTenant',
+                                               os.getenv('OS_TENANT_NAME', 'admin'))
+
         self.admin_domain = read_config_option(self.config,
-            'Basic',
-            'adminDomain',
-            os.getenv('OS_DOMAIN_NAME','Default'))
+                                               'Basic',
+                                               'adminDomain',
+                                               os.getenv('OS_DOMAIN_NAME', 'Default'))
 
         self.stack_user = read_config_option(
             self.config,
@@ -160,34 +164,34 @@ class TestInputs(object):
         self.auth_port = read_config_option(self.config,
                                             'Basic', 'auth_port', 5000)
         self.auth_protocol = read_config_option(self.config,
-                                            'Basic', 'auth_protocol', 'http')
+                                                'Basic', 'auth_protocol', 'http')
         self.api_protocol = read_config_option(self.config,
-                                          'cfgm', 'api_protocol', 'http')
+                                               'cfgm', 'api_protocol', 'http')
         self.api_insecure = read_config_option(self.config,
-                                          'cfgm', 'api_insecure_flag', True)
+                                               'cfgm', 'api_insecure_flag', True)
         self.api_server_port = read_config_option(self.config, 'services',
-                                          'config_api_port', '8082')
+                                                  'config_api_port', '8082')
         self.analytics_api_port = read_config_option(self.config, 'services',
-                                          'analytics_api_port', '8081')
+                                                     'analytics_api_port', '8081')
         self.bgp_port = read_config_option(self.config, 'services',
-                                          'control_port', '8083')
+                                           'control_port', '8083')
         self.dns_port = read_config_option(self.config, 'services',
-                                          'dns_port', '8092')
+                                           'dns_port', '8092')
         self.agent_port = read_config_option(self.config, 'services',
-                                          'agent_port', '8085')
+                                             'agent_port', '8085')
         self.api_server_ip = read_config_option(self.config, 'services',
-                                          'config_api_ip', None)
+                                                'config_api_ip', None)
         self.analytics_api_ip = read_config_option(self.config, 'services',
-                                          'analytics_api_ip', None)
+                                                   'analytics_api_ip', None)
         self.contrail_internal_vip = read_config_option(self.config, 'HA',
-                                          'contrail_internal_vip', None)
+                                                        'contrail_internal_vip', None)
         self.contrail_external_vip = read_config_option(self.config, 'HA',
-                                          'contrail_external_vip',
-                                          self.contrail_internal_vip)
+                                                        'contrail_external_vip',
+                                                        self.contrail_internal_vip)
         self.internal_vip = read_config_option(self.config, 'HA',
-                                          'internal_vip', None)
+                                               'internal_vip', None)
         self.external_vip = read_config_option(self.config, 'HA',
-                                          'external_vip', self.internal_vip)
+                                               'external_vip', self.internal_vip)
         self.multi_tenancy = read_config_option(self.config,
                                                 'Basic', 'multiTenancy', False)
         self.enable_ceilometer = read_config_option(self.config,
@@ -195,11 +199,11 @@ class TestInputs(object):
         self.ci_flavor = read_config_option(self.config,
                                             'Basic', 'ci_flavor', None)
         self.config_amqp_ips = read_config_option(self.config,
-                                            'services', 'config_amqp_ips', None)
+                                                  'services', 'config_amqp_ips', None)
         if self.config_amqp_ips:
             self.config_amqp_ips = self.config_amqp_ips.split(',')
         self.config_amqp_port = read_config_option(self.config,
-                                            'services', 'config_amqp_port', '5672')
+                                                   'services', 'config_amqp_port', '5672')
         self.fixture_cleanup = read_config_option(
             self.config,
             'Basic',
@@ -219,7 +223,7 @@ class TestInputs(object):
                                                'ui', 'webui', False)
         self.verify_horizon = read_config_option(self.config,
                                                  'ui', 'horizon', False)
-        self.kube_config_file = read_config_option(self.config, 
+        self.kube_config_file = read_config_option(self.config,
                                                    'kubernetes', 'config_file',
                                                    '/etc/kubernetes/admin.conf')
         if not self.ui_browser and (self.verify_webui or self.verify_horizon):
@@ -297,46 +301,46 @@ class TestInputs(object):
                                               'public_host', '10.204.216.50')
 
         if self.keystone_version == 'v3':
-            #Set to run testecases in V2 mode
-            self.v2_in_v3 = os.getenv('KSV2_IN_KSV3',None)
+            # Set to run testecases in V2 mode
+            self.v2_in_v3 = os.getenv('KSV2_IN_KSV3', None)
             if self.v2_in_v3:
                 self.domain_isolation = False
-                self.auth_url = '%s://%s:%s/v2.0'%(self.auth_protocol,
-                                           self.auth_ip,
-                                           self.auth_port)
+                self.auth_url = '%s://%s:%s/v2.0' % (self.auth_protocol,
+                                                     self.auth_ip,
+                                                     self.auth_port)
                 self.authn_url = '/v2.0/tokens'
             else:
                 self.auth_url = os.getenv('OS_AUTH_URL') or \
-                            '%s://%s:%s/v3'%(self.auth_protocol,
-                                               self.auth_ip,
-                                               self.auth_port)
+                    '%s://%s:%s/v3' % (self.auth_protocol,
+                                       self.auth_ip,
+                                       self.auth_port)
                 self.authn_url = '/v3/auth/tokens'
         else:
             self.auth_url = os.getenv('OS_AUTH_URL') or \
-                        '%s://%s:%s/v2.0'%(self.auth_protocol,
-                                           self.auth_ip,
-                                           self.auth_port)
+                '%s://%s:%s/v2.0' % (self.auth_protocol,
+                                     self.auth_ip,
+                                     self.auth_port)
             self.authn_url = '/v2.0/tokens'
         self._set_auth_vars()
         self.apicertfile = read_config_option(self.config,
-                                             'cfgm', 'api_certfile', None)
+                                              'cfgm', 'api_certfile', None)
         self.apikeyfile = read_config_option(self.config,
-                                            'cfgm', 'api_keyfile', None)
+                                             'cfgm', 'api_keyfile', None)
         self.apicafile = read_config_option(self.config,
-                                           'cfgm', 'api_cafile', None)
+                                            'cfgm', 'api_cafile', None)
         self.api_insecure = bool(read_config_option(self.config,
-                                 'cfgm', 'api_insecure_flag', False))
+                                                    'cfgm', 'api_insecure_flag', False))
         self.keystonecertfile = read_config_option(self.config,
-                                'Basic', 'keystone_certfile',
-                                os.getenv('OS_CERT', None))
+                                                   'Basic', 'keystone_certfile',
+                                                   os.getenv('OS_CERT', None))
         self.keystonekeyfile = read_config_option(self.config,
-                               'Basic', 'keystone_keyfile',
-                               os.getenv('OS_KEY', None))
+                                                  'Basic', 'keystone_keyfile',
+                                                  os.getenv('OS_KEY', None))
         self.keystonecafile = read_config_option(self.config,
-                              'Basic', 'keystone_cafile',
-                              os.getenv('OS_CACERT', None))
+                                                 'Basic', 'keystone_cafile',
+                                                 os.getenv('OS_CACERT', None))
         self.insecure = bool(read_config_option(self.config,
-                             'Basic', 'keystone_insecure_flag', False))
+                                                'Basic', 'keystone_insecure_flag', False))
         insecure = istrue(os.getenv('OS_INSECURE', False))
         if insecure:
             self.api_insecure = self.insecure = insecure
@@ -346,15 +350,15 @@ class TestInputs(object):
            self.keystonecafile:
             keystone_bundle = '/tmp/' + get_random_string() + '.pem'
             keycertbundle = utils.getCertKeyCaBundle(keystone_bundle,
-                            [self.keystonecertfile, self.keystonekeyfile,
-                             self.keystonecafile])
+                                                     [self.keystonecertfile, self.keystonekeyfile,
+                                                      self.keystonecafile])
         apicertbundle = None
         if not self.api_insecure and self.api_protocol == 'https' and \
            self.apicertfile and self.apikeyfile and self.apicafile:
             api_bundle = '/tmp/' + get_random_string() + '.pem'
             apicertbundle = utils.getCertKeyCaBundle(api_bundle,
-                            [self.apicertfile, self.apikeyfile,
-                             self.apicafile])
+                                                     [self.apicertfile, self.apikeyfile,
+                                                      self.apicafile])
         self.certbundle = None
         if keycertbundle or apicertbundle:
             bundle = '/tmp/' + get_random_string() + '.pem'
@@ -363,20 +367,20 @@ class TestInputs(object):
 
         self.prov_file = self.prov_file or self._create_prov_file()
         self.prov_data = self.read_prov_file()
-        #vcenter server
+        # vcenter server
         self.vcenter_dc = read_config_option(
-           self.config, 'vcenter', 'vcenter_dc', None)
+            self.config, 'vcenter', 'vcenter_dc', None)
         self.vcenter_server = read_config_option(
-           self.config, 'vcenter', 'vcenter_server', None)
+            self.config, 'vcenter', 'vcenter_server', None)
         self.vcenter_port = read_config_option(
-           self.config, 'vcenter', 'vcenter_port', None)
+            self.config, 'vcenter', 'vcenter_port', None)
         self.vcenter_username = read_config_option(
-           self.config, 'vcenter', 'vcenter_username', None)
+            self.config, 'vcenter', 'vcenter_username', None)
         self.vcenter_password = read_config_option(
-           self.config, 'vcenter', 'vcenter_password', None)
+            self.config, 'vcenter', 'vcenter_password', None)
         self.vcenter_compute = read_config_option(
-           self.config, 'vcenter', 'vcenter_compute', None)
-        #for multiple vcenter
+            self.config, 'vcenter', 'vcenter_compute', None)
+        # for multiple vcenter
         try:
             if 'vcenter_servers' in self.prov_data.keys():
                 for server in self.prov_data['vcenter_servers']:
@@ -419,20 +423,19 @@ class TestInputs(object):
         self.correct_states = ['active', 'backup']
 
         self.gc_host_mgmt = read_config_option(self.config,
-                                             'global-controller', 'gc_host_mgmt', 'None')
+                                               'global-controller', 'gc_host_mgmt', 'None')
 
         self.gc_host_control_data = read_config_option(self.config,
-                                             'global-controller', 'gc_host_control_data', 'None')
+                                                       'global-controller', 'gc_host_control_data', 'None')
 
         self.gc_user_name = read_config_option(self.config,
-                                             'global-controller', 'gc_user_name', 'None')
+                                               'global-controller', 'gc_user_name', 'None')
 
         self.gc_user_pwd = read_config_option(self.config,
-                                             'global-controller', 'gc_user_pwd', 'None')
+                                              'global-controller', 'gc_user_pwd', 'None')
 
         self.keystone_password = read_config_option(self.config,
-                                             'global-controller', 'keystone_password', 'None')
-
+                                                    'global-controller', 'keystone_password', 'None')
 
     def get_os_env(self, var, default=''):
         if var in os.environ:
@@ -445,7 +448,8 @@ class TestInputs(object):
         '''
         Set auth_protocol, auth_ip, auth_port from self.auth_url
         '''
-        match = re.match(r'(.*?)://(.*?):([\d]+).*$', self.auth_url, re.M|re.I)
+        match = re.match(
+            r'(.*?)://(.*?):([\d]+).*$', self.auth_url, re.M | re.I)
         if match:
             self.auth_protocol = match.group(1)
             self.auth_ip = match.group(2)
@@ -463,11 +467,11 @@ class TestInputs(object):
         username = self.host_data[host_ip]['username']
         password = self.host_data[host_ip]['password']
         containers = self.host_data[host_ip]['containers'].keys()
-        if containers :
+        if containers:
             a_container = containers[0]
-        with hide('output','running','warnings'):
+        with hide('output', 'running', 'warnings'):
             output = self.run_cmd_on_server(host_ip,
-                        'uname -a', username, password, container=a_container)
+                                            'uname -a', username, password, container=a_container)
         if 'el6' in output:
             self.os_type[host_ip] = 'centos_el6'
         elif 'fc17' in output:
@@ -498,7 +502,7 @@ class TestInputs(object):
         attr_list = [x.rstrip('\r') for x in attr_list]
 
         for attr in attr_list:
-            host_dict['containers'][attr] =  True
+            host_dict['containers'][attr] = True
         return
     # end _check_containers
 
@@ -568,11 +572,12 @@ class TestInputs(object):
                 self.host_data[host['fqname']] = self.host_data[host['name']]
             self._check_containers(host)
             qos_queue_per_host, qos_queue_pg_properties_per_host = \
-                                    self._process_qos_data(host_ip)
+                self._process_qos_data(host_ip)
             if qos_queue_per_host:
                 self.qos_queue.append(qos_queue_per_host)
             if qos_queue_pg_properties_per_host:
-                self.qos_queue_pg_properties.append(qos_queue_pg_properties_per_host)
+                self.qos_queue_pg_properties.append(
+                    qos_queue_pg_properties_per_host)
             roles = host["roles"]
             for role in roles:
                 if role['type'] == 'openstack':
@@ -665,12 +670,12 @@ class TestInputs(object):
         self.vcenter_gateway = []
         for (device_name, device_dict) in self.physical_routers_data.iteritems():
             if ((device_dict.has_key('type')) and (device_dict['type'] in 'vcenter_gateway')):
-               self.vcenter_gateway.append(device_dict)
-    #end _process_for_vcenter_gateway
+                self.vcenter_gateway.append(device_dict)
+    # end _process_for_vcenter_gateway
 
-    def _process_other_orchestrators(self,json_data):
+    def _process_other_orchestrators(self, json_data):
         self.orchs = []
-        #Depending on these 2 below flags, the tenant would be set to vCenter
+        # Depending on these 2 below flags, the tenant would be set to vCenter
         self.vcenter_gw_setup = False
         self.vcenter_present_in_this_setup = False
         if 'other_orchestrators' in json_data:
@@ -682,14 +687,14 @@ class TestInputs(object):
                     orch['vcenter_server'] = orch_dict['vcenter_server']
                     self.vcenter_present_in_this_setup = True
                 if 'gateway_vrouters' in orch_dict:
-                    orch['gateway_vrouters'] = orch_dict['gateway_vrouters'] 
+                    orch['gateway_vrouters'] = orch_dict['gateway_vrouters']
                     self.vcenter_gw_setup = True
                 if 'controller_refs' in orch_dict:
-                    orch['controller_refs'] = orch_dict['controller_refs'] 
+                    orch['controller_refs'] = orch_dict['controller_refs']
                 self.orchs.append(orch)
-    # end _process_other_orchestrators  
+    # end _process_other_orchestrators
 
-    def get_vcenter_gateway(self): 
+    def get_vcenter_gateway(self):
         for orch in self.orchs:
             if orch['type'] == 'vcenter':
                 return random.choice(orch['gateway_vrouters'])
@@ -700,42 +705,42 @@ class TestInputs(object):
         '''
         qos_queue_per_host = []
         qos_queue_pg_properties_per_host = []
-        try: 
+        try:
             if self.host_data[host_ip]['qos']:
                 hw_to_logical_map_list = []
                 for entry in self.host_data[host_ip]['qos']:
                     if "default" in entry.keys() and \
-                    "logical_queue" in entry.keys():
+                            "logical_queue" in entry.keys():
                         entry["logical_queue"].append("default")
-                        hw_to_logical_map = {entry["hardware_q_id"] :
+                        hw_to_logical_map = {entry["hardware_q_id"]:
                                              entry["logical_queue"]}
                     elif "default" in entry.keys() and \
-                    "logical_queue" not in entry.keys():
-                        hw_to_logical_map = {entry["hardware_q_id"] :
+                            "logical_queue" not in entry.keys():
+                        hw_to_logical_map = {entry["hardware_q_id"]:
                                              ["default"]}
                     else:
-                        hw_to_logical_map = {entry["hardware_q_id"] : 
+                        hw_to_logical_map = {entry["hardware_q_id"]:
                                              entry["logical_queue"]}
                     hw_to_logical_map_list.append(hw_to_logical_map)
-                qos_queue_per_host = [host_ip , hw_to_logical_map_list]
+                qos_queue_per_host = [host_ip, hw_to_logical_map_list]
         except KeyError, e:
             pass
-        try: 
+        try:
             if self.host_data[host_ip]['qos_niantic']:
                 pg_properties_list = []
                 for entry in self.host_data[host_ip]['qos_niantic']:
                     if 'bandwidth' not in entry.keys():
-                        entry.update({'bandwidth' : "0"})
+                        entry.update({'bandwidth': "0"})
                         pg_property = entry
                     else:
                         pg_property = entry
                     pg_properties_list.append(pg_property)
-                qos_queue_pg_properties_per_host = [host_ip ,
-                                                     pg_properties_list]
+                qos_queue_pg_properties_per_host = [host_ip,
+                                                    pg_properties_list]
         except KeyError, e:
             pass
         return (qos_queue_per_host, qos_queue_pg_properties_per_host)
-        
+
     def _process_tor_data(self):
         for (device_name, device_dict) in self.physical_routers_data.iteritems():
             device_dict['tor_agents'] = []
@@ -788,7 +793,7 @@ class TestInputs(object):
                   'api_server_port': self.api_server_port,
                   'api_protocol': self.api_protocol,
                   'insecure': self.insecure,
-                 }
+                  }
         api_h = VNCApiInspect(cfgm_ip, inputs=type('', (), kwargs))
         return api_h.get_computes()
 
@@ -814,7 +819,7 @@ class TestInputs(object):
                             'under "Basic" section, keyword "provFile"')
         if self.orchestrator.lower() == 'openstack':
             domain = self.admin_domain if self.stack_domain == 'default-domain' else \
-                     self.stack_domain
+                self.stack_domain
             keystone = KeystoneCommands(username=self.stack_user,
                                         password=self.stack_password,
                                         tenant=self.stack_tenant,
@@ -832,8 +837,8 @@ class TestInputs(object):
 
         # Assume contrail-collector runs in the same node as neutron-server
         collector_ip = os.getenv('ANALYTICS_IP', None) or \
-                    (keystone and re.match(pattern,
-                    keystone.get_endpoint('network')).group('ip'))
+            (keystone and re.match(pattern,
+                                   keystone.get_endpoint('network')).group('ip'))
         cfgm = self.get_nodes_from_href(collector_ip, "config-nodes")
         database = self.get_nodes_from_href(collector_ip, "database-nodes")
         collector = self.get_nodes_from_href(collector_ip, "analytics-nodes")
@@ -857,7 +862,7 @@ class TestInputs(object):
                      'name': hname,
                      'fqname': hfqname,
                      'roles': [],
-                    }
+                     }
             if host in cfgm:
                 hdict['roles'].append({'type': 'cfgm'})
             if host in collector:
@@ -880,13 +885,13 @@ class TestInputs(object):
     def get_nodes_from_href(self, collector_ip, uve_type):
         op_server_client = VerificationOpsSrv(collector_ip)
         service_href_list = op_server_client.get_hrefs_to_all_UVEs_of_a_given_UVE_type(
-                                                uveType = uve_type)
+            uveType=uve_type)
         node_name_list = []
         for elem in service_href_list:
             node_href = elem['href']
             uve = uve_type.rstrip('s')
             re_string = '(.*?)/%s/(.*?)\?flat' % uve
-            match = re.search(re_string , node_href)
+            match = re.search(re_string, node_href)
             node = match.group(2)
             node_name_list.append(node)
         node_ip_list = []
@@ -897,18 +902,18 @@ class TestInputs(object):
                 node_ip_list.append(node_ip)
             elif uve_type == "analytics-nodes":
                 node_dict = op_server_client.get_ops_collector(node)
-                node_ip = node_dict['ContrailConfig']['elements']\
-                                    ['analytics_node_ip_address'].strip('"')
+                node_ip = node_dict['ContrailConfig']['elements']['analytics_node_ip_address'].strip(
+                    '"')
                 node_ip_list.append(node_ip)
             elif uve_type == "config-nodes":
                 node_dict = op_server_client.get_ops_config(node)
-                node_ip = node_dict['ContrailConfig']['elements']\
-                                    ['config_node_ip_address'].strip('"')
+                node_ip = node_dict['ContrailConfig']['elements']['config_node_ip_address'].strip(
+                    '"')
                 node_ip_list.append(node_ip)
             elif uve_type == "database-nodes":
                 node_dict = op_server_client.get_ops_db(node)
-                node_ip = node_dict['ContrailConfig']['elements']\
-                                    ['database_node_ip_address'].strip('"')
+                node_ip = node_dict['ContrailConfig']['elements']['database_node_ip_address'].strip(
+                    '"')
                 node_ip_list.append(node_ip)
         return node_ip_list
 
@@ -940,8 +945,8 @@ class TestInputs(object):
     def get_build_sku(self):
         if not getattr(self, 'build_sku', None):
             self.build_sku = get_build_sku(self.openstack_ip,
-                             self.host_data[self.openstack_ip]['password'],
-                             self.host_data[self.openstack_ip]['username'])
+                                           self.host_data[self.openstack_ip]['password'],
+                                           self.host_data[self.openstack_ip]['username'])
         return self.build_sku
 
     def run_cmd_on_server(self, server_ip, issue_cmd, username=None,
@@ -956,22 +961,22 @@ class TestInputs(object):
             if not password:
                 password = self.host_data[server_ip]['password']
         if container:
-            # If the container does not exist on this host, log it and 
-            # run the cmd on the host itself 
+            # If the container does not exist on this host, log it and
+            # run the cmd on the host itself
             # This helps backward compatibility
             if not self.host_data[server_ip].get('containers', {}).get(container):
                 container = None
                 self.logger.debug('Container %s not in host %s, running on '
-                    ' host itself' % (container, server_ip))
+                                  ' host itself' % (container, server_ip))
         output = run_cmd_on_server(issue_cmd,
-                          server_ip,
-                          username,
-                          password,
-                          pty=pty,
-                          as_sudo=as_sudo,
-                          logger=self.logger,
-                          container=container,
-                          detach=detach)
+                                   server_ip,
+                                   username,
+                                   password,
+                                   pty=pty,
+                                   as_sudo=as_sudo,
+                                   logger=self.logger,
+                                   container=container,
+                                   detach=detach)
         return output
     # end run_cmd_on_server
 
@@ -1116,10 +1121,10 @@ class ContrailTestInit(object):
         return False
 
     # Commenting below 4 lines due to discovery changes in R4.0 - Bug 1658035
-    ###def verify_control_connection(self, connections):
+    # def verify_control_connection(self, connections):
     ###    discovery = connections.ds_verification_obj
-    ###    return discovery._verify_bgp_connection()
-    ### end verify_control_connection
+    # return discovery._verify_bgp_connection()
+    # end verify_control_connection
 
     def build_compute_to_control_xmpp_connection_dict(self, connections):
         agent_to_control_dct = {}
@@ -1426,11 +1431,11 @@ class ContrailTestInit(object):
         if not self.host_data[ip].get('containers', {}).get(container):
             container = None
             self.logger.debug('Container %s not in host %s, copying to '
-                ' host itself' % (container, ip))
+                              ' host itself' % (container, ip))
         copy_file_to_server(host, src, dstdir, dst, force, container=container)
 
     def copy_file_from_server(self, ip, src_file_path, dest_folder,
-            container=None):
+                              container=None):
         host = {}
         host['ip'] = ip
         host['username'] = self.host_data[ip]['username']
@@ -1438,7 +1443,7 @@ class ContrailTestInit(object):
         if not self.host_data[ip].get('containers', {}).get(container):
             container = None
             self.logger.debug('Container %s not in host %s, copying from '
-                ' host itself' % (container, ip))
+                              ' host itself' % (container, ip))
         copy_file_from_server(host, src_file_path, dest_folder,
-            container=container)
+                              container=container)
     # end copy_file_from_server
