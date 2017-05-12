@@ -51,7 +51,7 @@ class QuantumHelper():
         if not auth_h:
             auth_h = self.get_auth_h(**kwargs)
         self.auth_h = auth_h
-        self.project_id = get_plain_uuid(auth_h.get_project_id())
+        self.project_id = get_plain_uuid(auth_h.get_project_id(inputs.project_name))
     # end __init__
 
     def get_auth_h(self, **kwargs):
@@ -128,13 +128,30 @@ class QuantumHelper():
             return None
     # end _create_subnet
 
-    def create_port(self, net_id, fixed_ips=[],
+    def create_port(self, net_id, subnet_id=None,ip_address=None,fixed_ips=[],
                     mac_address=None, no_security_group=False,
                     security_groups=[], extra_dhcp_opts=None,
                     sriov=False, binding_profile=None):
         port_req_dict = {
             'network_id': net_id,
         }
+
+        if type(subnet_id) == list:
+           subnet_ids = subnet_id
+        elif subnet_id :
+           subnet_ids = [subnet_id]
+        else:
+           subnet_ids = []
+
+        port_req_dict['fixed_ips'] = []
+        for subnet_id in subnet_ids:
+            fixed_ip_req = {}
+            if subnet_id:
+                fixed_ip_req['subnet_id'] = subnet_id
+            if ip_address:
+                fixed_ip_req['ip_address'] = ip_address
+            port_req_dict['fixed_ips'].append(fixed_ip_req)
+
         if mac_address:
             port_req_dict['mac_address'] = mac_address
         if no_security_group:
@@ -348,13 +365,19 @@ class QuantumHelper():
         return fip_resp[fields] if fields else fip_resp
     # end get_floatingip
 
-    def get_port_id(self, vm_id):
+    def get_port_id(self, vm_id,vn_id=None):
         ''' Returns the Neutron port-id of a VM.
 
         '''
         try:
             port_rsp = self.obj.list_ports(device_id=[vm_id])
-            port_id = port_rsp['ports'][0]['id']
+            if vn_id:
+              for port in  port_rsp['ports']:
+                if port['network_id'] == vn_id:
+                   port_id = port['id']
+                   break
+            else:
+              port_id = port_rsp['ports'][0]['id']
             return port_id
         except Exception as e:
             self.logger.error('Error occured while getting port-id of a VM ')
