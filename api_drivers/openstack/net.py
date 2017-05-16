@@ -39,7 +39,10 @@ def _extract_attrs_for_create (kwargs):
        net_args['port_security_enabled'] = kwargs['port_security_enabled']
    if 'is_shared' in kwargs:
        net_args['shared'] = kwargs['is_shared']
-
+   if 'network_policy_refs' in kwargs:
+       net_args['contrail:policys'] = [ref['to'] for ref in \
+               kwargs['network_policy_refs']]
+       
    subnets = []
    for ipam in kwargs['network_ipam_refs']:
        to = ipam['to']
@@ -57,6 +60,9 @@ def _extract_attrs_for_update (kwargs, network, subnets):
        net_args['port_security_enabled'] = kwargs['port_security_enabled']
    if 'is_shared' in kwargs:
        net_args['shared'] = kwargs['is_shared']
+   if 'network_policy_refs' in kwargs:
+       net_args['contrail:policys'] = [ref['to'] for ref in \
+               kwargs['network_policy_refs']]
 
    to_add = []
    to_del = []
@@ -94,10 +100,9 @@ def _extract_attrs_for_update (kwargs, network, subnets):
 
    return net_args, to_add, to_del, to_upd
 
-class OsVnSubnetMixin:
+class OsVnMixin:
 
-   ''' Mixin class implements CRUD methods for virtual network and
-       subnet
+   ''' Mixin class implements CRUD methods for Virtual-Network
    '''
 
    def create_virtual_network (self, **kwargs):
@@ -107,13 +112,17 @@ class OsVnSubnetMixin:
        if args['type'] == 'openstack':
            del args['type']
            vn_args = args
+           if 'value_specs' in vn_args:
+               for k, v in vn_args['value_specs'].items():
+                   vn_args[k] = v
+               del vn_args['value_specs']
        else:
            vn_args, add_subnets = _extract_attrs_for_create(kwargs)
        net = self._qh.create_network({'network': vn_args})
        if add_subnets:
            for subnet in add_subnets:
                subnet['network_id'] = net['network']['id']
-               self._create_subnet(**subnet)
+               self.create_subnet(type='openstack', **subnet)
        return net['network']['id']
 
    def get_virtual_network (self, uuid):
@@ -146,41 +155,10 @@ class OsVnSubnetMixin:
                self._qh.update_network(uuid, {'network':vn_args})
        for subnet in add_subnets:
            subnet['network_id'] = uuid
-           self._create_subnet(**subnet)
+           self.create_subnet(type='openstack', **subnet)
        for subnet in del_subnets:
            self.delete_subnet(uuid=subnet)
        for subnet in upd_subnets:
            subnet_id = subnet['id']
            del subnet['id']
-           self._update_subnet(subnet_id, **subnet)
-
-   def _create_subnet (self, **kwargs):
-       subnet = self._qh.create_subnet({'subnet': kwargs})
-       return subnet['subnet']['id']
-
-   def create_subnet (self, **kwargs):
-       args = copy.deepcopy(kwargs)
-       if args['type'] == 'openstack':
-           del args['type']
-       else:
-           raise Exception("Unimplemented") #TODO
-       return self._create_subnet(**args)
-
-   def get_subnet (self, uuid):
-       return self._qh.show_subnet(uuid)
-
-   def delete_subnet (self, obj=None, uuid=None):
-       uuid = uuid or obj['subnet']['id']
-       return self._qh.delete_subnet(uuid)
-
-   def _update_subnet (self, uuid, **kwargs):
-       self._qh.update_subnet(uuid, {'subnet':kwargs})
-
-   def update_subnet (self, obj=None, uuid=None, **kwargs):
-       args = copy.deepcopy(kwargs)
-       uuid = uuid or obj['subnet']['id']
-       if args['type'] == 'openstack':
-           del args['type']
-       else:
-           raise Exception("Unimplemented") #TODO
-       self._update_subnet(uuid, **args)
+           self.update_subnet(subnet_id, type='openstack', **subnet)

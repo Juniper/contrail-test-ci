@@ -7,7 +7,8 @@ orch_read_fn = string.Template(
 '''
    @retry(delay=1, tries=5)
    def _read_orch_obj (self):
-       obj = self._ctrl.get_$__object_type__(self.uuid)
+       with self._api_ctx:
+           obj = self._ctrl.get_$__object_type__(self.uuid)
        return obj != None, obj
 ''')
 
@@ -65,18 +66,21 @@ $__orch_read_call__
 
    def _create (self):
        self.logger.info('Creating %s' % self)
-       self.uuid = self._ctrl.create_$__object_type__(
-           **self._args)
+       with self._api_ctx:
+           self.uuid = self._ctrl.create_$__object_type__(
+               **self._args)
 
    def _delete (self):
        self.logger.info('Deleting %s' % self)
-       self._ctrl.delete_$__object_type__(
-           obj=self._obj, uuid=self.uuid)
+       with self._api_ctx:
+           self._ctrl.delete_$__object_type__(
+               obj=self._obj, uuid=self.uuid)
 
    def _update (self):
        self.logger.info('Updating %s' % self)
-       self._ctrl.update_$__object_type__(
-           obj=self._obj, uuid=self.uuid, **self.args)
+       with self._api_ctx:
+           self._ctrl.update_$__object_type__(
+               obj=self._obj, uuid=self.uuid, **self.args)
 
    def verify_on_setup (self):
        #TODO: add verification code
@@ -114,7 +118,7 @@ class $__fixture__ ($__fixturev2__):
 
    def _check_if_present (self, conn, name, prj_fqn):
        uid = prj_fqn + [name]
-       obj = conn.get_orch_ctrl().get_api('vnc').get_$__vnc_class__(uid)
+       obj = conn.get_orch_ctrl().get_api('vnc').get_$__object_type__(uid)
        if not obj:
            return None
        return uid

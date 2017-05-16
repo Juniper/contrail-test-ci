@@ -12,10 +12,15 @@ try:
    from novaclient import client as novac
    from novaclient import exceptions as novaException
    from keystone_tests import KeystoneCommands
-   from os_vm import OsVmMixin
-   from os_vn_subnet import OsVnSubnetMixin
+   from vm import OsVmMixin
+   from net import OsVnMixin
+   from subnet import OsSubnetMixin
+   from policy import OsPolicyMixin
 
-   class OpenstackDriver (OsVmMixin, OsVnSubnetMixin):
+   class OpenstackDriver (OsVmMixin,
+                          OsVnMixin,
+                          OsSubnetMixin,
+                          OsPolicyMixin):
 
        ''' Api Driver class for Openstack Apis.
 

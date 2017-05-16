@@ -67,6 +67,15 @@ class VNFixture_v2 (ContrailFixture):
        if ret:
            self._obj = obj
 
+       # read policies associated with vn
+       if not getattr(self, '_policies', None):
+           self._policies = []
+           refs = self.vnc_obj.get_network_policy_refs()
+           if refs:
+               for policy in refs:
+                   self._policies.append(policy['to'])
+
+
    def _create (self):
        self.logger.info('Creating %s' % self)
        with self._api_ctx:
@@ -423,9 +432,6 @@ class VNFixture_v2 (ContrailFixture):
        return True, None
 
    def _verify_policy_in_api_server (self):
-       if getattr(self, '_policies', None) is not None:
-           return True, None
-
        domain, project, name = self.fq_name
        api_s_vn_obj = self.api_s_inspect.get_cs_vn(domain=domain,
                project=project, vn=name, refresh=True)
@@ -454,7 +460,8 @@ class VNFixture_v2 (ContrailFixture):
 from tcutils.util import get_random_cidrs, get_af_from_cidrs, get_af_type,\
                          get_random_name, is_v6
 from vnc_api.vnc_api import VirtualNetworkType, RouteTargetList,\
-                            NetworkIpam
+                            NetworkIpam, SequenceType,\
+                            VirtualNetworkPolicyType
 
 class VNFixture (VNFixture_v2):
 
@@ -490,7 +497,6 @@ class VNFixture (VNFixture_v2):
            if uid:
                super(VNFixture, self).__init__(connections=connections,
                                                uuid=uid)
-               self._read_on_setup = True
                return
        else:
            name = get_random_name(prj)
@@ -516,21 +522,11 @@ class VNFixture (VNFixture_v2):
        self.vnc_api = self._vnc._vnc # direct handle to vnc library
        if self._api == 'quantum':
            self._qh = self._ctrl.get_api('openstack').quantum_handle
-       if getattr(self, '_read_on_setup', False):
-           self._fetch_info()
        self._create_subnets()
 
    def cleanUp (self):
        self._delete_subnets()
        super(VNFixture, self).cleanUp()
-
-   def _fetch_info (self):
-       # policies
-       self._policies = []
-       refs = self.vnc_obj.get_network_policy_refs()
-       if refs:
-           for policy in refs:
-               self._policies.append(policy['to'].split(':'))
 
    def _construct_contrail_params (self, name, prj_fqn, kwargs):
        self._params = {
@@ -812,13 +808,13 @@ class VNFixture (VNFixture_v2):
    def bind_policies (self, policy_fq_names):
        if self._api == 'contrail':
            self.vnc_obj.set_network_policy_list([], True)
-           self.vnc_api.update_virtual_network(self.vnc_obj)
+           self.vnc_api.virtual_network_update(self.vnc_obj)
            for seq, policy in enumerate(policy_fq_names):
                policy_obj = self._vnc.get_network_policy(policy)
                seq_obj = SequenceType(major=seq, minor=0)
-               self.vnc_obj.add_network_policy(poilcy_obj,
+               self.vnc_obj.add_network_policy(policy_obj,
                                VirtualNetworkPolicyType(sequence=seq_obj))
-           self.vnc_api.update_virtual_network(self.vnc_obj)
+           self.vnc_api.virtual_network_update(self.vnc_obj)
        else:
            net_req = {'contrail:policys': policy_fq_names}
            self._qh.update_network(self.uuid, {'network': net_req})
@@ -829,7 +825,7 @@ class VNFixture (VNFixture_v2):
        if self._api == 'contrail':
            if policy_fq_names == []:
                self.vnc_obj.set_network_policy_list([],True)
-               self.vnc_api.update_virtual_network(self.vnc_obj)
+               self.vnc_api.virtual_network_update(self.vnc_obj)
                policys_to_remain = []
            else:
                policys_to_remain = copy.copy(self._policies)
@@ -837,7 +833,7 @@ class VNFixture (VNFixture_v2):
                    policy_obj = self._vnc.get_network_policy(policy)
                    self.vnc_obj.del_network_policy(policy_obj)
                    policys_to_remain.remove(policy)
-               self.vnc_api.update_virtual_network(self.vnc_obj)
+               self.vnc_api.virtual_network_update(self.vnc_obj)
        else:
            if policy_fq_names == []:
                policys_to_remain = []
@@ -848,7 +844,7 @@ class VNFixture (VNFixture_v2):
            net_req = {'contrail:policys': policys_to_remain}
            self._qh.update_network(self.uuid, {'network': net_req})
        self.update()
-       self._policies = policy_to_remain
+       self._policies = policys_to_remain
 
 
 class NotPossibleToSubnet(Exception):
