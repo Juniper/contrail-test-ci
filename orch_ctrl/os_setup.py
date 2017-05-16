@@ -3,8 +3,8 @@ import re
 from fabric.context_managers import settings
 from fabric.operations import sudo, put
 from common import FlavorMgr, ImageMgr, RoundRobin
-from api_drivers.openstack.os_drv import supported_types as os_arg_types
-from api_drivers.vnc.vnc_drv import supported_types as vnc_arg_types
+from api_drivers.openstack.driver import supported_types as os_arg_types
+from api_drivers.vnc.driver import supported_types as vnc_arg_types
 
 #TODO: logging
 
@@ -130,7 +130,7 @@ class OpenstackControl (object):
            return self._apis[api]
 
    def _get_heat_api (self):
-       from api_drivers.heat.heat_drv import HeatDriver
+       from api_drivers.heat.driver import HeatDriver
        return HeatDriver(username=self._user,
                          password=self._pass,
                          project_name=self._prjname,
@@ -139,7 +139,7 @@ class OpenstackControl (object):
                          logger=self.logger)
 
    def _get_vnc_api (self):
-       from api_drivers.vnc.vnc_drv import VncDriver
+       from api_drivers.vnc.driver import VncDriver
        return VncDriver(username=self._user,
                         password=self._pass,
                         project_name=self._prjname,
@@ -149,7 +149,7 @@ class OpenstackControl (object):
                         auth_server_ip=self._auth_ip)
 
    def _get_openstack_api (self):
-       from api_drivers.openstack.os_drv import OpenstackDriver
+       from api_drivers.openstack.driver import OpenstackDriver
        return OpenstackDriver(username=self._user,
                               password=self._pass,
                               project_id=self._prjid,

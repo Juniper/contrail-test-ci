@@ -139,6 +139,7 @@ class VNCApiInspect (VerificationUtilBase):
         p = self.try_cache('policy', [domain, project, policy], refresh)
         if not p:
             # cache miss
+            pp = None
             proj = self.get_cs_project(domain, project, refresh)
             if proj:
                 mypolicy = proj.policy(policy)
