@@ -264,6 +264,9 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     if env.has_key('physical_routers'):
         sanity_testbed_dict['physical_routers'] = env.physical_routers
 
+    sanity_testbed_dict['contrail-kubernetes'] = env.roledefs.get(
+        'contrail-kubernetes', [])
+
     esxi_hosts = getattr(testbed, 'esxi_hosts', None)
     if esxi_hosts:
         for esxi in esxi_hosts:
