@@ -120,9 +120,6 @@ class QosForwardingClassFixture(QosBaseFixture):
     # end create
 
     def verify_on_setup(self):
-        if not self.agent_inspect:
-            self.logger.warn('Cluster information missing. Cannot proceed')
-            return None
         if not self.verify_fc_in_all_agents():
             self.logger.error('Verification of FC %s in agent failed' % (
                 self.fq_name))
@@ -479,9 +476,6 @@ class QosConfigFixture(QosBaseFixture):
         return self.verify_on_setup(self)
 
     def verify_on_setup(self):
-        if not self.agent_inspect:
-            self.logger.warn('Cluster information missing. Cannot proceed')
-            return None
         if not self.verify_qos_config_in_all_agents():
             self.logger.error('Verification of Qos config %s in agent failed' % (
                 self.fq_name))
