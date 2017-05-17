@@ -2631,6 +2631,7 @@ class VMFixture(fixtures.Fixture):
         self.cs_vmi_obj = {}
         self.get_vmi_objs()
         self.vm_id = self.vm_objs[0].id
+        self.vm_ip_dict = self.get_vm_ip_dict()
         # Figure out the local metadata IP of the VM reachable from host
         inspect_h = self.agent_inspect[self.vm_node_ip]
 
