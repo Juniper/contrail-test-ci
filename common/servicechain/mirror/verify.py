@@ -295,7 +295,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
 
 
     @retry(delay=2, tries=6)
-    def verify_port_mirroring(self, src_vm, dst_vm, mirr_vm):
+    def verify_port_mirroring(self, src_vm, dst_vm, mirr_vm, src_subint_ip = '', dst_subint_ip = '', sub_intf = ''):
         result = True
         svm = mirr_vm.vm_obj
         if svm.status == 'ACTIVE':
