@@ -17,6 +17,9 @@ PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD="$PACKAGES_REQUIRED_UBUNTU python-dev libx
 PACKAGES_REQUIRED_RALLY="libssl-dev libffi-dev python-dev libxml2-dev libxslt1-dev libpq-dev libpq5=9.3.15-0ubuntu0.14.04"
 EXTRAS="http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1-dev_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libpython2.7-dev_2.7.6-8ubuntu0.2_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/python2.7-dev_2.7.6-8ubuntu0.2_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxslt1-dev_1.1.28-2ubuntu0.1_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxslt1.1_1.1.28-2ubuntu0.1_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxml2-dev_2.9.1+dfsg1-3ubuntu4.9_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxml2_2.9.1+dfsg1-3ubuntu4.9_amd64.deb"
 
+#registry server from which ubuntu build images are pulled
+registry_server="10.84.34.155:5000"
+
 usage () {
     cat <<EOF
 Install or do docker build of Contrail-test and contrail-test-ci
@@ -304,7 +307,7 @@ EOT
 
 function make_dockerfile {
     type=$1
-    base_image=${2:-hkumar/ubuntu-14.04.2}
+    base_image=${2:-$registry_server/ubuntu-14.04.2}
     cat <<EOF
 FROM $base_image
 MAINTAINER Juniper Contrail <contrail@juniper.net>
@@ -490,7 +493,7 @@ EOF
     build_prep () {
         image_tag=${1:-$PREP_IMAGE}
         BUILD_DIR=`mktemp -d`
-        make_dockerfile prep 'hkumar/ubuntu-14.04.2' > $BUILD_DIR/Dockerfile
+        make_dockerfile prep "$registry_server/ubuntu-14.04.2" > $BUILD_DIR/Dockerfile
 
         if [[ -n $scp_package ]]; then
             # Disabling xtrace to avoid printing SSHPASS
