@@ -1,6 +1,7 @@
 import os
 import re
 from common.servicechain.verify import VerifySvcChain
+from common.servicechain.mirror.verify import VerifySvcMirror
 from tcutils.util import get_random_cidr
 from tcutils.util import get_random_name
 
@@ -14,7 +15,7 @@ SVC_TYPE_PROPS = {
                  }
 }
 
-class VerifySvcFirewall(VerifySvcChain):
+class VerifySvcFirewall(VerifySvcMirror):
 
     def verify_svc_span(self, in_net=False):
         vn1_name = get_random_name("left_vn")
@@ -452,7 +453,7 @@ class VerifySvcFirewall(VerifySvcChain):
                     'src_ports': [8000, 8000],
                     'dest_network': new_right_vn,
                     'dst_ports': [9000, 9000],
-                    'simple_action': action_list['simple_action'],
+                    'simple_action': action_list.get('simple_action', None),
                     'action_list': {'apply_service': action_list['apply_service']}
                     }
         rules.append(udp_rule)
@@ -583,8 +584,7 @@ class VerifySvcFirewall(VerifySvcChain):
                     'src_ports': [8000, 8000],
                     'dest_network': right_vn_fixture.vn_name,
                     'dst_ports': [9000, 9000],
-                    'simple_action': None,
-                    'action_list': {'apply_service': action_list}
+                    'action_list': action_list
                     }
         rules = [new_rule]
 
@@ -632,16 +632,16 @@ class VerifySvcFirewall(VerifySvcChain):
         assert new_left_vm_fix.ping_with_certainty(
             new_right_vm_fix.vm_ip, expectation=False), errmsg
 
-        errmsg = "Ping to right VM ip %s from left VM failed; Expected to fail" % self.vm2_fixture.vm_ip
+        errmsg = "Ping to right VM ip %s from left VM failed; Expected to fail" % right_vm_fixture.vm_ip
         assert new_left_vm_fix.ping_with_certainty(
             right_vm_fixture.vm_ip, expectation=False), errmsg
 
-        errmsg = "Ping to right VM ip %s from left VM failed; Expected to fail" % self.vm2_fixture.vm_ip
-        assert self.vm1_fixture.ping_with_certainty(
-            self.vm2_fixture.vm_ip, expectation=False), errmsg
+        errmsg = "Ping to right VM ip %s from left VM failed; Expected to fail" % right_vm_fixture.vm_ip
+        assert left_vm_fixture.ping_with_certainty(
+            right_vm_fixture.vm_ip, expectation=False), errmsg
 
-        errmsg = "Ping to right VM ip %s from left VM passed; Expected to fail" % new_right_vm_fix.vm_ip
-        assert self.vm1_fixture.ping_with_certainty(
+        errmsg = "Ping to right VM ip %s from left VM failed; Expected to fail" % new_right_vm_fix.vm_ip
+        assert left_vm_fixture.ping_with_certainty(
             new_right_vm_fix.vm_ip, expectation=False), errmsg
 
     # end verify_add_new_vms
