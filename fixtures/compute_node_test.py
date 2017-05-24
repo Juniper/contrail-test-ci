@@ -66,10 +66,16 @@ class ComputeNodeFixture(fixtures.Fixture):
             'flow_cache_timeout': 180,
             'headless_mode': 'false'}
         self.default_values['FLOWS'] = {'max_vm_flows': 100}
+        self.default_values['SANDESH'] = {
+            'introspect_ssl_enable': 'false',
+            'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+            'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
+            'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem'}
         self.max_system_flows = 512*1024
         self.agent_inspect_h = self.connections.agent_inspect[self.ip]
         self.flow_table = None
         self.agent_generator_name = None
+        self.introspect_ssl_enable = 'false'
     # end __init__
 
     def setUp(self):
@@ -231,9 +237,47 @@ class ComputeNodeFixture(fixtures.Fixture):
                 "Headless mode set to %s successfully" %
                 (headless_mode))
 
+    def set_introspect_ssl_and_certs(self, ssl_enable='false', keyfile=None,
+            certfile=None, ca_certfile=None):
+        '''
+        set the introspect ssl config and restart the agent
+        '''
+        self.logger.info('Set introspect ssl config in node %s' % (self.ip))
+        self.read_agent_config()
+        self.config.set('SANDESH', 'introspect_ssl_enable', ssl_enable)
+        self.config.set('SANDESH', 'sandesh_keyfile', keyfile)
+        self.config.set('SANDESH', 'sandesh_certfile', certfile)
+        self.config.set('SANDESH', 'sandesh_ca_cert', ca_certfile)
+        self.write_agent_config()
+        self.put_file(self.new_agent_conf_file.name, self.agent_conf_file)
+        self.get_introspect_ssl_and_certs()
+        if self.introspect_ssl_enable != ssl_enable:
+            self.logger.error(
+                "Problem in setting introspect ssl in node %s, expected %s, got %s" %
+                (self.name, ssl_enable, self.introspect_ssl_enable))
+        else:
+            self.logger.info(
+                "Introspect ssl set to %s successfully, restarting the agent now" %
+                (ssl_enable))
+            self.restart_agent()
+            return self.wait_for_vrouter_agent_state(state='active')
+
+    def get_introspect_ssl_and_certs(self):
+        self.introspect_ssl_enable = self.get_option_value('SANDESH', 'introspect_ssl_enable')
+        self.introspect_keyfile = self.get_option_value('SANDESH', 'sandesh_keyfile')
+        self.introspect_certfile = self.get_option_value('SANDESH', 'sandesh_certfile')
+        self.introspect_ca_certfile = self.get_option_value('SANDESH', 'sandesh_ca_cert')
+
+        return (self.introspect_ssl_enable, self.introspect_keyfile,
+            self.introspect_certfile, self.introspect_ca_certfile)
+
     @retry(delay=5, tries=15)
     def wait_for_vrouter_agent_state(self, state='active'):
         cmd = "contrail-status | grep 'contrail-vrouter-agent'"
+        if 'true' == self.introspect_ssl_enable:
+            cmd = "contrail-status -k %s -c %s -a %s| grep 'contrail-vrouter-agent'" % (
+                        self.introspect_keyfile, self.introspect_certfile,
+                        self.introspect_ca_certfile)
         service_status = self.execute_cmd(cmd)
         if state in service_status:
             self.logger.info(

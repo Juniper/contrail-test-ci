@@ -328,6 +328,18 @@ class TestInputs(object):
                                            'cfgm', 'api_cafile', None)
         self.api_insecure = bool(read_config_option(self.config,
                                  'cfgm', 'api_insecure_flag', False))
+
+        self.introspect_certfile = read_config_option(self.config,
+                                             'introspect', 'introspect_certfile', None)
+        self.introspect_keyfile = read_config_option(self.config,
+                                            'introspect', 'introspect_keyfile', None)
+        self.introspect_cafile = read_config_option(self.config,
+                                           'introspect', 'introspect_cafile', None)
+        self.introspect_insecure = bool(read_config_option(self.config,
+                                 'introspect', 'introspect_insecure_flag', True))
+        self.introspect_protocol = read_config_option(self.config,
+                                          'introspect', 'introspect_protocol', 'http')
+
         self.keystonecertfile = read_config_option(self.config,
                                 'Basic', 'keystone_certfile',
                                 os.getenv('OS_CERT', None))
@@ -357,10 +369,15 @@ class TestInputs(object):
             apicertbundle = utils.getCertKeyCaBundle(api_bundle,
                             [self.apicertfile, self.apikeyfile,
                              self.apicafile])
+        introspect_certbundle = None
+        if not self.introspect_insecure and self.introspect_protocol == 'https' and \
+           self.introspect_cafile:
+            introspect_certbundle = self.introspect_cafile
+
         self.certbundle = None
-        if keycertbundle or apicertbundle:
+        if keycertbundle or apicertbundle or introspect_certbundle:
             bundle = '/tmp/' + get_random_string() + '.pem'
-            certs = [cert for cert in [keycertbundle, apicertbundle] if cert]
+            certs = [cert for cert in [keycertbundle, apicertbundle, introspect_certbundle] if cert]
             self.certbundle = utils.getCertKeyCaBundle(bundle, certs)
 
         self.prov_file = self.prov_file or self._create_prov_file()
@@ -1152,6 +1169,10 @@ class ContrailTestInit(object):
     @retry(delay=10, tries=10)
     def confirm_service_active(self, service_name, host, container=None):
         cmd = 'contrail-status | grep %s | grep " active "' % (service_name)
+        if not self.introspect_insecure:
+            cmd = 'contrail-status -k %s -c %s -a %s| grep %s | grep " active"' % (
+                        self.introspect_keyfile, self.introspect_certfile,
+                        self.introspect_cafile, service_name)
         output = self.run_cmd_on_server(
             host, cmd, self.host_data[host]['username'],
             self.host_data[host]['password'],
