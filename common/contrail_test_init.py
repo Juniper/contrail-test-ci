@@ -35,6 +35,9 @@ ORCH_DEFAULT_DOMAIN = {
     'openstack' : 'Default',
     'kubernetes': 'default-domain'
 }
+DEFAULT_CERT = '/etc/contrail/ssl/certs/server.pem'
+DEFAULT_PRIV_KEY = '/etc/contrail/ssl/private/server-privkey.pem'
+DEFAULT_CA = '/etc/contrail/ssl/certs/ca-cert.pem'
 
 # monkey patch subprocess.check_output cos its not supported in 2.6
 if "check_output" not in dir(subprocess):  # duck punch it in!
@@ -327,13 +330,25 @@ class TestInputs(object):
             self.authn_url = '/v2.0/tokens'
         self._set_auth_vars()
         self.apicertfile = read_config_option(self.config,
-                                             'cfgm', 'api_certfile', None)
+                                             'cfgm', 'api_certfile', DEFAULT_CERT)
         self.apikeyfile = read_config_option(self.config,
-                                            'cfgm', 'api_keyfile', None)
+                                            'cfgm', 'api_keyfile', DEFAULT_PRIV_KEY)
         self.apicafile = read_config_option(self.config,
-                                           'cfgm', 'api_cafile', None)
+                                           'cfgm', 'api_cafile', DEFAULT_CA)
         self.api_insecure = bool(read_config_option(self.config,
                                  'cfgm', 'api_insecure_flag', False))
+
+        self.introspect_certfile = read_config_option(self.config,
+                                             'introspect', 'introspect_certfile', DEFAULT_CERT)
+        self.introspect_keyfile = read_config_option(self.config,
+                                            'introspect', 'introspect_keyfile', DEFAULT_PRIV_KEY)
+        self.introspect_cafile = read_config_option(self.config,
+                                           'introspect', 'introspect_cafile', DEFAULT_CA)
+        self.introspect_insecure = bool(read_config_option(self.config,
+                                 'introspect', 'introspect_insecure_flag', True))
+        self.introspect_protocol = read_config_option(self.config,
+                                          'introspect', 'introspect_protocol', 'http')
+
         self.keystonecertfile = read_config_option(self.config,
                                 'Basic', 'keystone_certfile',
                                 os.getenv('OS_CERT', None))
@@ -363,10 +378,15 @@ class TestInputs(object):
             apicertbundle = utils.getCertKeyCaBundle(api_bundle,
                             [self.apicertfile, self.apikeyfile,
                              self.apicafile])
+        introspect_certbundle = None
+        if not self.introspect_insecure and self.introspect_protocol == 'https' and \
+           self.introspect_cafile:
+            introspect_certbundle = self.introspect_cafile
+
         self.certbundle = None
-        if keycertbundle or apicertbundle:
+        if keycertbundle or apicertbundle or introspect_certbundle:
             bundle = '/tmp/' + get_random_string() + '.pem'
-            certs = [cert for cert in [keycertbundle, apicertbundle] if cert]
+            certs = [cert for cert in [keycertbundle, apicertbundle, introspect_certbundle] if cert]
             self.certbundle = utils.getCertKeyCaBundle(bundle, certs)
 
         self.prov_file = self.prov_file or self._create_prov_file()
@@ -1160,13 +1180,38 @@ class ContrailTestInit(object):
     # end reboot
 
     @retry(delay=10, tries=10)
-    def confirm_service_active(self, service_name, host, container=None):
-        cmd = 'contrail-status | grep %s | grep " active "' % (service_name)
+    def confirm_service_active(self, service_name, host, container=None,
+            certs_dict=None):
+        '''
+        In some cases service certificates can be different than client(test
+        cases in this case). so we need service certs to be used in contrail-status,
+        which can be passed as certs_dict.
+        certs_dict = {'key':value, 'cert':value, 'ca':value}
+        '''
+        if not self.introspect_insecure:
+            if certs_dict:
+                key = certs_dict['key']
+                cert = certs_dict['cert']
+                ca = certs_dict['ca']
+            else:
+                key = self.introspect_keyfile
+                cert = self.introspect_certfile
+                ca = self.introspect_cafile
+            ssl_args = ' -k %s -c %s -a %s' % (key, cert, ca)
+        else:
+            ssl_args = None
+
+        status = " active"
+        cmd = 'contrail-status'
+        if ssl_args:
+            cmd = cmd + ssl_args
+        cmd = '%s | grep %s' % (cmd, service_name)
+
         output = self.run_cmd_on_server(
             host, cmd, self.host_data[host]['username'],
             self.host_data[host]['password'],
             container=container)
-        if output is not None:
+        if output and (service_name in output) and (status in output):
             return True
         else:
             return False
@@ -1177,7 +1222,8 @@ class ContrailTestInit(object):
             service_name,
             host_ips=[],
             contrail_service=True,
-            container=None):
+            container=None,
+            verify_service=True):
         result = True
         if len(host_ips) == 0:
             host_ips = self.host_ips
@@ -1192,8 +1238,9 @@ class ContrailTestInit(object):
                 issue_cmd = 'service %s restart' % (service_name)
             self.run_cmd_on_server(
                 host, issue_cmd, username, password, pty=False, container=container)
-            assert self.confirm_service_active(service_name, host, container=container), \
-                "Service Restart failed for %s" % (service_name)
+            if verify_service:
+                assert self.confirm_service_active(service_name, host, container=container), \
+                    "Service Restart failed for %s" % (service_name)
     # end restart_service
 
     def stop_service(self, service_name, host_ips=[], contrail_service=True,
