@@ -582,7 +582,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         return result
 
     @retry(delay=2, tries=6)
-    def verify_port_mirroring(self, src_vm, dst_vm, mirr_vm):
+    def verify_port_mirroring(self, src_vm, dst_vm, mirr_vm, vlan=None):
         result = True
         svm = mirr_vm.vm_obj
         if svm.status == 'ACTIVE':
@@ -595,10 +595,17 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                 None, [mirr_vm], None, filters='udp port 8099', pcap_on_vm=True)
         else:
             session = ssh(host['host_ip'], host['username'], host['password'])
-            pcap = self.start_tcpdump(session, tapintf)
+            pcap = self.start_tcpdump(session, tapintf, vlan=vlan)
+        src_ip = src_vm.vm_ip
+        dst_ip = dst_vm.vm_ip
+        if vlan:
+            sub_intf = 'eth0.' + str(vlan)
+            cmds = "/sbin/ifconfig " + sub_intf + " | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'"
+            src_ip = src_vm.run_cmd_on_vm(cmds=[cmds]).values()[0]
+            dst_ip = dst_vm.run_cmd_on_vm(cmds=[cmds]).values()[0]
         assert src_vm.ping_with_certainty(dst_vm.vm_ip, count=5, size='1400')
         self.logger.info('Ping from %s to %s executed with c=5, expected mirrored packets 5 Ingress,5 Egress count = 10'
-            % (src_vm.vm_ip, dst_vm.vm_ip))
+            % (src_ip, dst_ip))
         filters = '| grep \"length [1-9][4-9][0-9][0-9][0-9]*\"'
         if self.inputs.pcap_on_vm:
             output, mirror_pkt_count = stop_tcpdump_for_vm_intf(
@@ -1566,3 +1573,4 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
 
     def cleanUp(self):
         super(VerifySvcMirror, self).cleanUp()
+

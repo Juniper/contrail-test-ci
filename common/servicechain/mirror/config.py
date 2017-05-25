@@ -8,12 +8,15 @@ from common.ecmp.ecmp_verify import ECMPVerify
 
 class ConfigSvcMirror(ConfigSvcChain):
 
-    def start_tcpdump(self, session, tap_intf):
+    def start_tcpdump(self, session, tap_intf, vlan=None):
         pcap = '/tmp/mirror-%s.pcap' % tap_intf
         cmd = 'rm -f %s' % pcap
         execute_cmd(session, cmd, self.logger)
         sleep(5)
-        cmd = "tcpdump -ni %s udp port 8099 -w %s" % (tap_intf, pcap)
+        filt_str = ''
+        if not vlan:
+            filt_str = 'udp port 8099'
+        cmd = "tcpdump -ni %s %s -w %s" % (tap_intf, filt_str, pcap)
         self.logger.info("Staring tcpdump to capture the mirrored packets.")
         execute_cmd(session, cmd, self.logger)
         return pcap
