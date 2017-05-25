@@ -228,12 +228,14 @@ class VerifyIntfMirror(VerifySvcMirror):
         compute_nodes  = self.get_compute_nodes(1, 0, 0)
         return self.verify_intf_mirroring(compute_nodes, [0, 1, 1], sub_intf)
 
-    def create_sub_intf(self, vn_fix_uuid, intf_type, vlan=101, mac_address=None):
+    def create_sub_intf(self, vn_fix_uuid, intf_type, mac_address=None):
 
+        vlan = self.vlan
         parent_port_vn_subnets = [get_random_cidr(af=self.inputs.get_af())]
         parent_port_vn_name = get_random_name( intf_type + "_parent_port_vn")
         parent_port_vn_fixture = self.config_vn(parent_port_vn_name, parent_port_vn_subnets)
         parent_port = self.setup_vmi(parent_port_vn_fixture.uuid)
+        mac_address = parent_port.mac_address
         port = self.setup_vmi(vn_fix_uuid,
                                        parent_vmi=parent_port.vmi_obj,
                                        vlan_id=vlan,
@@ -401,6 +403,8 @@ class VerifyIntfMirror(VerifySvcMirror):
 
         vn1_vmi_ref, vn2_vmi_ref, vn3_vmi_ref = None, None, None
 
+        self.vlan = 101
+
         if vn_index_list[0] == 0:
            self.src_vn_fixture = self.vn1_fixture
            self.src_vn_fq_name = self.vn1_fq_name
@@ -483,14 +487,6 @@ class VerifyIntfMirror(VerifySvcMirror):
         self.dst_vm_name = get_random_name("dst_vm")
         self.analyzer_vm_name = get_random_name("analyzer_vm")
 
-        if sub_intf: 
-            self.vn1_fixture.add_route_target(self.vn1_fixture.ri_name, self.inputs.router_asn, '98765')
-            self.vn2_fixture.add_route_target(self.vn2_fixture.ri_name, self.inputs.router_asn, '98765')
-            self.vn3_fixture.add_route_target(self.vn3_fixture.ri_name, self.inputs.router_asn, '98765')
-            self.src_parent_port_vn_fixture.add_route_target(self.src_parent_port_vn_fixture.ri_name, self.inputs.router_asn, '98765')
-            self.dst_parent_port_vn_fixture.add_route_target(self.dst_parent_port_vn_fixture.ri_name, self.inputs.router_asn, '98765')
-            self.analyzer_parent_port_vn_fixture.add_route_target(self.analyzer_parent_port_vn_fixture.ri_name, self.inputs.router_asn, '98765')
-
         self.analyzer_fq_name  = self.connections.domain_name +":"  + self.inputs.project_name + \
             ":" + self.analyzer_vm_name
         self.routing_instance = self.analyzer_vn_fq_name + ':' + self.analyzer_vn_name
@@ -552,20 +548,20 @@ class VerifyIntfMirror(VerifySvcMirror):
 
         if sub_intf:
             intf_type = 'src'
-            cmds = ['sudo bash -c \'echo -e "auto eth0.101\niface eth0.101 inet static\naddress %s\nnetmask 255.255.255.0" >> /etc/network/interfaces\'' % str(self.src_vm_ip), 'sudo ifup eth0.101']
+            cmds = ['sudo vconfig add eth0 101','sudo ifconfig eth0.101 up','sudo udhcpc -i eth0.101']
             output = self.src_vm_fixture.run_cmd_on_vm(cmds = cmds)
 
             intf_type = 'dst'
-            cmds = ['sudo bash -c \'echo -e "auto eth0.101\niface eth0.101 inet static\naddress %s\nnetmask 255.255.255.0" >> /etc/network/interfaces\'' % str(self.dst_vm_ip), 'sudo ifup eth0.101']
+            cmds = ['sudo vconfig add eth0 101','sudo ifconfig eth0.101 up','sudo udhcpc -i eth0.101']
             output = self.dst_vm_fixture.run_cmd_on_vm(cmds = cmds)
 
             intf_type = 'analyzer'
-            cmds = ['sudo bash -c \'echo -e "auto eth0.101\niface eth0.101 inet static\naddress %s\nnetmask 255.255.255.0" >> /etc/network/interfaces\'' % str(self.analyzer_vm_ip), 'sudo ifup eth0.101']
+            cmds = ['sudo vconfig add eth0 101','sudo ifconfig eth0.101 up','sudo udhcpc -i eth0.101']
             output = self.analyzer_vm_fixture.run_cmd_on_vm(cmds = cmds)
 
             if not self._verify_intf_mirroring(self.src_vm_fixture, self.dst_vm_fixture, self.analyzer_vm_fixture, \
                     self.src_vn_fq_name, self.dst_vn_fq_name, self.analyzer_vn_fq_name,
-                    self.analyzer_vm_ip, self.analyzer_fq_name, self.routing_instance, self.src_vm_ip, self.dst_vm_ip, self.src_port.vmi_obj, sub_intf = True) :
+                    self.analyzer_vm_ip, self.analyzer_fq_name, self.routing_instance, src_port=self.src_port.vmi_obj, sub_intf=True) :
                 result = result and False
         else:
             if not self._verify_intf_mirroring(self.src_vm_fixture, self.dst_vm_fixture, self.analyzer_vm_fixture, \
@@ -577,35 +573,25 @@ class VerifyIntfMirror(VerifySvcMirror):
     # end verify_intf_mirroring
 
     def _verify_intf_mirroring(self, src_vm_fixture, dst_vm_fixture, mirror_vm_fixture, src_vn_fq, dst_vn_fq, mirr_vn_fq,\
-            analyzer_ip_address, analyzer_name, routing_instance, src_subint_ip = '', dst_subint_ip = '', src_port = None, sub_intf = ''):
+            analyzer_ip_address, analyzer_name, routing_instance, src_port=None, sub_intf=False):
         result = True
 
         vnc = src_vm_fixture.vnc_lib_h
-
+        vlan = None
         if not sub_intf:
-            src_vm_ip = src_vm_fixture.get_vm_ips(src_vn_fq)[0]
-            dst_vm_ip = dst_vm_fixture.get_vm_ips(dst_vn_fq)[0]
-            mirror_vm_ip = mirror_vm_fixture.get_vm_ips(mirr_vn_fq)[0]
             tap_intf_uuid = src_vm_fixture.get_tap_intf_of_vm()[0]['uuid']
             tap_intf_obj = vnc.virtual_machine_interface_read(id=tap_intf_uuid)
-
-            self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance)
-            self.logger.info("src vm ip %s -> dst vm ip %s => mirror vm ip %s" % (src_vm_ip, dst_vm_ip, mirror_vm_ip))
-
-            if not self.verify_port_mirroring(src_vm_fixture, dst_vm_fixture, mirror_vm_fixture):
-                result = result and False
-                self.logger.error("Intf not mirrored")
-
-            self.disable_intf_mirroring(vnc, tap_intf_obj)
-
         else:
-            self.enable_intf_mirroring(vnc, src_port, analyzer_ip_address, analyzer_name, routing_instance)
-            self.logger.info("src vm ip %s -> dst vm ip %s => mirror vm ip %s" % (src_subint_ip, dst_subint_ip, analyzer_ip_address))
-            if not self.verify_port_mirroring(src_vm_fixture, dst_vm_fixture, mirror_vm_fixture, src_subint_ip, dst_subint_ip, sub_intf = True):
-                result = result and False
-                self.logger.error("Intf not mirrored")
+            tap_intf_obj = src_port
+            vlan = self.vlan
 
-            self.disable_intf_mirroring(vnc, tap_intf_obj)
+        self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance)
+
+        if not self.verify_port_mirroring(src_vm_fixture, dst_vm_fixture, mirror_vm_fixture, vlan=vlan):
+            result = result and False
+            self.logger.error("Intf not mirrored")
+
+        self.disable_intf_mirroring(vnc, tap_intf_obj)
 
         return result
     # end verify_intf_mirroring
