@@ -420,19 +420,16 @@ class TestInputs(object):
         # List of service correspond to each module
         self.compute_services = [
             'contrail-vrouter-agent',
-            'supervisor-vrouter',
             'contrail-vrouter-nodemgr']
-        self.control_services = ['contrail-control', 'supervisor-control',
+        self.control_services = ['contrail-control',
                                  'contrail-control-nodemgr', 'contrail-dns',
                                  'contrail-named']
         self.cfgm_services = [
             'contrail-api',
             'contrail-schema',
-            'supervisor-config',
             'contrail-config-nodemgr',
             'contrail-device-manager']
-        self.webui_services = ['contrail-webui', 'contrail-webui-middleware',
-                               'supervisor-webui']
+        self.webui_services = ['contrail-webui', 'contrail-webui-middleware']
         self.openstack_services = [
             'openstack-cinder-api', 'openstack-cinder-scheduler',
             'openstack-cinder-scheduler', 'openstack-glance-api',
@@ -442,7 +439,6 @@ class TestInputs(object):
         self.collector_services = [
             'contrail-collector', 'contrail-analytics-api',
             'contrail-query-engine', 'contrail-analytics-nodemgr',
-            'supervisor-analytics',
             'contrail-snmp-collector', 'contrail-topology']
         self.correct_states = ['active', 'backup']
 
@@ -1131,8 +1127,6 @@ class ContrailTestInit(object):
         cls = None
         try:
             m = self.get_contrail_status(host, container=container)
-            if ((container is not None) and ('supervisor' in service)):
-                return True
             cls = self.get_service_status(m, service)
             if (cls.state in self.correct_states):
                 return True
