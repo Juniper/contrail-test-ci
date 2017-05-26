@@ -890,8 +890,7 @@ class SmgrFixture(fixtures.Fixture):
                     continue
             with settings(host_string=node, warn_only=True):
                 output = run('contrail-status')
-                pattern = ["supervisor-vrouter:           active",
-                           "contrail-vrouter-agent        active",
+                pattern = ["contrail-vrouter-agent        active",
                            "contrail-vrouter-nodemgr      active"]
                 for line in pattern:
                   if line not in output:
