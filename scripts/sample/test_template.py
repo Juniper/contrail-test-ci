@@ -7,9 +7,9 @@ from tcutils.util import get_random_name, get_random_cidr, get_random_cidrs
 from common import resource_handler
 from common.base import GenericTestBase
 
-# define heat template for the resources
+# TODO-1: define heat template for the resources
 tmpl = {}
-# define parameters for the resource template
+# TODO-2: define parameters for the resource template
 env = {}
 
 class Tests (test_v1.BaseTestCase_v1):
@@ -30,6 +30,7 @@ class Tests (test_v1.BaseTestCase_v1):
    def test1 (self):
        objs = resource_handler.create(self, tmpl, env)
        resource_handler.verify_on_setup(objs)
+       # TODO-3:
        # update tmpl and/or env as appropriate
        # objs = resource_handler.update(self, objs, tmpl, env)
        # resource_handler.verify_on_setup(objs)
@@ -82,6 +83,6 @@ class TestOldStyle (GenericTestBase):
 
    @preposttest_wrapper
    def test1 (self):
-       #TODO: add code which follows the older style
-       #      see policy_test.py
+       # TODO-4: add code which follows the older style
+       #         see policy_test.py
        return True
