@@ -679,37 +679,37 @@ class VNFixture (VNFixture_v2):
 
    def set_unknown_unicast_forwarding (self, enable=True):
        self.vnc_obj.set_flood_unknown_unicast(enable)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def set_mac_aging_time (self, mac_aging_time):
        self.vnc_obj.set_mac_aging_time(mac_aging_time)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def set_mac_move_control (self, mac_move_control):
        self.vnc_obj.set_mac_move_control(mac_move_control)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def set_mac_limit_control (self, mac_limit_control):
        self.vnc_obj.set_mac_limit_control(mac_limit_control)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def set_mac_learning_enabled (self, mac_learning_enabled=True):
        self.vnc_obj.set_mac_learning_enabled(mac_learning_enabled)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def set_pbb_evpn_enable (self, pbb_evpn_enable=True):
        self.vnc_obj.set_pbb_evpn_enable(pbb_evpn_enable)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def set_pbb_etree_enable (self, pbb_etree_enable=True):
        self.vnc_obj.set_pbb_etree_enable(pbb_etree_enable)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def set_forwarding_mode (self, forwarding_mode):
@@ -717,12 +717,12 @@ class VNFixture (VNFixture_v2):
        props = props if props else VirtualNetworkType()
        props.set_forwarding_mode(forwarding_mode)
        self.vnc_obj.set_virtual_network_properties(props)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def set_ecmp_hash (self, ecmp_hash):
        self.vnc_obj.set_ecmp_hashing_include_fields(ecmp_hash)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def set_vxlan_id (self, vxlan_id):
@@ -730,7 +730,7 @@ class VNFixture (VNFixture_v2):
        props = props if props else VirtualNetworkType()
        props.set_vlan_network_identifier(int(vxlan_id))
        self.vnc_obj.set_virtual_network_properties(props)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def get_vxlan_id (self):
@@ -749,7 +749,7 @@ class VNFixture (VNFixture_v2):
        else:
            tgts = RouteTargetList([val])
        self.vnc_obj.set_route_target_list(tgts)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def del_route_target (self, router_asn, route_target_number):
@@ -764,7 +764,7 @@ class VNFixture (VNFixture_v2):
            self.vnc_obj.set_route_target_list(tgts)
        else:
            self.vnc_obj.set_route_target_list(None)
-       self.vnc_api.update_virtual_network(self.vnc_obj)
+       self.vnc_api.virtual_network_update(self.vnc_obj)
        self.update()
 
    def get_an_ip (self, index=2):
