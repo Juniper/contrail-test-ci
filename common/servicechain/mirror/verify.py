@@ -855,7 +855,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         cmd = 'rm -f %s' % pcap
         execute_cmd(session, cmd, self.logger)
         cmd = "tcpdump -ni %s udp port 8099 -w %s" % (tap_intf, pcap)
-        self.logger.info("Staring tcpdump to capture the mirrored packets.")
+        self.logger.info("Starting tcpdump to capture the mirrored packets.")
         execute_cmd(session, cmd, self.logger)
         return pcap
 
