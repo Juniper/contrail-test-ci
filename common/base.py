@@ -9,7 +9,51 @@ from port_fixture import PortFixture
 from interface_route_table_fixture import InterfaceRouteTableFixture
 from tcutils.util import get_random_name, get_random_cidr
 
-class GenericTestBase(test_v1.BaseTestCase_v1):
+class _GenericTestBaseMethods():
+
+    def sleep(self, value):
+        self.logger.debug('Sleeping for %s seconds..' % (value))
+        time.sleep(value)
+    # end sleep
+
+    def remove_from_cleanups(self, func_call, *args):
+        for cleanup in self._cleanups:
+            if func_call in cleanup and args == cleanup[1]:
+                self._cleanups.remove(cleanup)
+                return True
+        return False
+
+
+    def remove_method_from_cleanups(self, method):
+        for cleanup in self._cleanups:
+            if method == cleanup:
+                self._cleanups.remove(cleanup)
+                break
+   # end remove_method_from_cleanups
+
+    def set_global_asn(self, asn):
+        existing_asn = self.vnc_lib_fixture.get_global_asn()
+        ret = self.vnc_lib_fixture.set_global_asn(asn)
+        self.addCleanup(self.vnc_lib_fixture.set_global_asn, existing_asn)
+        return ret
+    # end set_global_asn
+
+    def perform_cleanup(self, obj):
+        if getattr(obj, 'cleanUp', None):
+            self.remove_from_cleanups(obj.cleanUp)
+            obj.cleanUp()
+    # end perform_cleanup
+
+    def alloc_ips(self, vn_fixture, count=1):
+        ret_val = vn_fixture.alloc_ips(count=count)
+        self.addCleanup(vn_fixture.free_ips, ret_val)
+        return ret_val
+    # end alloc_ips
+
+# end _GenericTestBaseMethods
+
+
+class GenericTestBase(test_v1.BaseTestCase_v1, _GenericTestBaseMethods):
 
     @classmethod
     def setUpClass(cls):
@@ -209,20 +253,6 @@ class GenericTestBase(test_v1.BaseTestCase_v1):
         return True
     #end config_aap
 
-    def remove_from_cleanups(self, func_call, *args):
-        for cleanup in self._cleanups:
-            if func_call in cleanup and args == cleanup[1]:
-                self._cleanups.remove(cleanup)
-                return True
-        return False
-
-    def remove_method_from_cleanups(self, method):
-        for cleanup in self._cleanups:
-            if method == cleanup:
-                self._cleanups.remove(cleanup)
-                break
-   # end remove_method_from_cleanups
-
     def allow_all_traffic_between_vns(self, vn1_fixture, vn2_fixture):
         policy_name = get_random_name('policy-allow-all')
         rules = [
@@ -370,11 +400,36 @@ class GenericTestBase(test_v1.BaseTestCase_v1):
                           dip, str(expectation)))
     # end do_ping_test
 
+    def create_policy(self, policy_name, rules=[], **kwargs):
+        policy_fixture = self.useFixture(
+            PolicyFixture(
+                policy_name=policy_name,
+                rules_list=rules,
+                inputs=self.inputs,
+                connections=self.connections,
+                **kwargs))
+        return policy_fixture
+    #end create_policy
+
     @classmethod
-    def check_vms_booted(cls, vms_list):
+    def check_vms_booted(cls, vms_list, do_assert=True):
+        '''
+        If instances call this method, they may need to set do_assert to False
+        so that the fixture cleanup routines automatically take care of deletion
+        '''
+        failed = False
         for vm_fixture in vms_list:
-            assert vm_fixture.wait_till_vm_is_up(), 'VM %s has not booted' % (
-                vm_fixture.vm_name)
+            if not vm_fixture.wait_till_vm_is_up():
+                msg = 'VM %s has not booted' %(vm_fixture.vm_name)
+                cls.logger.error(msg)
+                failed = True
+                break
+        if failed and do_assert:
+            for vm_fixture in vms_list:
+                vm_fixture.cleanUp()
+            assert False, 'One or more vm-boots failed. Check logs'
+        if failed:
+            return False
     # end check_vms_booted
 
     @classmethod
@@ -395,6 +450,4 @@ class GenericTestBase(test_v1.BaseTestCase_v1):
         if obj and getattr(obj, 'created', False):
             return obj.cleanUp()
     # end cleanup
-
-
 

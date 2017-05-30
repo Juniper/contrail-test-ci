@@ -36,9 +36,13 @@ class VerifySvcChain(ConfigSvcChain):
         5]. The src is required because for Transparent SIs, the left and right VNs 
             are different from those in the Service Chain.
         '''
+        if si.svc_template.get_service_template_properties().service_type == 'analyzer':
+            return True, "Skip this check for Analyser"
         vn1 = self.connections.vnc_lib_fixture.virtual_network_read(
             fq_name=vn_fq_name.split(':'))
         ri_list = []
+        itf_list = []
+        itf_nh = None
         for ris in vn1.get_routing_instances():
             ri_fqn = (":").join(ris['to'])
             ri_list.append(ri_fqn)
@@ -68,7 +72,7 @@ class VerifySvcChain(ConfigSvcChain):
             if 'ECMP' in next_hops['type']:
                 for entry in next_hops['mc_list']:
                     if entry['type'] == 'Interface' or entry['type'] == 'Vlan':
-                        itf_nh = entry['itf']
+                        itf_list.append(entry['itf'])
             elif next_hops['type'] == 'interface' or next_hops['type'] == 'vlan':
                 itf_nh = next_hops['itf']
             else:
@@ -80,7 +84,7 @@ class VerifySvcChain(ConfigSvcChain):
             elif src == 'right':
                 si_vn = si.right_vn_fq_name
             svm_vmi_id = svm.get_vmi_ids()[si_vn]
-            if svm.get_tap_intf_of_vmi(svm_vmi_id)['name'] != itf_nh:
+            if svm.get_tap_intf_of_vmi(svm_vmi_id)['name'] != itf_nh and svm.get_tap_intf_of_vmi(svm_vmi_id)['name'] not in itf_list:
                 self.logger.warn(errmsg)
                 return False, errmsg
             self.logger.info('Route to %s seen in VRF:%s on %s, and SI %s is seen as the NH' % (

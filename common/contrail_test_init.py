@@ -20,17 +20,21 @@ from tcutils.util import *
 from tcutils.util import custom_dict, read_config_option, get_build_sku
 from tcutils.custom_filehandler import *
 from tcutils.config.vnc_introspect_utils import VNCApiInspect
-from tcutils.config.ds_introspect_utils import VerificationDsSrv
+from tcutils.collector.opserver_introspect_utils import VerificationOpsSrv
 from keystone_tests import KeystoneCommands
 from tempfile import NamedTemporaryFile
 import re
 from common import log_orig as contrail_logging
 
 import subprocess
-import ast
 from collections import namedtuple
 import random
 from cfgm_common import utils
+
+ORCH_DEFAULT_DOMAIN = {
+    'openstack' : 'Default',
+    'kubernetes': 'default-domain'
+}
 
 # monkey patch subprocess.check_output cos its not supported in 2.6
 if "check_output" not in dir(subprocess):  # duck punch it in!
@@ -56,7 +60,7 @@ class TestInputs(object):
     '''
        Class that would populate testbedinfo from parsing the
        .ini and .json input files if provided (or)
-       check the keystone and discovery servers to populate
+       check the keystone server to populate
        the same with the certain default value assumptions
     '''
     __metaclass__ = Singleton
@@ -71,6 +75,8 @@ class TestInputs(object):
         self.logger = logger or contrail_logging.getLogger(__name__)
         self.orchestrator = read_config_option(self.config,
                                                'Basic', 'orchestrator', 'openstack')
+        self.slave_orchestrator = read_config_option(self.config,
+                                                     'Basic', 'slave_orchestrator', None)
         self.prov_file = read_config_option(self.config,
                                             'Basic', 'provFile', None)
         self.key = read_config_option(self.config,
@@ -114,7 +120,8 @@ class TestInputs(object):
         self.admin_domain = read_config_option(self.config,
             'Basic',
             'adminDomain',
-            os.getenv('OS_DOMAIN_NAME','Default'))
+            os.getenv('OS_DOMAIN_NAME',
+                ORCH_DEFAULT_DOMAIN.get(self.orchestrator)))
 
         self.stack_user = read_config_option(
             self.config,
@@ -164,8 +171,8 @@ class TestInputs(object):
                                             'Basic', 'auth_protocol', 'http')
         self.api_protocol = read_config_option(self.config,
                                           'cfgm', 'api_protocol', 'http')
-        self.ds_port = read_config_option(self.config, 'services',
-                                          'discovery_port', '5998')
+        self.api_insecure = read_config_option(self.config,
+                                          'cfgm', 'api_insecure_flag', True)
         self.api_server_port = read_config_option(self.config, 'services',
                                           'config_api_port', '8082')
         self.analytics_api_port = read_config_option(self.config, 'services',
@@ -176,8 +183,6 @@ class TestInputs(object):
                                           'dns_port', '8092')
         self.agent_port = read_config_option(self.config, 'services',
                                           'agent_port', '8085')
-        self.discovery_ip = read_config_option(self.config, 'services',
-                                          'discovery_ip', None)
         self.api_server_ip = read_config_option(self.config, 'services',
                                           'config_api_ip', None)
         self.analytics_api_ip = read_config_option(self.config, 'services',
@@ -307,16 +312,19 @@ class TestInputs(object):
                 self.auth_url = '%s://%s:%s/v2.0'%(self.auth_protocol,
                                            self.auth_ip,
                                            self.auth_port)
+                self.authn_url = '/v2.0/tokens'
             else:
                 self.auth_url = os.getenv('OS_AUTH_URL') or \
                             '%s://%s:%s/v3'%(self.auth_protocol,
                                                self.auth_ip,
                                                self.auth_port)
+                self.authn_url = '/v3/auth/tokens'
         else:
             self.auth_url = os.getenv('OS_AUTH_URL') or \
                         '%s://%s:%s/v2.0'%(self.auth_protocol,
                                            self.auth_ip,
                                            self.auth_port)
+            self.authn_url = '/v2.0/tokens'
         self._set_auth_vars()
         self.apicertfile = read_config_option(self.config,
                                              'cfgm', 'api_certfile', None)
@@ -400,7 +408,6 @@ class TestInputs(object):
         self.cfgm_services = [
             'contrail-api',
             'contrail-schema',
-            'contrail-discovery',
             'supervisor-config',
             'contrail-config-nodemgr',
             'contrail-device-manager']
@@ -512,6 +519,10 @@ class TestInputs(object):
         self.cfgm_ips = []
         self.cfgm_control_ips = []
         self.cfgm_names = []
+        self.openstack_ip = ''
+        self.openstack_ips = []
+        self.openstack_control_ips = []
+        self.openstack_names = []
         self.collector_ips = []
         self.collector_control_ips = []
         self.collector_names = []
@@ -525,11 +536,10 @@ class TestInputs(object):
         self.bgp_ips = []
         self.bgp_control_ips = []
         self.bgp_names = []
-        self.ds_server_ip = []
-        self.ds_server_name = []
         self.host_ips = []
         self.webui_ips = []
         self.webui_control_ips = []
+        self.kube_manager_ip = None
         self.host_data = {}
         self.tor = {}
         self.tor_hosts_data = {}
@@ -563,6 +573,8 @@ class TestInputs(object):
             self.host_data[host['name']]['host_ip'] = host_ip
             self.host_data[host['name']]['host_data_ip'] = host_data_ip
             self.host_data[host['name']]['host_control_ip'] = host_control_ip
+            if host.get('fqname', None):
+                self.host_data[host['fqname']] = self.host_data[host['name']]
             self._check_containers(host)
             qos_queue_per_host, qos_queue_pg_properties_per_host = \
                                     self._process_qos_data(host_ip)
@@ -574,14 +586,16 @@ class TestInputs(object):
             for role in roles:
                 if role['type'] == 'openstack':
                     self.openstack_ip = host_ip
+                    self.openstack_ips.append(host_ip)
+                    self.openstack_control_ips.append(host_control_ip)
+                    self.openstack_control_ip = host_control_ip
+                    self.openstack_names.append(host['name'])
                 if role['type'] == 'cfgm':
                     self.cfgm_ip = host_ip
                     self.cfgm_ips.append(host_ip)
                     self.cfgm_control_ips.append(host_control_ip)
                     self.cfgm_control_ip = host_control_ip
                     self.cfgm_names.append(host['name'])
-                    self.ds_server_ip.append(host_ip)
-                    self.ds_server_name.append(host['name'])
                     self.masterhost = self.cfgm_ip
                     self.hostname = host['name']
                 if role['type'] == 'compute':
@@ -637,6 +651,9 @@ class TestInputs(object):
             self.esxi_vm_ips = json_data['esxi_vms']
         if 'hosts_ipmi' in json_data:
             self.hosts_ipmi = json_data['hosts_ipmi']
+        self.kube_manager_ip = json_data.get('kubernetes', {}).get('master')
+        if self.kube_manager_ip:
+            self.kube_manager_ip = self.kube_manager_ip.split('@')[1]
 
         if not self.auth_ip:
             if self.ha_setup and self.external_vip:
@@ -646,7 +663,7 @@ class TestInputs(object):
 
         # If no explicit amqp servers are configured, it will be cfgm ips
         if not self.config_amqp_ips:
-            self.config_amqp_ips = self.cfgm_control_ips
+            self.config_amqp_ips = self.openstack_control_ips
 
         self.many_computes = (len(self.compute_ips) > 10) or False
 
@@ -801,19 +818,20 @@ class TestInputs(object):
                * USERNAME (default: root)
                * PASSWORD (default: c0ntrail123)
               contrail service:
-               * DISCOVERY_IP (default: neutron-server ip fetched from keystone endpoint)
+               * COLLECTOR_IP (default: neutron-server ip fetched from keystone endpoint)
         '''
         pattern = 'http[s]?://(?P<ip>\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}):(?P<port>\d+)'
         if self.orchestrator.lower() != 'openstack':
             raise Exception('Please specify testbed info in $PARAMS_FILE '
                             'under "Basic" section, keyword "provFile"')
         if self.orchestrator.lower() == 'openstack':
-            self.auth_url = os.getenv('OS_AUTH_URL', None) or \
-                       'http://127.0.0.1:5000/v2.0'
-            keystone = KeystoneCommands(self.stack_user,
-                                        self.stack_password,
-                                        self.stack_tenant,
-                                        self.auth_url,
+            domain = self.admin_domain if self.stack_domain == 'default-domain' else \
+                     self.stack_domain
+            keystone = KeystoneCommands(username=self.stack_user,
+                                        password=self.stack_password,
+                                        tenant=self.stack_tenant,
+                                        domain_name=domain,
+                                        auth_url=self.auth_url,
                                         region_name=self.region_name,
                                         insecure=self.insecure,
                                         cert=self.keystonecertfile,
@@ -824,15 +842,14 @@ class TestInputs(object):
             self.auth_ip = match.group('ip')
             self.auth_port = match.group('port')
 
-        # Assume contrail-config runs in the same node as neutron-server
-        discovery = os.getenv('DISCOVERY_IP', None) or \
+        # Assume contrail-collector runs in the same node as neutron-server
+        collector_ip = os.getenv('ANALYTICS_IP', None) or \
                     (keystone and re.match(pattern,
                     keystone.get_endpoint('network')).group('ip'))
-        ds_client = VerificationDsSrv(discovery)
-        services = ds_client.get_ds_services().info
-        cfgm = database = services['config']
-        collector = services['analytics']
-        bgp = services['control-node']
+        cfgm = self.get_nodes_from_href(collector_ip, "config-nodes")
+        database = self.get_nodes_from_href(collector_ip, "database-nodes")
+        collector = self.get_nodes_from_href(collector_ip, "analytics-nodes")
+        bgp = self.get_nodes_from_href(collector_ip, "control-nodes")
         openstack = [self.auth_ip] if self.auth_ip else []
         computes = self.get_computes(cfgm[0])
         data = {'hosts': list()}
@@ -843,12 +860,14 @@ class TestInputs(object):
             with settings(host_string='%s@%s' % (username, host),
                           password=password, warn_only=True):
                 hname = run('hostname')
+                hfqname = run('hostname -f')
             hdict = {'ip': host,
                      'data-ip': host,
                      'control-ip': host,
                      'username': username,
                      'password': password,
                      'name': hname,
+                     'fqname': hfqname,
                      'roles': [],
                     }
             if host in cfgm:
@@ -869,6 +888,41 @@ class TestInputs(object):
             json.dump(data, fd)
         return tempfile.name
     # end _create_prov_data
+
+    def get_nodes_from_href(self, collector_ip, uve_type):
+        op_server_client = VerificationOpsSrv(collector_ip)
+        service_href_list = op_server_client.get_hrefs_to_all_UVEs_of_a_given_UVE_type(
+                                                uveType = uve_type)
+        node_name_list = []
+        for elem in service_href_list:
+            node_href = elem['href']
+            uve = uve_type.rstrip('s')
+            re_string = '(.*?)/%s/(.*?)\?flat' % uve
+            match = re.search(re_string , node_href)
+            node = match.group(2)
+            node_name_list.append(node)
+        node_ip_list = []
+        for node in node_name_list:
+            if uve_type == "control-nodes":
+                node_dict = op_server_client.get_ops_bgprouter(node)
+                node_ip = node_dict['BgpRouterState']['router_id']
+                node_ip_list.append(node_ip)
+            elif uve_type == "analytics-nodes":
+                node_dict = op_server_client.get_ops_collector(node)
+                node_ip = node_dict['ContrailConfig']['elements']\
+                                    ['analytics_node_ip_address'].strip('"')
+                node_ip_list.append(node_ip)
+            elif uve_type == "config-nodes":
+                node_dict = op_server_client.get_ops_config(node)
+                node_ip = node_dict['ContrailConfig']['elements']\
+                                    ['config_node_ip_address'].strip('"')
+                node_ip_list.append(node_ip)
+            elif uve_type == "database-nodes":
+                node_dict = op_server_client.get_ops_db(node)
+                node_ip = node_dict['ContrailConfig']['elements']\
+                                    ['database_node_ip_address'].strip('"')
+                node_ip_list.append(node_ip)
+        return node_ip_list
 
     def get_mysql_token(self):
         if self.mysql_token:
@@ -944,12 +998,14 @@ class ContrailTestInit(object):
             stack_user=None,
             stack_password=None,
             stack_tenant=None,
+            stack_domain=None,
             logger=None):
         self.connections = None
         self.logger = logger or contrail_logging.getLogger(__name__)
         self.inputs = TestInputs(ini_file, self.logger)
         self.stack_user = stack_user or self.stack_user
         self.stack_password = stack_password or self.stack_password
+        self.stack_domain = stack_domain or self.stack_domain
         self.stack_tenant = stack_tenant or self.stack_tenant
         self.project_fq_name = [self.stack_domain, self.stack_tenant]
         self.project_name = self.stack_tenant
@@ -994,8 +1050,7 @@ class ContrailTestInit(object):
                         host,
                         service,
                         username,
-                        password,
-                        container='agent')
+                        password)
             if host in self.bgp_ips:
                 for service in self.control_services:
                     result = result and self.verify_service_state(
@@ -1056,6 +1111,8 @@ class ContrailTestInit(object):
         cls = None
         try:
             m = self.get_contrail_status(host, container=container)
+            if ((container is not None) and ('supervisor' in service)):
+                return True
             cls = self.get_service_status(m, service)
             if (cls.state in self.correct_states):
                 return True
@@ -1070,10 +1127,11 @@ class ContrailTestInit(object):
             (cls.name, cls.state))
         return False
 
-    def verify_control_connection(self, connections):
-        discovery = connections.ds_verification_obj
-        return discovery._verify_bgp_connection()
-    # end verify_control_connection
+    # Commenting below 4 lines due to discovery changes in R4.0 - Bug 1658035
+    ###def verify_control_connection(self, connections):
+    ###    discovery = connections.ds_verification_obj
+    ###    return discovery._verify_bgp_connection()
+    ### end verify_control_connection
 
     def build_compute_to_control_xmpp_connection_dict(self, connections):
         agent_to_control_dct = {}
@@ -1377,4 +1435,22 @@ class ContrailTestInit(object):
         host['ip'] = ip
         host['username'] = self.host_data[ip]['username']
         host['password'] = self.host_data[ip]['password']
+        if not self.host_data[ip].get('containers', {}).get(container):
+            container = None
+            self.logger.debug('Container %s not in host %s, copying to '
+                ' host itself' % (container, ip))
         copy_file_to_server(host, src, dstdir, dst, force, container=container)
+
+    def copy_file_from_server(self, ip, src_file_path, dest_folder,
+            container=None):
+        host = {}
+        host['ip'] = ip
+        host['username'] = self.host_data[ip]['username']
+        host['password'] = self.host_data[ip]['password']
+        if not self.host_data[ip].get('containers', {}).get(container):
+            container = None
+            self.logger.debug('Container %s not in host %s, copying from '
+                ' host itself' % (container, ip))
+        copy_file_from_server(host, src_file_path, dest_folder,
+            container=container)
+    # end copy_file_from_server

@@ -26,7 +26,7 @@ class DomainFixture(fixtures.Fixture):
         self.uuid = uuid
         self.domain_obj = None
         self.already_present = False
-        self.domain_fq_name = self.domain_name
+        self.domain_fq_name = [self.domain_name]
         self.username = username
         self.password = password
         self.role = role
@@ -36,21 +36,21 @@ class DomainFixture(fixtures.Fixture):
         if not self.auth:
             if self.inputs.orchestrator == 'openstack':
                 self.auth = OpenstackAuth(self.inputs.admin_username,
-                              self.inputs.admin_password,
-                              self.inputs.admin_domain, self.inputs, self.logger)
-            else: # vcenter
-                self.auth = VcenterAuth(self.inputs.admin_user,
-                              self.inputs.admin_password,
-                              self.inputs.admin_domain, self.inputs)
+                              self.inputs.admin_password,self.inputs.admin_tenant,
+                              domain_name=self.inputs.admin_domain, inputs=self.inputs, logger=self.logger)
         self.domain_username = None
-        self.domain_user_password = None
+        self.domain_password = None
     # end __init__
-    
+
     def read(self):
         try:
             self.logger.info('Reading existing Domain with UUID %s' % (
                                                         self.uuid))
-            domain_obj = self.vnc_lib_h.domain_read(id=self.uuid)
+            if self.uuid == 'default':
+                domain_fq_name = 'default-domain'
+            else:
+                domain_fq_name = self.domain_fq_name[0]
+            domain_obj = self.vnc_lib_h.domain_read(fq_name_str=domain_fq_name)
         except NoIdError, e:
             self.logger.exception('UUID %s not found, unable to read Domain' % (
                 self.uuid))
@@ -58,12 +58,11 @@ class DomainFixture(fixtures.Fixture):
         self._populate_attr(domain_obj)
         self.already_present = True
     # end read
-    
+
     def _populate_attr(self, domain_obj):
         self.domain_obj = domain_obj
         self.domain_fq_name = domain_obj.fq_name
         self.domain_name = domain_obj.name
-        self.uuid = domain_obj.uuid
     # end _populate_attr
 
     def _create_domain(self):
@@ -110,29 +109,28 @@ class DomainFixture(fixtures.Fixture):
     def cleanUp(self):
         super(DomainFixture, self).cleanUp()
         self.delete()
-        
+
     def update_domain(self,domain_name,description='',enabled=True):
         try:
             obj = self.auth.update_domain(domain_id=get_plain_uuid(self.uuid),domain_name=domain_name,
                                     description=description,enabled=enabled)
-            slef.logger.info('Domain updated successfully %s',obj.name)
+            self.logger.info('Domain updated successfully %s',obj.name)
             self.read()
             return obj
         except:
             self.logger.info('Domain updation failed')
-    
+
     def get_domain(self):
        return self.auth.get_domain(domain_id=get_plain_uuid(self.uuid)) 
-       
-    def get_domain_connections(self):
+
+    def get_domain_connections(self, username=None, password=None, project_name=None):
         self.dm_connections= ContrailConnections(self.inputs, self.logger,
-            username=self.domain_username,
-            password=self.domain_password,
-            domain_name = self.domain_name,
-            )
-        self.vnc_lib= self.dm_connections.vnc_lib
-        self.auth = self.dm_connections.auth
-        
+            project_name=project_name,
+            username=username or self.domain_username,
+            password=password or self.domain_password,
+            domain_name =  self.domain_name)
+        return self.dm_connections
+
     def delete(self, verify=False):
         do_cleanup = True
         if self.inputs.fixture_cleanup == 'no':
@@ -245,6 +243,6 @@ class DomainFixture(fixtures.Fixture):
         '''Set a user,password who is allowed to login to this domain
         '''
         self.domain_username = username
-        self.domain_user_password = password
+        self.domain_password = password
     # end set_user_creds
 # end ProjectFixture

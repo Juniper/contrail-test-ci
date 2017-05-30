@@ -4,6 +4,7 @@ import sys
 import string
 import json
 import os
+import re
 import platform
 from fabric.api import env, run, local, lcd, get
 from fabric.context_managers import settings, hide
@@ -11,6 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 from common import log_orig as contrail_logging
 from fabric.contrib.files import exists
 from cfgm_common import utils
+from tcutils.util import istrue
 
 def detect_ostype():
     return platform.dist()[0].lower()
@@ -28,7 +30,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     """
     print "Configuring test environment"
     sys.path.insert(0, contrail_fab_path)
-    from fabfile.testbeds import testbed
+    from fabfile.config import testbed
     from fabfile.utils.host import get_openstack_internal_vip, \
         get_control_host_string, get_authserver_ip, get_admin_tenant_name, \
         get_authserver_port, get_env_passwords, get_authserver_credentials, \
@@ -62,7 +64,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     auth_protocol = get_authserver_protocol()
     try:
         auth_server_ip = get_authserver_ip()
-    except IndexError, e:
+    except Exception:
         auth_server_ip = None
     auth_server_port = get_authserver_port()
     api_auth_protocol = get_apiserver_protocol()
@@ -85,8 +87,8 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         keystone_certfile = validate_and_copy_file(cert_dir + '/' +\
                           os.path.basename(get_keystone_certfile()), cfgm_host)
         keystone_keyfile = keystone_certfile
-        keystone_insecure_flag = os.getenv('OS_INSECURE', \
-                                 get_keystone_insecure_flag())
+        keystone_insecure_flag = istrue(os.getenv('OS_INSECURE', \
+                                 get_keystone_insecure_flag()))
     else:
         keystone_certfile = ""
         keystone_keyfile = ""
@@ -163,6 +165,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         with settings(host_string = host_string), hide('everything'):
             try:
                 host_name = run("hostname")
+                host_fqname = run("hostname -f")
             except:
                 logger.warn('Unable to login to %s'%host_ip)
                 continue
@@ -175,6 +178,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         host_dict['control-ip']= get_control_host_string(host_string).split('@')[1]
 
         host_dict['name'] = host_name
+        host_dict['fqname'] = host_fqname
         host_dict['username'] = host_string.split('@')[0]
         host_dict['password'] =get_env_passwords(host_string)
         host_dict['roles'] = []
@@ -236,7 +240,10 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     #get dpdk info
     if env.has_key('dpdk'):
         sanity_testbed_dict['dpdk'].append(env.dpdk)
-
+   
+    #get k8s info
+    sanity_testbed_dict['kubernetes'] = env.get('kubernetes', {})
+ 
     # Read ToR config
     sanity_tor_dict = {}
     if env.has_key('tor_agent'):
@@ -292,6 +299,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
                 host_dict['dv_port_group'] = vcenter_servers[vcenter]['dv_port_group']['dv_portgroup_name']
             sanity_testbed_dict['vcenter_servers'].append(host_dict)
 
+    orch = getattr(env, 'orchestrator', 'openstack')
     #get other orchestrators (vcenter etc) info if any 
     slave_orch = None  
     if env.has_key('other_orchestrators'):
@@ -304,16 +312,21 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     if env.has_key('hosts_ipmi'):
         sanity_testbed_dict['hosts_ipmi'].append(env.hosts_ipmi)
 
+    # Setting slave orch to k8s when key present   
+    if env.has_key('kubernetes'):
+        if  sanity_testbed_dict['kubernetes']['mode'] == 'nested':
+            slave_orch = 'kubernetes'
 
     if not getattr(env, 'test', None):
         env.test={}
 
     # generate json file and copy to cfgm
     sanity_testbed_json = json.dumps(sanity_testbed_dict)
-    stack_user = env.test.get('stack_user', os.getenv('STACK_USER') or '')
+    stack_user = env.test.get('stack_user', os.getenv('STACK_USER') or env.get('stack_user', ''))
     stack_password = env.test.get('stack_password',
-                         os.getenv('STACK_PASSWORD') or '')
-    stack_tenant = env.test.get('stack_tenant', os.getenv('STACK_TENANT') or '')
+                         os.getenv('STACK_PASSWORD') or env.get('stack_password',''))
+    stack_tenant = env.test.get('stack_tenant', os.getenv('STACK_TENANT') or env.get('stack_tenant', ''))
+    stack_domain = env.test.get('stack_domain', os.getenv('STACK_DOMAIN') or env.get('stack_domain', ''))
     if not env.has_key('domain_isolation'):
         env.domain_isolation = False
     if not env.has_key('cloud_admin_domain'):
@@ -338,10 +351,13 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     log_scenario = env.get('log_scenario', 'Sanity')
     stack_region_name = get_region_name()
     admin_user, admin_password = get_authserver_credentials()
-    admin_tenant = get_admin_tenant_name()
+    if orch == 'kubernetes':
+        admin_tenant = 'default'
+    else:
+        admin_tenant = get_admin_tenant_name()
     # Few hardcoded variables for sanity environment
     # can be removed once we move to python3 and configparser
-    stack_domain = env.get('stack_domain', 'default-domain')
+    
     webserver_host = env.test.get('webserver_host',
                          os.getenv('WEBSERVER_HOST') or '')
     webserver_user = env.test.get('webserver_user',
@@ -383,8 +399,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     control_port = env.test.get('control_port', os.getenv('CONTROL_PORT') or '')
     dns_port = env.test.get('dns_port', os.getenv('DNS_PORT') or '')
     agent_port = env.test.get('agent_port', os.getenv('AGENT_PORT') or '')
-    user_isolation = env.test.get('user_isolation',
-                                  os.getenv('USER_ISOLATION') or True)
+    user_isolation = env.test.get('user_isolation', (os.getenv('USER_ISOLATION')) or False if stack_user else True)
     neutron_username = env.test.get('neutron_username',
                                     os.getenv('NEUTRON_USERNAME') or None)
     availability_zone = env.test.get('availability_zone',
@@ -395,7 +410,6 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
                                      '/etc/kubernetes/admin.conf')
 
     use_devicemanager_for_md5 = getattr(testbed, 'use_devicemanager_for_md5', False)
-    orch = getattr(env, 'orchestrator', 'openstack')
     router_asn = getattr(testbed, 'router_asn', '')
     public_vn_rtgt = getattr(testbed, 'public_vn_rtgt', '')
     public_vn_subnet = getattr(testbed, 'public_vn_subnet', '')
@@ -540,6 +554,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
          '__gc_user_name__'        : gc_user_name,
          '__gc_user_pwd__'         : gc_user_pwd,
          '__keystone_password__'   : keystone_password,
+         '__slave_orch__'          : slave_orch,
 
         })
 
@@ -615,22 +630,93 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
 
     # For now, assume first config node is same as kubernetes master node
     # Get kube config file to the testrunner node
-    if orch == 'kubernetes':
+    if orch == 'kubernetes' or slave_orch == 'kubernetes':
         if not os.path.exists(kube_config_file):
             dir_name = os.path.dirname(kube_config_file)
             if not os.path.exists(dir_name):
                 os.makedirs(dir_name)
-            with settings(host_string = env.roledefs['cfgm'][0]):
+            with settings(host_string = env.kubernetes['master']):
                 get(kube_config_file, kube_config_file)
-            
+
 
     # If webui = True, in testbed, setup webui for sanity
     if webui:
         update_config_option('openstack', '/etc/keystone/keystone.conf',
                              'token', 'expiration',
                              '86400','keystone')
+        container = None
+        if 'contrail-controller' in env.roledefs:
+            container = 'webui'
         update_js_config('openstack', '/etc/contrail/config.global.js',
-                         'contrail-webui')
+                         'contrail-webui', container=container)
+
+open_delimiters = ['(', '[', '{']
+close_delimiters = [')', ']', '}']
+
+def getindices(string):
+    delimiters = open_delimiters + close_delimiters
+    pattern = '{}'.format('|'.join(map(re.escape, delimiters)))
+    indices = [(it.start(), string[it.start()])
+               for it in re.finditer(pattern, string, re.M|re.S)]
+    return indices
+
+def get_section(string, pattern):
+    block = list()
+    match = re.search(pattern, string, re.M|re.S)
+    if not match:
+        return None, None
+    match_end = match.end()
+    indices = getindices(string)
+    for index in range(len(indices)):
+        delimiter_tuple = indices[index]
+        if delimiter_tuple[0] < match_end:
+            continue
+        if delimiter_tuple[1] in open_delimiters:
+            block.append(delimiter_tuple[0])
+        else:
+            if len(block) == 1:
+                return (match.start(), delimiter_tuple[0]+1)
+            block.pop()
+    return (None, None)
+
+def testbed_format_conversion(path='/opt/contrail/utils'):
+    tb_file = path + '/fabfile/testbeds/testbed.py'
+    tb_file_tmp = path + '/fabfile/testbeds/testbed_new.py'
+
+    #check if file already has both parameter version.
+    with open(tb_file) as fd:
+        tb = fd.read()
+    # Trim the comments
+    tb = re.sub('#.*\n', '\n', tb)
+    tb = re.sub('^\s*\n', '', tb, flags=re.M)
+    with open(tb_file+'.cmp', 'w') as fd:
+        fd.write(tb)
+    # Find roledefs section
+    start, end = get_section(tb, 'env.roledefs')
+    if not start:
+        return True
+    block = tb[start:end]
+    # Find contrail-controller section
+    match = re.search('contrail-controller.*?].*?,', block, re.M|re.S)
+    if not match:
+        return True
+    ctrl_start = match.start()
+    ctrl_end = match.end()
+    ctrl_block = block[ctrl_start-1:ctrl_end]
+    # Replace role names
+    ctrl_block = ctrl_block.replace('contrail-controller', 'cfgm') + \
+                 ctrl_block.replace('contrail-controller', 'control') + \
+                 ctrl_block.replace('contrail-controller', 'webui')
+    roledef_block = block[:ctrl_start-1] + ctrl_block + block[ctrl_end:]
+    roledef_block = roledef_block.replace('contrail-analyticsdb', 'database')
+    roledef_block = roledef_block.replace('contrail-analytics', 'collector')
+    roledef_block = roledef_block.replace('contrail-compute', 'compute')
+    new_tb = tb[:start] + roledef_block + tb[end:]
+    with open(tb_file_tmp, 'w') as fd:
+        fd.write(new_tb)
+    env.mytestbed = 'testbed_new'
+
+# end testbed_format_conversion
 
 def main(argv=sys.argv):
     ap = argparse.ArgumentParser(
@@ -641,6 +727,7 @@ def main(argv=sys.argv):
                     help='Contrail fab path on local machine')
     args = ap.parse_args()
 
+    testbed_format_conversion(args.contrail_fab_path)
     configure_test_env(args.contrail_fab_path, args.contrail_test_directory)
 
 if __name__ == "__main__":

@@ -195,3 +195,169 @@ def attachQosToVN(self):
                 self.webui.detach_qos_from_vn(qos_name, vn))
     return result
 # end attachQosToVN
+
+def createNetworkRouteTable(self):
+    if not hasattr(self.topo, 'nrt_list'):
+        self.logger.info("No network route table config found in topo file")
+        return True
+    result = True
+    self.logger.info("Setup step: Creating Network Route Table")
+    for nrt in self.topo.nrt_list:
+        nrt_param = self.topo.nrt_params[nrt]
+        prefix = nrt_param['prefix']
+        nh_type = nrt_param['nh_type']
+        nexthop = nrt_param['nexthop']
+        nrt_name = nrt
+        if not self.webui.create_network_route_table(
+                nrt_name,
+                prefix,
+                nexthop,
+                nh_type):
+            result = result and False
+    return result
+# end createNetworkRouteTable
+
+def attachNrtToVN(self):
+    if not hasattr(self.topo, 'vn_nrt_list'):
+        self.logger.info("No nrt config for VN found in topo file")
+        return True
+    result = True
+    self.logger.info("Setup step: Editing VN to attach Route table")
+    for vn in self.topo.vnet_list:
+        if vn in self.topo.vn_nrt_params:
+            nrt_name = self.topo.vn_nrt_params[vn]
+            if not self.webui.attach_nrt_to_vn(
+                    nrt_name,
+                    vn):
+                result = result and False
+            self.addCleanup(
+                self.webui.detach_nrt_from_vn(nrt_name, vn))
+    return result
+# end attachNrtToVN
+
+def createRoutingPolicy(self):
+    if not hasattr(self.topo, 'rp_list'):
+        self.logger.info("No routing policy config found in topo file")
+        return True
+    result = True
+    self.logger.info("Setup step: Creating Routing Policy")
+    if not self.webui.create_routing_policy(
+            self.topo.rp_list,
+            self.topo.rp_params):
+        result = result and False
+    return result
+# end createRoutingPolicy
+
+def createRouteAggregate(self):
+    if not hasattr(self.topo, 'ragg_list'):
+        self.logger.info("No route aggregate config found in topo file")
+        return True
+    result = True
+    self.logger.info("Setup step: Creating Route Aggregate")
+    if not self.webui.create_route_aggregate(
+            self.topo.ragg_list,
+            self.topo.ragg_params):
+        result = result and False
+    return result
+# end createRouteAggregate
+
+def attachRpToSI(self):
+    if not hasattr(self.topo, 'si_rp_list'):
+        self.logger.info("No rp config for SI found in topo file")
+        return True
+    result = True
+    self.logger.info("Setup step: Editing SI to attach Routing policy")
+    for si in self.topo.si_list:
+        if si in self.topo.si_rp_params:
+            int_rp = self.topo.si_rp_params[si]
+            if not self.webui.attach_detach_rpol_to_si(
+                    int_rp,
+                    si):
+                result = result and False
+            self.addCleanup(
+                self.webui.attach_detach_rpol_to_si(int_rp, si, attach=False))
+    return result
+# end attachRpToSI
+
+def attachRaToSI(self):
+    if not hasattr(self.topo, 'si_ra_list'):
+        self.logger.info("No ra config for SI found in topo file")
+        return True
+    result = True
+    self.logger.info("Setup step: Editing SI to attach Route aggregate")
+    for si in self.topo.si_list:
+        if si in self.topo.si_ra_params:
+            int_ra = self.topo.si_ra_params[si]
+            if not self.webui.attach_detach_ragg_to_si(
+                    int_ra,
+                    si):
+                result = result and False
+            self.addCleanup(
+                self.webui.attach_detach_ragg_to_si(int_ra, si, attach=False))
+    return result
+# end attachRaToSI
+
+def attachShcToSI(self):
+    if not hasattr(self.topo, 'si_shc_list'):
+        self.logger.info("No shc config for SI found in topo file")
+        return True
+    result = True
+    self.logger.info("Setup step: Editing SI to attach Health Check")
+    for si in self.topo.si_list:
+        if si in self.topo.si_shc_params:
+            int_shc = self.topo.si_shc_params[si]
+            if not self.webui.attach_detach_shc_to_si(
+                    int_shc,
+                    si):
+                result = result and False
+            self.addCleanup(
+                self.webui.attach_detach_shc_to_si(int_shc, si, attach=False))
+    return result
+# end attachShcToSI
+
+def createLogStatistic(self):
+    result = True
+    if not hasattr(self.topo, 'log_stat_list'):
+        self.logger.warn("No log stat config found in topo file")
+        return result
+    self.logger.info("Create Log Statistic")
+    if not self.webui.create_log_statistic(
+               self.topo.log_stat_list,
+               self.topo.log_stat_params):
+        result = False
+    return result
+# end createLogStatistic
+
+def createFlowAging(self):
+    result = True
+    if not hasattr(self.topo, 'flow_age_proto_list'):
+        self.logger.warn("No flow aging config found in topo file")
+        return result
+    self.logger.info("Create Flow aging")
+    if not self.webui.create_flow_aging(
+               flow_list=self.topo.flow_age_proto_list,
+               params=self.topo.flow_age_proto_params):
+        result = False
+    return result
+# end createFlowAging
+
+def attachIntfTabToPort(self):
+    if not hasattr(self.topo, 'intf_route_table_list'):
+        self.logger.info("No Intf table config for Port found in topo file")
+        return True
+    result = True
+    self.logger.info("Setup step: Editing Port to attach Interface table")
+    ports = self.topo.port_intf_params.keys()
+    for port in ports:
+        if port in self.topo.port_list:
+            intf_name = self.topo.port_intf_params[port]
+            if not self.webui.attach_and_detach_intf_tab_to_port(
+                   intf_name, port):
+                result = result and False
+            self.addCleanup(
+                self.webui.attach_and_detach_intf_tab_to_port(intf_name, port,
+                option='detach'))
+        else:
+            result = result and False
+    return result
+# end attachIntfTabToPort

@@ -36,12 +36,13 @@ class VNCApiInspect (VerificationUtilBase):
             'lb_vip': {},
             'lb_member': {},
             'lb_healthmonitor': {},
-            'svc_hc': {}, 
+            'svc_hc': {},
             'lr': {},
             'table': {},
             'loadbalancer': {},
             'api-access-list': {},
             'alarm':{},
+            'bridge_domain': {}
         }
 
     def update_cache(self, otype, fq_path, d):
@@ -62,6 +63,26 @@ class VNCApiInspect (VerificationUtilBase):
                 if p.uuid() == uuid:
                     return p
         return None
+
+    def get_cs_bridge_domain(self, bd_name=None, refresh=False):
+        '''
+            method: get_cs_bridge_domain finds a bridge domain by name
+            returns None if not found else CsBridgeDomainResult object
+
+        '''
+        d = self.try_cache('bridge_domain', [bd_name], refresh)
+        if not d:
+            # cache miss
+            bds = self.dict_get('bridge-domains')
+            mybd = filter(lambda x: x['fq_name'][-1] == bd_name,
+                           bds['bridge-domains'])
+            if mybd:
+                dd = self.dict_get(mybd[-1]['href'])
+            # cache set
+            if dd:
+                d = CsBridgeDomainResult(dd)
+                self.update_cache('bridge_domain', [bd_name], d)
+        return d
 
     def get_cs_domain(self, domain='default-domain', refresh=False):
         '''
@@ -218,7 +239,7 @@ class VNCApiInspect (VerificationUtilBase):
         '''
         vn_final_policy_list = []
         vn_attach_policy_list = {}
-        vn_obj = self.get_cs_vn(domain='default-domain',
+        vn_obj = self.get_cs_vn(domain=domain,
                                 project=project, vn=vn, refresh=True)
         if 'network_policy_refs' in vn_obj['virtual-network']:
             vn_pol = vn_obj['virtual-network']['network_policy_refs']

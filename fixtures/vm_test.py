@@ -88,6 +88,7 @@ class VMFixture(fixtures.Fixture):
         self.flavor = self.orch.get_default_image_flavor(self.image_name) or flavor
         self.project_name = connections.project_name
         self.project_id = connections.project_id
+        self.domain_name = connections.domain_name
         self.vm_name = vm_name or get_random_name(self.project_name)
         self.vm_id = uuid
         self.vm_obj = None
@@ -97,9 +98,9 @@ class VMFixture(fixtures.Fixture):
         if os.environ.has_key('ci_image'):
             cidrs = []
             for vn_obj in self.vn_objs:
-                if vn_obj['network'].has_key('contrail:subnet_ipam'):
+                if vn_obj['network'].has_key('subnet_ipam'):
                     cidrs.extend(list(map(lambda obj: obj['subnet_cidr'],
-                                          vn_obj['network']['contrail:subnet_ipam'])))
+                                          vn_obj['network']['subnet_ipam'])))
             if cidrs and get_af_from_cidrs(cidrs) != 'v4':
                 raise v4OnlyTestException('Disabling v6 tests for CI')
         self.vn_names = [self.orch.get_vn_name(x) for x in self.vn_objs]
@@ -172,9 +173,13 @@ class VMFixture(fixtures.Fixture):
             self.vn_fq_name = self.vn_fq_names[0]
             self.vm_ip_dict = self.get_vm_ip_dict()
             self.vm_ips = self.get_vm_ips()
-            self.image_id = self.vm_obj.image['id']
-            self.image_name = self.nova_h.get_image_by_id(self.image_id)
-            self.set_image_details(self.vm_obj)
+            try:
+                #Avoid crashing in vcenter scenario where nova not present
+                self.image_id = self.vm_obj.image['id']
+                self.image_name = self.nova_h.get_image_by_id(self.image_id)
+                self.set_image_details(self.vm_obj)
+            except Exception as e:
+                pass 
 
     def setUp(self):
         super(VMFixture, self).setUp()
@@ -431,8 +436,9 @@ class VMFixture(fixtures.Fixture):
         return result, None
 
     @retry(delay=2, tries=4)
-    def verify_sec_grp_in_agent(self, secgrp, domain='default-domain'):
+    def verify_sec_grp_in_agent(self, secgrp, domain=None):
         # this method verifies sg secgrp attached to vm info in agent
+        domain = domain or self.domain_name
         secgrp_fq_name = ':'.join([domain,
                                    self.project_name,
                                    secgrp])
@@ -453,7 +459,8 @@ class VMFixture(fixtures.Fixture):
         return False, errmsg
 
     @retry(delay=2, tries=4)
-    def verify_sg_acls_in_agent(self, secgrp, domain='default-domain'):
+    def verify_sg_acls_in_agent(self, secgrp, domain=None):
+        domain = domain or self.domain_name
         secgrp_fq_name = ':'.join([domain,
                                    self.project_name,
                                    secgrp])
@@ -493,7 +500,7 @@ class VMFixture(fixtures.Fixture):
         '''
         for vn_fq_name in self.vn_fq_names:
             if self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) =='l2':
-                # TODO 
+                # TODO
                 # After bug 1614824 is fixed
                 # L2 route verification
                 continue
@@ -526,7 +533,7 @@ class VMFixture(fixtures.Fixture):
                     self.logger.debug('Validated VM route %s in vrouter of %s' %(
                         prefix, compute_ip))
 
-                    # Check the label and nh details 
+                    # Check the label and nh details
                     route = route_table[0]
                     if compute_ip == self.vm_node_ip:
                         result = validate_local_route_in_vrouter(route,
@@ -557,7 +564,7 @@ class VMFixture(fixtures.Fixture):
 
     def verify_on_setup(self, force=False):
         #TO DO: sandipd - Need adjustments in multiple places to make verification success
-        # in vcenter gateway setup.Will do gradually.For now made changes just needed to make few functionality 
+        # in vcenter gateway setup.Will do gradually.For now made changes just needed to make few functionality
         #test cases pass
         if isinstance(self.orch,VcenterGatewayOrch):
             self.logger.debug('Skipping VM %s verification for vcenter gateway setup' % (self.vm_name))
@@ -940,12 +947,12 @@ class VMFixture(fixtures.Fixture):
                 for agent_path in self.agent_path[vn_fq_name]:
                     for intf in agent_path['path_list']:
                         if 'itf' in intf['nh']:
-                            intf_name = intf['nh']['itf'] 
+                            intf_name = intf['nh']['itf']
                             if not intf['nh'].get('mc_list', None):
                                 agent_label = intf['label']
-                            break 
+                            break
                         self.agent_label[vn_fq_name].append(agent_label)
-    
+
                         if intf_name != \
                               self.tap_intf[vn_fq_name]['name']:
                            self.logger.warning("Active route in agent for %s is "
@@ -1058,6 +1065,20 @@ class VMFixture(fixtures.Fixture):
                     self.logger.debug(
                     "Ping to Metadata IP %s of VM %s failed!" %
                     (self.local_ips[vn_fq_name], self.vm_name))
+                    vn_obj = self.vnc_lib_h.virtual_network_read(fq_name = vn_fq_name.split(":"))
+                    #The below code is just to make sure that 
+                    #vn is assigned a gateway.In some cases(specifically vcenter case),
+                    #it was observed that the gateway was not assigned to the vn 
+                    for ipam_ref in vn_obj.network_ipam_refs:
+                        for ipam_subnet in ipam_ref['attr'].get_ipam_subnets():
+                            gateway = ipam_subnet.get_default_gateway()
+                            allocation_pool = ipam_subnet.get_allocation_pools()
+                            if not gateway:
+                                gateway = 'NOT set'
+                            if not allocation_pool:
+                                allocation_pool = 'NOT set'
+                            self.logger.info("Gateway for vn %s is %s and allocation pool is %s"\
+                                             %(vn_fq_name,gateway,allocation_pool))
                     return False
                 else:
                     self.logger.info(
@@ -1297,7 +1318,7 @@ class VMFixture(fixtures.Fixture):
             inspect_h = self.agent_inspect[k]
             for vn_fq_name in self.vn_fq_names:
                 if vn_fq_name in v:
-                    for vm_ip in self.vm_ip_dict[vn_fq_name]:
+                    for vm_ip in self.get_vm_ip_dict()[vn_fq_name]:
                         if inspect_h.get_vna_active_route(
                                 vrf_id=v[vn_fq_name],
                                 ip=vm_ip) is not None:
@@ -2102,33 +2123,6 @@ class VMFixture(fixtures.Fixture):
                                         0], username=self.vm_username, password=self.vm_password, cmd_string=cmd_string, timeout=10, device='junos', hostkey_verify="False")
     # end set_config_via_netconf
 
-    def config_via_netconf(self, cmds=None):
-        '''run cmds on VM
-        '''
-        host = self.inputs.host_data[self.vm_node_ip]
-        output = ''
-        try:
-            self.orch.put_key_file_to_host(self.vm_node_ip)
-            fab_connections.clear()
-            with hide('everything'):
-                with settings(
-                    host_string='%s@%s' % (host['username'], self.vm_node_ip),
-                    password=host['password'],
-                        warn_only=True, abort_on_prompts=False):
-                    self.logger.debug('Running Cmd on %s' %
-                                      self.vm_node_ip)
-                    output = run_netconf_on_node(
-                        host_string='%s@%s' % (
-                            self.vm_username, self.local_ip),
-                        password=self.vm_password,
-                        cmds=cmds)
-            return output
-        except Exception, e:
-            self.logger.exception(
-                'Exception occured while trying ping from VM')
-            return False
-   # end config_via_netconf
-
     def run_cmd_on_vm(self, cmds=[], as_sudo=False, timeout=30,
                       as_daemon=False, raw=False, warn_only=True, pidfile=None):
         '''run cmds on VM
@@ -2306,7 +2300,7 @@ class VMFixture(fixtures.Fixture):
 
     @retry(delay=6, tries=10)
     def run_nc_with_retry(self, nc_cmd, retry=False):
-        output = self.run_cmd_on_vm(cmds=[nc_cmd])
+        output = self.run_cmd_on_vm(cmds=[nc_cmd], as_sudo=True)
         if retry and output and output[nc_cmd]:
             if "bind failed: Address already in use" in output[nc_cmd]:
                 return False
@@ -2345,11 +2339,11 @@ class VMFixture(fixtures.Fixture):
 
     def nc_file_transfer(self, dest_vm_fixture, size='100',
             local_port='10001', remote_port='10000', nc_options='', ip=None,
-            expectation=True, retry=False):
+            expectation=True, retry=False, receiver=True):
         '''
         This method can use used to send tcp/udp traffic using netcat and
             will work for IPv4 as well as IPv6.
-        Starts the netcat on both sender as well as receiver.
+        Starts the netcat on sender and on receiver if receiver is True
         IPv6 will work only with ubuntu and ubuntu-traffic images,
             cirros does not support IPv6.
         Creates a file of "size" bytes and transfers to the VM in dest_vm_fixture using netcat.
@@ -2366,17 +2360,17 @@ class VMFixture(fixtures.Fixture):
         listen_port = remote_port
 
         dest_host = self.inputs.host_data[dest_vm_fixture.vm_node_ip]
-
-        # Launch nc on dest_vm. For some reason, it exits after the first
-        # client disconnect
-        nc_cmd = 'nc ' + nc_options
-        #Some version of netcat does not support -p option in listener mode
-        #so run without -p option also
-        nc_l = ['%s -ll -p %s > %s' % (nc_cmd, listen_port, filename),
-                    '%s -ll %s > %s' % (nc_cmd, listen_port, filename)]
-        cmds=[ 'rm -f %s;ls -la' % (filename) ]
-        dest_vm_fixture.run_cmd_on_vm(cmds=cmds, as_sudo=True, as_daemon=True)
-        dest_vm_fixture.run_cmd_on_vm(cmds=nc_l, as_sudo=True, as_daemon=True)
+        if receiver:
+            # Launch nc on dest_vm. For some reason, it exits after the first
+            # client disconnect
+            nc_cmd = 'nc ' + nc_options
+            #Some version of netcat does not support -p option in listener mode
+            #so run without -p option also
+            nc_l = ['%s -ll -p %s > %s' % (nc_cmd, listen_port, filename),
+                        '%s -ll %s > %s' % (nc_cmd, listen_port, filename)]
+            cmds=[ 'rm -f %s;ls -la' % (filename) ]
+            dest_vm_fixture.run_cmd_on_vm(cmds=cmds, as_sudo=True, as_daemon=True)
+            dest_vm_fixture.run_cmd_on_vm(cmds=nc_l, as_sudo=True, as_daemon=True)
 
         self.nc_send_file_to_ip(filename, dest_vm_ip, size=size,
             local_port=local_port, remote_port=listen_port,
@@ -2384,13 +2378,15 @@ class VMFixture(fixtures.Fixture):
 
         msg1 = 'File transfer verification for file size %s failed on the VM %s' % (size, dest_vm_fixture.vm_name)
         msg2 = 'File transfer verification for file size %s passed on the VM %s' % (size, dest_vm_fixture.vm_name)
-        # Check if file exists on dest VM
-        if dest_vm_fixture.verify_file_size_on_vm(filename, size=size, expectation=expectation):
-            self.logger.info(msg2)
-            return True
-        else:
-            self.logger.info(msg1)
-            return False
+        if receiver:
+            # Check if file exists on dest VM
+            if dest_vm_fixture.verify_file_size_on_vm(filename, size=size, expectation=expectation):
+                self.logger.info(msg2)
+                return True
+            else:
+                self.logger.info(msg1)
+                return False
+        return True
 
     # end nc_file_transfer
 
@@ -2550,8 +2546,7 @@ class VMFixture(fixtures.Fixture):
         #listen_port = "\"Server "+listen_port+"$\""
         try:
             vm_host_string = '%s@%s' % (self.vm_username, self.local_ip)
-            cmd = "pkill -e -f SimpleHTTPServer"
-            self.logger.info("cmd  is is %s" % cmd)
+            cmd = "pkill -f SimpleHTTPServer"
             output = remote_cmd(
                 vm_host_string, cmd, gateway_password=host['password'],
                 gateway='%s@%s' % (host['username'], self.vm_node_ip),
@@ -2569,15 +2564,12 @@ class VMFixture(fixtures.Fixture):
             self,
             prefix='111.1.0.0/16',
             tenant_name=None,
-            api_server_ip='127.0.0.1',
-            api_server_port='8082',
             oper='add',
             virtual_machine_interface_id='',
             route_table_name='my_route_table',
             user='admin',
             password='contrail123'):
 
-        api_server_port = self.inputs.api_server_port
         if not tenant_name:
             tenant_name = self.inputs.stack_tenant
         cmd = "python /usr/share/contrail-utils/provision_static_route.py --prefix %s \
@@ -2591,8 +2583,8 @@ class VMFixture(fixtures.Fixture):
                 --route_table_name %s \
                 --api_server_use_ssl %s" % (prefix,
                                           tenant_name,
-                                          api_server_ip,
-                                          api_server_port,
+                                          self.inputs.cfgm_ip,
+                                          self.inputs.api_server_port,
                                           oper,
                                           virtual_machine_interface_id,
                                           user,
@@ -2630,6 +2622,9 @@ class VMFixture(fixtures.Fixture):
                 vna_tap_id = inspect_h.get_vna_tap_interface_by_vmi(
                     vmi_id=self.cs_vmi_obj[vn_fq_name][
                         'virtual-machine-interface']['uuid'])
+                if not vna_tap_id:
+                    self.logger.warn("Unable to fetch tap interface info")
+                    return False
                 self.tap_intf[vn_fq_name] = vna_tap_id[0]
                 self.tap_intf[vn_fq_name] = inspect_h.get_vna_intf_details(
                     self.tap_intf[vn_fq_name]['name'])[0]

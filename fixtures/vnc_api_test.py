@@ -5,6 +5,7 @@ import uuid
 from vnc_api.vnc_api import *
 from cfgm_common.exceptions import NoIdError
 
+from contrailapi import ContrailVncApi
 from tcutils.util import get_dashed_uuid
 from openstack import OpenstackAuth, OpenstackOrchestrator
 from vcenter import VcenterAuth, VcenterOrchestrator
@@ -40,8 +41,10 @@ class VncLibFixture(fixtures.Fixture):
         self.inputs = kwargs.get('inputs', self.connections.inputs
                                            if self.connections else None)
         self.neutron_handle = None
-        self.cfgm_ip = kwargs.get('cfgm_ip', None) or self.inputs.cfgm_ip \
-                       if self.inputs else '127.0.0.1'
+        self.cfgm_ip = kwargs.get('cfgm_ip',self.inputs.cfgm_ip \
+                          if self.inputs else '127.0.0.1')
+            
+        
         self.auth_server_ip = self.inputs.auth_ip if self.inputs else \
                         kwargs.get('auth_server_ip', '127.0.0.1')
         self.auth_url = self.inputs.auth_url if self.inputs else \
@@ -55,6 +58,8 @@ class VncLibFixture(fixtures.Fixture):
                        else kwargs.get('insecure', True)
         self.use_ssl = self.inputs.api_protocol == 'https' if self.inputs \
                        else kwargs.get('use_ssl', False)
+        self.authn_url = self.inputs.authn_url if self.inputs else \
+                         kwargs.get('authn_url', None)
     # end __init__
 
     def setUp(self):
@@ -71,7 +76,6 @@ class VncLibFixture(fixtures.Fixture):
             self.auth_server_ip = self.inputs.auth_ip
             self.auth_client = self.connections.auth
             self.project_id = self.connections.project_id
-            self.auth_url = self.inputs.auth_url
         else:
             self.logger = self.logger or contrail_logging.getLogger(__name__)
             self.vnc_api_h = VncApi(
@@ -82,7 +86,8 @@ class VncLibFixture(fixtures.Fixture):
                               api_server_host=self.cfgm_ip,
                               api_server_port=self.api_server_port,
                               auth_host=self.auth_server_ip,
-                              api_server_use_ssl=self.use_ssl)
+                              api_server_use_ssl=self.use_ssl,
+                              auth_url=self.authn_url)
             if self.orchestrator == 'openstack':
                 self.auth_client = OpenstackAuth(
                                     self.username,
@@ -101,12 +106,18 @@ class VncLibFixture(fixtures.Fixture):
                                                 self.project_name,
                                                 self.inputs
                                                 )
-            if not self.project_id:
-                self.project_id = self.vnc_api_h.project_read(
-                    fq_name=[self.domain, self.project_name])
         if self.orch:
             self.vnc_h = self.orch.vnc_h
+        else:
+            self.vnc_h = ContrailVncApi(self.vnc_api_h, self.logger)
     # end setUp
+
+    def get_project_id(self):
+        if not self.project_id:
+            self.project_id = self.vnc_api_h.project_read(
+                fq_name=[self.domain, self.project_name]).uuid
+        return self.project_id
+        
 
     def cleanUp(self):
         super(VncLibFixture, self).cleanUp()
@@ -193,7 +204,7 @@ class VncLibFixture(fixtures.Fixture):
     def get_project_obj(self):
         if self.connections:
             project_id = self.connections.project_id
-        elif self.project_id:
+        elif self.get_project_id():
             project_id = self.project_id
         else:
             project_id = self.vnc_api_h.project_read(
@@ -209,7 +220,7 @@ class VncLibFixture(fixtures.Fixture):
         vnc_lib = self.vnc_api_h
         # Figure out VN
         vni_list = vnc_lib.virtual_networks_list(
-            parent_id=self.project_id)['virtual-networks']
+            parent_id=self.get_project_id())['virtual-networks']
         for vni_record in vni_list:
             if (vni_record['fq_name'][0] == vn_fq_name.split(":")[0] and
                 vni_record['fq_name'][1] == vn_fq_name.split(":")[1] and
@@ -227,7 +238,7 @@ class VncLibFixture(fixtures.Fixture):
         vnc_lib = self.vnc_api_h
         # Figure out VN
         vni_list = vnc_lib.virtual_networks_list(
-            parent_id=self.project_id)['virtual-networks']
+            parent_id=self.get_project_id())['virtual-networks']
         for vni_record in vni_list:
             if (vni_record['fq_name'][0] == vn_fq_name.split(":")[0] and
                 vni_record['fq_name'][1] == vn_fq_name.split(":")[1] and
@@ -244,7 +255,7 @@ class VncLibFixture(fixtures.Fixture):
         vnc_lib = self.vnc_api_h
         # Figure out VN
         vni_list = self.vnc_api_h.virtual_networks_list(
-            parent_id=self.project_id)['virtual-networks']
+            parent_id=self.get_project_id())['virtual-networks']
         for vni_record in vni_list:
             if (vni_record['fq_name'][0] == vn_fq_name.split(":")[0] and
                 vni_record['fq_name'][1] == vn_fq_name.split(":")[1] and
@@ -330,11 +341,7 @@ class VncLibFixture(fixtures.Fixture):
                     'default-global-vrouter-config']
         gv_obj = self.vnc_api_h.global_vrouter_config_read(fq_name=fq_name)
         rate = gv_obj.get_flow_export_rate()
-        if not rate:
-            # If not set, return 100 , since this is default
-            return 100
-        else:
-            return rate
+        return rate
     # end get_flow_export_rate
 
     def set_flow_export_rate(self, value):
@@ -345,7 +352,7 @@ class VncLibFixture(fixtures.Fixture):
         fq_name = [ 'default-global-system-config',
                     'default-global-vrouter-config']
         gv_obj = self.vnc_api_h.global_vrouter_config_read(fq_name=fq_name)
-        gv_obj.set_flow_export_rate(int(value))
+        gv_obj.set_flow_export_rate(int(value) if value else None)
         self.vnc_api_h.global_vrouter_config_update(gv_obj)
         self.logger.info('Setting flow export rate: %s' % (value))
         return True

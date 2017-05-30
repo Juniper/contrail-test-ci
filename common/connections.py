@@ -23,11 +23,15 @@ except ImportError:
 
 class ContrailConnections():
     def __init__(self, inputs=None, logger=None, project_name=None,
-                 username=None, password=None, domain_name=None, ini_file=None, domain_obj=None):
+                 username=None, password=None, domain_name=None, ini_file=None, domain_obj=None,scope='domain'):
         self.inputs = inputs or ContrailTestInit(ini_file,
                                 stack_tenant=project_name)
         self.project_name = project_name or self.inputs.project_name
         self.domain_name = domain_name or self.inputs.domain_name
+        self.orch_domain_name = domain_name or self.inputs.domain_name
+        if self.orch_domain_name == 'Default':
+            self.domain_name = 'default-domain'
+        self.scope = scope
         self.username = username or self.inputs.stack_user
         self.password = password or self.inputs.stack_password
         self.logger = logger or self.inputs.logger
@@ -48,9 +52,14 @@ class ContrailConnections():
         self.k8s_client = self.get_k8s_api_client_handle()
 
         # ToDo: msenthil/sandipd rest of init needs to be better handled
-        self.domain_id = None        
-        if domain_obj:        
-            self.domain_id = get_plain_uuid(domain_obj.uuid)        
+        self.domain_id = None
+        if self.inputs.domain_isolation: 
+            #get admin auth to list domains and get domain_id
+            auth = self.get_auth_h(username = self.inputs.admin_username,
+                                   password=self.inputs.admin_password,
+                                   project_name=self.inputs.admin_tenant,
+                                   domain_name=self.inputs.admin_domain)
+            self.domain_id = auth.get_domain_id(self.domain_name)
         self.auth = self.get_auth_h()
         self.vnc_lib = self.get_vnc_lib_h()
         self.project_id = self.get_project_id()
@@ -76,6 +85,8 @@ class ContrailConnections():
                                             vnc=self.vnc_lib,
                                             inputs=self.inputs,
                                             logger=self.logger)
+        elif self.inputs.orchestrator == 'kubernetes':
+            self.orch = None
         if self.inputs.vcenter_gw_setup: # vcenter_gateway
             self.slave_orch = VcenterGatewayOrch(user=self.inputs.vcenter_username,
                                             pwd=self.inputs.vcenter_password,
@@ -109,7 +120,7 @@ class ContrailConnections():
             return self.vnc_lib_fixture.project_id if self.vnc_lib_fixture else None
 
     def get_auth_h(self, refresh=False, project_name=None,
-                   username=None, password=None):
+                   username=None, password=None, domain_name=None):
         #TODO: consider moving this method to appropriate orch_ctrl class
         project_name = project_name or self.project_name
         username = username or self.username
@@ -119,25 +130,27 @@ class ContrailConnections():
             if self.inputs.orchestrator == 'openstack':
                 env[attr] = OpenstackAuth(username, password,
                            project_name, self.inputs, self.logger,
-                           domain_name=self.domain_name)
+                           domain_name=domain_name or self.orch_domain_name,
+                           scope=self.scope)
             elif self.inputs.orchestrator == 'vcenter':
                 env[attr] = VcenterAuth(username, password,
                                        project_name, self.inputs)
+#            elif self.inputs.orchestrator == 'kubernetes':
+#                env[attr] = self.get_k8s_api_client_handle()
         return env.get(attr)
-
+    
     def get_vnc_lib_h(self, refresh=False):
         attr = '_vnc_lib_fixture_' + self.project_name + '_' + self.username
         cfgm_ip = self.inputs.api_server_ip or \
                   self.inputs.contrail_external_vip or self.inputs.cfgm_ip
         if not getattr(env, attr, None) or refresh:
-            if self.domain_name == 'default-domain' \
-                    and self.inputs.orchestrator == 'openstack':
-                self.domain = 'Default'
-            else:        
-                self.domain = self.domain_name
+            if self.inputs.orchestrator == 'openstack' :
+                domain = self.orch_domain_name     
+            else:  
+                domain = self.domain_name
             env[attr] = VncLibFixture(
                 username=self.username, password=self.password,
-                domain=self.domain, project_name=self.project_name,
+                domain=domain, project_name=self.project_name,
                 inputs=self.inputs,
                 cfgm_ip=cfgm_ip,
                 api_server_port=self.inputs.api_server_port,
@@ -201,10 +214,11 @@ class ContrailConnections():
         return self.ops_inspects[ip]
 
     def get_k8s_api_client_handle(self):
-        if self.inputs.orchestrator != 'kubernetes':
+        if self.inputs.orchestrator != 'kubernetes' and self.inputs.slave_orchestrator != 'kubernetes':
             return None
         if not getattr(self, 'k8s_client', None):
-            self.k8s_client = Kubernetes_client(self.inputs.kube_config_file)
+            self.k8s_client = Kubernetes_client(self.inputs.kube_config_file,
+                                                self.logger)
         return self.k8s_client
     # end get_k8s_api_client_handle
 
@@ -213,7 +227,7 @@ class ContrailConnections():
             for cfgm_ip in self.inputs.cfgm_ips:
                 #contrail-status would increase run time hence netstat approach
                 cmd = 'netstat -antp | grep 8088 | grep LISTEN'
-                if self.inputs.run_cmd_on_server(cfgm_ip, cmd, container='controller') is not None:
+                if 'LISTEN' in self.inputs.run_cmd_on_server(cfgm_ip, cmd, container='controller'):
                     self._svc_mon_inspect = SvcMonInspect(cfgm_ip,
                                            logger=self.logger)
                     break

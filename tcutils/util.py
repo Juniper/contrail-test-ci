@@ -851,6 +851,11 @@ class Lock:
     def __del__(self):
         self.handle.close()
 
+    __enter__ = acquire
+
+    def __exit__(self, t, v, tb):
+        self.release()
+
 
 def read_config_option(config, section, option, default_option):
     ''' Read the config file. If the option/section is not present, return the default_option
@@ -894,6 +899,32 @@ def copy_file_to_server(host, src, dest, filename, force=False,
             if container:
                 run('docker cp %s/%s %s:%s' %(dest, filename, container, dest))
 # end copy_file_to_server
+
+def copy_file_from_server(host, src_file_path, dest_folder, container=None,
+        logger=None):
+    '''
+    Can copy files using wildcard.
+    Note that docker cp does not support wildcard yet
+    '''
+    logger = logger or contrail_logging.getLogger(__name__)
+    if container:
+        tmp_dest_folder = '/tmp'
+    basename = os.path.basename(src_file_path)
+
+    with settings(host_string='%s@%s' % (host['username'],
+                                         host['ip']), password=host['password'],
+                  warn_only=True, abort_on_prompts=False):
+        if container:
+            run('docker cp %s:%s %s' %(container, src_file_path,
+                tmp_dest_folder))
+        else:
+            tmp_dest_folder = os.path.dirname(src_file_path)
+        tmp_dest_path = '%s/%s' %(tmp_dest_folder, basename)
+        get('%s/%s' %(tmp_dest_folder, basename), dest_folder)
+        if container:
+            run('rm -f %s/%s' %(tmp_dest_folder, basename))
+        return True
+# end copy_file_from_server
 
 def get_host_domain_name(host):
     output = None
@@ -1057,6 +1088,12 @@ def skip_because(*args, **kwargs):
                         msg = msg + kwargs["msg"]
                     raise testtools.TestCase.skipException(msg)
 
+            if "keystone_version" in kwargs:
+                if 'v3' not in self.inputs.auth_url:
+                    skip = True
+                    msg = "Skipped as testcase is not supported with keystone version 2"
+                    raise testtools.TestCase.skipException(msg)
+
             return f(self, *func_args, **func_kwargs)
         return wrapper
     return decorator
@@ -1128,6 +1165,20 @@ def is_uuid(value):
 def istrue(value):
     return str(value).lower() in ['1', 'true', 'yes', 'y']
 
+def timeit(func):
+    @functools.wraps(func)
+    def newfunc(*args, **kwargs):
+        startTime = time.time()
+        result = func(*args, **kwargs)
+        elapsedTime = time.time() - startTime
+        print('function [{}] finished in {} ms'.format(
+            func.__name__, int(elapsedTime * 1000)))
+        return result
+    return newfunc
+
+def get_lock(text):
+    return Lock('/tmp/%s.lock' %(text.replace('/','_')))
+
 def retry_and_log(tries=5, delay=3):
 
     '''Retries a method until it returns True, retry expires
@@ -1166,3 +1217,4 @@ def retry_and_log(tries=5, delay=3):
         return f_retry  # true decorator -> decorated function
     return deco_retry  # @retry(arg[, ...]) -> true decorator
 # end retry_and_log
+

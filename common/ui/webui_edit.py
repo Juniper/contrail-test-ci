@@ -104,7 +104,7 @@ class WebuiEdit:
                         result = result and False
                     self.ui.send_keys(params_list[9], 'fixedIp', 'name', browser=subnet_grid[1],
                         clear=True)
-                    combobox[0].send_keys('100')
+                    self.ui.send_keys('100', 'local_preference', 'name', clear=True)
                 if allowed_address_pair:
                     add_value[1].click()
                     self.ui.send_keys(params_list[8], 'ipPrefixVal', 'name', clear=True)
@@ -113,7 +113,7 @@ class WebuiEdit:
                     self.ui.click_element('s2id_ecmpHashingIncFields_dropdown')
                     if not self.ui.select_from_dropdown('destination-ip', grep=False):
                         result = result and False
-                combo_state = combobox[1].get_attribute('disabled')
+                combo_state = combobox[0].get_attribute('disabled')
                 if not combo_state:
                     result = result and False
                 if not mirror_enabled_already:
@@ -123,12 +123,14 @@ class WebuiEdit:
                     self.ui.send_keys(params_list[5], 'analyzer_ip_address', 'name', clear=True)
                     self.ui.send_keys(params_list[10], 'udp_port', 'name', clear=True)
                     self.ui.send_keys(params_list[1], 'analyzer_name', 'name', clear=True)
-                    self.ui.click_element('s2id_mirrorToRoutingInstance_dropdown')
-                    self.ui.click_element('select2-highlighted', 'class')
                     self.ui.send_keys(params_list[2], 'analyzer_mac_address', 'name', clear=True)
-                    self.ui.click_element('s2id_juniper_header_dropdown')
+                    self.ui.click_element('s2id_user_created_juniper_header_dropdown')
                     if not self.ui.select_from_dropdown(header_mode, grep=False):
                         result = result and False
+                    if header_mode == 'Disabled':
+                        self.ui.click_element('s2id_mirrorToRoutingInstance_dropdown')
+                        if not self.ui.select_from_dropdown(params_list[11], grep=False):
+                            result = result and False
                     self.ui.click_element('s2id_traffic_direction_dropdown')
                     if not self.ui.select_from_dropdown(traffic_direction, grep=False):
                         result = result and False
@@ -292,8 +294,8 @@ class WebuiEdit:
             result = self.ui.negative_test_proc('global_bgp_options')
             self.ui.wait_till_ajax_done(self.browser)
         except WebDriverException:
-            self.logger.error("Error while trying to edit %s" % (option))
-            self.ui.screenshot(option)
+            self.logger.error("Error while trying to edit global/bgp option")
+            self.ui.screenshot('global_bgp_option')
             result = result and False
             self.ui.click_on_cancel_if_failure('cancelBtn')
             raise

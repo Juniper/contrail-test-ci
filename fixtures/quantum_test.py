@@ -58,7 +58,7 @@ class QuantumHelper():
         return openstack.OpenstackAuth(**kwargs)
 
     def setUp(self):
-        self.obj = client.Client('2.0', session=self.auth_h.get_session(),
+        self.obj = client.Client('2.0', session=self.auth_h.get_session(scope='project'),
                                  region_name=self.region_name)
     # end setUp
 
@@ -112,7 +112,7 @@ class QuantumHelper():
         subnet_req['enable_dhcp'] = enable_dhcp
         subnet_req['ip_version'] = '6' if is_v6(subnet['cidr']) else '4'
         subnet_req['cidr'] = unicode(subnet_req['cidr'])
-        subnet_req['contrail:ipam_fq_name'] = ipam_fq_name
+        subnet_req['ipam_fq_name'] = ipam_fq_name
         if disable_gateway:
            subnet_req['gateway_ip'] = None
         try:
@@ -227,7 +227,14 @@ class QuantumHelper():
         #currently this method can be only used before adding any custom rule to sg
         rules = self.list_security_group_rules(tenant_id=self.project_id)
         for rule in rules['security_group_rules']:
-            if rule['security_group_id'] == sg_id and rule['remote_ip_prefix'] == '0.0.0.0/0':
+            if rule['security_group_id'] == sg_id and (
+                    rule['remote_ip_prefix'] == '0.0.0.0/0'):
+                self.delete_security_group_rule(rule['id'])
+                break
+
+        for rule in rules['security_group_rules']:
+            if rule['security_group_id'] == sg_id and (
+                    rule['remote_ip_prefix'] == '::/0'):
                 self.delete_security_group_rule(rule['id'])
                 break
 
@@ -764,7 +771,7 @@ class QuantumHelper():
     # end update_health_monitor
 
     def get_health_monitor(self, hm_id):
-        ''' Returns Health monitor object as dict. 
+        ''' Returns Health monitor object as dict.
             If not found, returns None
         '''
         try:
@@ -876,7 +883,7 @@ class QuantumHelper():
     # end delete_lb_member
 
     def update_lb_member(self, lb_member_id, lb_member_dict):
-        '''Update lb member using lb_member_dict. 
+        '''Update lb member using lb_member_dict.
            Returns the updated object '''
         pass
 

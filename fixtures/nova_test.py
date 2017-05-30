@@ -46,6 +46,7 @@ class NovaHelper():
         self.admin_username = inputs.admin_username
         self.admin_password = inputs.admin_password
         self.admin_tenant = inputs.admin_tenant
+        self.admin_domain = inputs.admin_domain
         self.auth_url = inputs.auth_url
         self.logger = inputs.logger
         self.region_name = kwargs.get('region_name') or inputs.region_name
@@ -81,7 +82,7 @@ class NovaHelper():
            pass
 
     def _connect_to_openstack(self):
-        self.obj = mynovaclient.Client('2', session=self.auth_h.get_session(),
+        self.obj = mynovaclient.Client('2', session=self.auth_h.get_session(scope='project'),
                                        region_name=self.region_name
                                       )
         self.hack_for_liberty_novaclient()
@@ -358,18 +359,35 @@ class NovaHelper():
             public_arg = "--visibility public"
 
         insecure = '--insecure' # Always use insecure till a glance client lib is added
-        cmd = '(glance %s --os-username %s --os-password %s \
-                --os-tenant-name %s --os-auth-url %s \
-                --os-region-name %s image-create --name "%s" \
-                %s %s --file %s)' % (insecure,
+        if 'v3' in self.auth_url:
+            cmd = '(glance %s --os-username %s --os-password %s \
+                    --os-project-domain-name %s --os-project-name %s \
+                    --os-user-domain-name %s --os-auth-url %s \
+                    --os-region-name %s image-create --name "%s" \
+                    %s %s --file %s)' % (insecure,
                                      self.admin_username,
                                      self.admin_password,
+                                     self.admin_domain,
                                      self.admin_tenant,
+                                     self.admin_domain,
                                      self.auth_url,
                                      self.region_name,
                                      generic_image_name,
                                      public_arg,
                                      params, image_path_real)
+        else:
+            cmd = '(glance %s --os-username %s --os-password %s \
+                    --os-tenant-name %s --os-auth-url %s \
+                    --os-region-name %s image-create --name "%s" \
+                    %s %s --file %s)' % (insecure,
+                                         self.admin_username,
+                                         self.admin_password,
+                                         self.admin_tenant,
+                                         self.auth_url,
+                                         self.region_name,
+                                         generic_image_name,
+                                         public_arg,
+                                         params, image_path_real)
 
         self.execute_cmd_with_proxy(cmd)
         return True

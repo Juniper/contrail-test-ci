@@ -2,6 +2,10 @@ from netaddr import *
 
 import vnc_api_test
 from physical_device_fixture import PhysicalDeviceFixture
+try:
+    from webui_test import *
+except ImportError:
+    pass
 
 class VpeRouterFixture(PhysicalDeviceFixture):
 
@@ -14,6 +18,12 @@ class VpeRouterFixture(PhysicalDeviceFixture):
 
     def __init__(self, *args, **kwargs):
         super(VpeRouterFixture, self).__init__( *args, **kwargs)
+        try:
+            if self.inputs.verify_thru_gui():
+                self.webui = WebuiTest(self.connections, self.inputs)
+                self.kwargs = kwargs
+        except Exception as e:
+            pass
      # end __init__
 
     def setUp(self):

@@ -167,7 +167,8 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
     # end create_svc_health_check
 
     def create_physical_router(self):
-        assert topo_steps.createPhysicalRouter(self)
+        assert topo_steps.createPhysicalRouter(self, self.topo.pr_list,
+                                              self.topo.pr_params)
         return True
     # end create_physical_router
 
@@ -232,6 +233,82 @@ class sdnUiTopoSetupFixture(fixtures.Fixture):
         assert topo_steps.createAlarms(self)
         return True
     # end create_alarms
+
+    def create_rbac(self):
+        assert topo_steps.createRBAC(self)
+        return True
+    # end create_rbac
+
+    def create_ovsdb_tor_agent(self):
+        assert topo_steps.createOVSDBTORAgent(self)
+        return True
+    # end create_ovsdb_tor_agent
+
+    def create_netconf_prouter(self):
+        assert topo_steps.createPhysicalRouter(self, self.topo.netconf_pr_list,
+                                              self.topo.netconf_pr_params)
+        return True
+    # end create_netconf_prouter
+
+    def create_vcpe_router(self):
+        assert topo_steps.createVCPERouter(self)
+        return True
+    # end create_vcpe_router
+
+    def create_network_route_table(self):
+        assert ui_topo_steps.createNetworkRouteTable(self)
+        return True
+    # end create_network_route_table
+
+    def attach_network_route_table(self):
+        assert ui_topo_steps.attachNrtToVN(self)
+        return True
+    # end attach_network_route_table
+
+    def create_routing_policies(self):
+        assert ui_topo_steps.createRoutingPolicy(self)
+        return True
+    # end create_routing_policies
+
+    def create_route_aggregates(self):
+        assert ui_topo_steps.createRouteAggregate(self)
+        return True
+    # end create_route_aggregates
+
+    def attach_routing_policy(self):
+        assert ui_topo_steps.attachRpToSI(self)
+        return True
+    # end attach_routing_policy
+
+    def attach_route_aggregate(self):
+        assert ui_topo_steps.attachRaToSI(self)
+        return True
+    # end attach_route_aggregate
+
+    def attach_svc_health_check(self):
+        assert ui_topo_steps.attachShcToSI(self)
+        return True
+    # end attach_svc_health_check
+
+    def create_log_statistic(self):
+        assert ui_topo_steps.createLogStatistic(self)
+        return True
+    # end create_log_statistic
+
+    def create_flow_aging(self):
+        assert ui_topo_steps.createFlowAging(self)
+        return True
+    # end create_flow_aging
+
+    def create_interface_route_table(self):
+        assert topo_steps.createIntfRouteTable(self)
+        return True
+    # end create_interface_route_table
+
+    def attach_intf_route_table(self):
+        assert ui_topo_steps.attachIntfTabToPort(self)
+        return True
+    # end attach_intf_route_table
 
     def cleanUp(self):
         if self.inputs.fixture_cleanup == 'yes':

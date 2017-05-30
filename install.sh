@@ -14,16 +14,19 @@ BASE_DIR=`dirname $(readlink -f $0)`
 PACKAGES_REQUIRED_UBUNTU="python-pip ant python-novaclient python-neutronclient python-cinderclient \
     python-contrail python-glanceclient python-heatclient python-ceilometerclient python-setuptools contrail-utils \
     patch git ipmitool python-requests"
-PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD="$PACKAGES_REQUIRED_UBUNTU python-dev libxslt1-dev libz-dev libyaml-dev sshpass"
-PACKAGES_REQUIRED_RALLY="libssl-dev libffi-dev python-dev libxml2-dev libxslt1-dev libpq-dev libpq5=9.3.15-0ubuntu0.14.04"
 if [ ${BUILD_PLATFORM} = "16.04" ]; then
-    PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD="$PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD gcc-5-base=5.4.0-6ubuntu1~16.04.4 libgcc-5-dev=5.4.0-6ubuntu1~16.04.4 libstdc++-5-dev=5.4.0-6ubuntu1~16.04.4"
-    PACKAGES_REQUIRED_RALLY="libssl-dev libffi-dev python-dev libxml2-dev libxslt1-dev libpq-dev libpq5"
-    EXTRAS="libc-dev-bin=2.23-0ubuntu5 libc6-dev=2.23-0ubuntu5 libexpat1-dev libexpat1 libpython2.7-dev python2.7-dev"
+    PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD="$PACKAGES_REQUIRED_UBUNTU python-dev libxslt1-dev=1.1.28-2.1 libz-dev libyaml-dev sshpass"
+    PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD="$PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD gcc-5-base=5.4.0-6ubuntu1~16.04.4 libgcc-5-dev=5.4.0-6ubuntu1~16.04.4 libstdc++-5-dev=5.4.0-6ubuntu1~16.04.4 libicu55=55.1-7ubuntu0.2 libicu-dev=55.1-7ubuntu0.2"
+    PACKAGES_REQUIRED_RALLY="libssl-dev libffi-dev python-dev libxml2-dev libxslt1-dev=1.1.28-2.1 libpq-dev libpq5"
+    EXTRAS="libc-dev-bin libc6-dev libexpat1-dev libexpat1 libpython2.7-dev python2.7-dev"
 else
-    EXTRAS="http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1-dev_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libpython2.7-dev_2.7.6-8ubuntu0.2_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/python2.7-dev_2.7.6-8ubuntu0.2_amd64.deb"
+    PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD="$PACKAGES_REQUIRED_UBUNTU python-dev libxslt1-dev libz-dev libyaml-dev sshpass"
+    EXTRAS="http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1-dev_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libpython2.7-dev_2.7.6-8ubuntu0.2_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/python2.7-dev_2.7.6-8ubuntu0.2_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxslt1-dev_1.1.28-2ubuntu0.1_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxslt1.1_1.1.28-2ubuntu0.1_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxml2-dev_2.9.1+dfsg1-3ubuntu4.9_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxml2_2.9.1+dfsg1-3ubuntu4.9_amd64.deb"
     PACKAGES_REQUIRED_RALLY="libssl-dev libffi-dev python-dev libxml2-dev libxslt1-dev libpq-dev libpq5=9.3.15-0ubuntu0.14.04"
 fi
+
+#registry server from which ubuntu build images are pulled
+registry_server="10.84.34.155:5000"
 
 usage () {
     cat <<EOF
@@ -197,6 +200,7 @@ Run contrail-test in container
         sanity, quick_sanity, ci_sanity, ci_sanity_WIP, ci_svc_sanity,
         upgrade, webui_sanity, ci_webui_sanity, devstack_sanity, upgrade_only
   -T  test tags to run tests. If not provided, try $TEST_TAGS variable
+  -l  path where contrail-test can be found. Default: /contrail-test
 
 EOF
 }
@@ -219,6 +223,9 @@ while getopts ":T:t:p:f:h" opt; do
     T)
       test_tags=$OPTARG
       ;;
+    l)
+      contrail_test_folder=$OPTARG
+      ;;
     :)
       echo "Option -$OPTARG requires an argument." >&2
       exit 1
@@ -228,10 +235,11 @@ done
 
 TESTBED=${testbed_input:-${TESTBED:-'/opt/contrail/utils/fabfile/testbeds/testbed.py'}}
 CONTRAIL_FABPATH=${contrail_fabpath_input:-${CONTRAIL_FABPATH:-'/opt/contrail/utils'}}
+CONTRAIL_TEST_FOLDER=${contrail_test_folder:-${CONTRAIL_TEST_FOLDER:-'/contrail-test'}}
 FEATURE=${feature_input:-${FEATURE:-'sanity'}}
 TEST_TAGS=${test_tags:-$TEST_TAGS}
 
-if [[ ( ! -f /contrail-test/sanity_params.ini || ! -f /contrail-test/sanity_testbed.json ) && ! -f $TESTBED ]]; then
+if [[ ( ! -f ${CONTRAIL_TEST_FOLDER}/sanity_params.ini || ! -f ${CONTRAIL_TEST_FOLDER}/sanity_testbed.json ) && ! -f $TESTBED ]]; then
     echo "ERROR! Either testbed file or sanity_params.ini or sanity_testbed.json under /contrail-test is required.
           you probably forgot to attach them as volumes"
     exit 100
@@ -242,7 +250,7 @@ if [ ! $TESTBED -ef ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py ]; then
     cp $TESTBED ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py
 fi
 
-cd /contrail-test
+cd ${CONTRAIL_TEST_FOLDER}
 run_tests="./run_tests.sh --contrail-fab-path $CONTRAIL_FABPATH "
 if [[ -n $TEST_RUN_CMD ]]; then
     $TEST_RUN_CMD $EXTRA_RUN_TEST_ARGS
@@ -300,9 +308,9 @@ else
 fi
 
 
-if [ -d /contrail-test.save ]; then
-    cp -f ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py /contrail-test.save/
-    rsync -a --exclude logs/ --exclude report/ /contrail-test /contrail-test.save/
+if [ -d ${CONTRAIL_TEST_FOLDER}.save ]; then
+    cp -f ${CONTRAIL_FABPATH}/fabfile/testbeds/testbed.py ${CONTRAIL_TEST_FOLDER}.save/
+    rsync -L -a --exclude logs/ --exclude report/ ${CONTRAIL_TEST_FOLDER} ${CONTRAIL_TEST_FOLDER}.save/
 fi
 
 exit $rv_run_test
@@ -313,9 +321,9 @@ EOT
 function make_dockerfile {
     type=$1
     if [[ ${BUILD_PLATFORM} == "16.04" ]]; then
-        base_image=${2:-hkumar/ubuntu:16.04}
+        base_image=${2:-$registry_server/ubuntu:16.04}
     else
-        base_image=${2:-hkumar/ubuntu-14.04.2}
+        base_image=${2:-$registry_server/ubuntu-14.04.2}
     fi
     cat <<EOF
 FROM $base_image
@@ -351,6 +359,7 @@ EOF
 RUN cd /opt/contrail/contrail_install_repo/ && apt-get install -y $EXTRAS;
 EOF
             else
+                cat <<EOF
 RUN cd /opt/contrail/contrail_install_repo/ && wget $EXTRAS && \
     cd /opt/contrail/contrail_install_repo/ && dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz && apt-get update;
 EOF
@@ -370,7 +379,7 @@ RUN apt-get install -y sshpass && \
     sshpass -e scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${sshuser_sub}${server}:${path} /contrail-install-packages.deb && \
     dpkg -i /contrail-install-packages.deb && \
     rm -f /contrail-install-packages.deb && \
-    cd /opt/contrail/contrail_packages/ && ./setup.sh; 
+    cd /opt/contrail/contrail_packages/ && ./setup.sh;
 EOF
             if [[ ${BUILD_PLATFORM} == "16.04" ]]; then
                 cat <<EOF
@@ -529,9 +538,9 @@ EOF
         image_tag=${1:-$PREP_IMAGE}
         BUILD_DIR=`mktemp -d`
         if [ ${BUILD_PLATFORM} = "16.04" ]; then
-            make_dockerfile prep 'hkumar/ubuntu:16.04' > $BUILD_DIR/Dockerfile
+            make_dockerfile prep "$registry_server/ubuntu:16.04" > $BUILD_DIR/Dockerfile
         else
-            make_dockerfile prep 'hkumar/ubuntu-14.04.2' > $BUILD_DIR/Dockerfile
+            make_dockerfile prep "$registry_server/ubuntu-14.04.2" > $BUILD_DIR/Dockerfile
         fi
 
         if [[ -n $scp_package ]]; then

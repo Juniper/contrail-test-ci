@@ -60,6 +60,13 @@ class NFSDatastore:
                                          #the contrail-controllers.Hence, the nfs datastore becomes 
                                          #in-accessiable.We need to create and mount the nfs datastore again. 
             else:
+                try:
+                    #Delete any existing templates in the nfs-ds
+                    #else datasore delete failes
+                    for vm in nas_ds.vm:
+                        _wait_for_task(vm.UnregisterVM())
+                except Exception as e:
+                    pass
                 hosts = [host for cluster in vc._dc.hostFolder.childEntity for host in cluster.host]
                 for host in hosts:
                     self._delete_datastore(host,nas_ds)
@@ -161,6 +168,7 @@ class VcenterOrchestrator(Orchestrator):
         self._computes = self._get_computes()
 
     def _find_obj (self, root, vimtype, param):
+        self._content = self._si.RetrieveContent()
         if vimtype == 'ip.Pool':
             items = self._content.ipPoolManager.QueryIpPools(self._dc)
         else:
@@ -245,7 +253,10 @@ class VcenterOrchestrator(Orchestrator):
             run('mkdir -p %s' % dst)
             run('wget %s -P %s' % (url_vmx, dst))
             run('wget %s -P %s' % (url_vmdk, dst))
-            run('vmkfstools -i %s -d zeroedthick %s' % (tmp_vmdk, dst_vmdk))
+            try:
+                run('vmkfstools -i %s -d zeroedthick %s' % (tmp_vmdk, dst_vmdk))
+            except Exception as e:
+                pass
             run('rm %s' % tmp_vmdk)
 
         return self._nfs_ds.name, image + '/' + vmx
@@ -398,15 +409,22 @@ class VcenterOrchestrator(Orchestrator):
         vm_list = [VcenterVM.create_from_vmobj(self, vmobj) for vmobj in vm_list]
         return vm_list
 
-    @retry(delay=5, tries=35)
     def get_vm_detail(self, vm_obj, **kwargs):
-        return vm_obj.get()
+        if vm_obj.get_from_plugin_introspect(): 
+            return vm_obj.get_from_plugin_introspect() 
+        else:
+            return vm_obj.get()  
 
     def get_console_output(self, vm_obj, **kwargs):
         return None
 
     def get_vm_ip(self, vm_obj, vn_name=None, **kwargs):
-        self.get_vm_detail(vm_obj)
+        if not getattr(vm_obj,'ips'):
+            self.get_vm_detail(vm_obj)
+
+        if not len(getattr(vm_obj,'ips')) == len(getattr(vm_obj,'nets')):
+            self.get_vm_detail(vm_obj)
+        
         if vn_name:
             ret = vm_obj.ips.get(vn_name, None)
         else:
@@ -541,6 +559,12 @@ class VcenterOrchestrator(Orchestrator):
         vrouter = self._inputs.host_data[self.get_host_of_vm(vm_obj)]['host_ip']
         inspect = self.get_vcenter_introspect()
         return inspect.verify_vm_not_in_vcenter(vrouter,vm_name)
+
+    def get_vmi_from_vcenter_introspect(self,vm_obj):
+        vm_name = vm_obj.name
+        vrouter = self._inputs.host_data[self.get_host_of_vm(vm_obj)]['host_ip']
+        inspect = self.get_vcenter_introspect()
+        return inspect.get_vmi_from_vcenter_introspect(vrouter,vm_name)
 
 class Subnets(object):
 
@@ -679,6 +703,7 @@ class VcenterVN:
         pool = vcenter._find_obj(vcenter._dc, 'ip.Pool', {'id':vn.ip_pool_id})
         vn.prefix = IPNetwork(pool.ipv4Config.subnetAddress+'/'+pool.ipv4Config.netmask)
         ip_list = list(vn.prefix.iter_hosts())
+        vn.get() 
         return vn
 
     @retry(tries=30, delay=5)
@@ -704,6 +729,8 @@ class VcenterVM:
         vm.name = vmobj.name
         vm.host = vmobj.runtime.host.name
         vm.nets = [net.name for net in vmobj.network]
+        vm.ips = {}
+        vm.macs = {}
         vm.get(vmobj)
         return vm
 
@@ -720,6 +747,8 @@ class VcenterVM:
         #, we just need to  call vm.ports[<index>].cleanUP and same for lif objects 
         vm.ports = []
         vm.lifs = []
+        vm.ips = {}
+        vm.macs = {}
 
         intfs = []
         switch_id = vcenter._vs.uuid
@@ -744,25 +773,45 @@ class VcenterVM:
                        powerOn=True)
         _wait_for_task(template.Clone(folder=vcenter._dc.vmFolder, name=vm.name,
                                       spec=spec))
-        vmobj = vcenter._find_obj(vcenter._dc, 'vm', {'name' : vm.name})
-        vm.get(vmobj)
+        vm.vmobj = vcenter._find_obj(vcenter._dc, 'vm', {'name' : vm.name})
+        vm.get(vm.vmobj)
         return vm
 
+    @retry(delay=2, tries=5)
     def get(self, vm=None):
         if not vm:
             vm = self.vcenter._find_obj(self.vcenter._dc, 'vm', {'name' : self.name})
         self.host = vm.runtime.host.name
         self.id = vm.summary.config.instanceUuid
-        self.macs = {}
-        self.ips = {}
-        tools_status = vm.guest.toolsStatus
-        if (tools_status == 'toolsNotInstalled' or
-                tools_status == 'toolsNotRunning'):
-            self.install_vmware_tools(self.vcenter,vm)
-        for intf in vm.guest.net:
-            self.macs[intf.network] = intf.macAddress
-            self.ips[intf.network] = intf.ipAddress[0]
+
+        #check if ip already set to this object,if yes,better avoid
+        #the serach in introspect/vcenter vm object
+        if getattr(self,'ips'):
+            if len(self.ips) == len(self.nets):
+                return True 
+   
+        #search the introspect first,as it is expected to be updated 
+        #before the vm comes up and vmwaretools to retrun values of
+        #ip and mac.Most of the delay in vcenter was caused by this wait
+        #on vmware tools.The retry, on the occasion that vm actually not up,
+        #to respond to ping,ssh etc is delayed till vm fixture,like nova cases.
+        #It improved the timing running a case in vcenter scenario   
+
+        if not self.get_from_plugin_introspect():
+            for intf in vm.guest.net:
+                self.ips[intf.network] = intf.ipAddress[0]
+                self.macs[intf.network] = intf.macAddress
         return len(self.ips) == len(self.nets)
+
+    def get_from_plugin_introspect(self,vm=None):
+        try:
+            intfs = self.vcenter.get_vmi_from_vcenter_introspect(self)
+            for intf in intfs:
+                self.ips[intf.virtual_network] = intf.ip_addr
+                self.macs[intf.virtual_network] = intf.macAddr
+            return len(self.ips) == len(self.nets)
+        except Exception as e:
+            return False
 
     def reboot(self, r):
         vm = self.vcenter._find_obj(self.vcenter._dc, 'vm', {'name' : self.name})
@@ -855,16 +904,19 @@ class VcenterVM:
         if not vm.guest.guestOperationsReady:
             self.vcenter._log.error("Vm not yet operational.retrying....")
             return False
-        cmd_path = '/usr/bin/sudo'
-        user = 'ubuntu'
-        password = 'ubuntu'
-        vm_id = self.id
-        cmd = './vmware-tools-distrib/vmware-install.pl -d'#Assuming that package is there in the disk image,
-        try:                                               #but not installed 
-            vcenter.run_a_command(vm_id,user,password,cmd_path,cmd)
-            return True
-        except Exception as e:
-            return False
+        tools_status = vm.guest.toolsStatus
+        if (tools_status == 'toolsNotInstalled' or
+                tools_status == 'toolsNotRunning'):
+            cmd_path = '/usr/bin/sudo'
+            user = 'ubuntu'
+            password = 'ubuntu'
+            vm_id = self.id
+            cmd = './vmware-tools-distrib/vmware-install.pl -d'#Assuming that package is there in the disk image,
+            try:                                               #but not installed 
+                vcenter.run_a_command(vm_id,user,password,cmd_path,cmd)
+                return True
+            except Exception as e:
+                return False
 
     def bring_up_interfaces(self, vcenter ,vm , intfs=[]):
         time.sleep(20)
@@ -900,7 +952,7 @@ class VcenterAuth(OrchestratorAuth):
                           api_server_port=self.inputs.api_server_port,
                           api_server_use_ssl=use_ssl)
 
-    def get_project_id(self, project_name=None):
+    def get_project_id(self, project_name=None, domain_id=None):
        if not project_name:
            project_name = self.project_name
        fq_name = [unicode(self.domain), unicode(project_name)]

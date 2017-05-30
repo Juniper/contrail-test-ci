@@ -21,6 +21,7 @@ from policy_test import PolicyFixture
 from vn_policy_test import VN_Policy_Fixture
 
 from tcutils.contrail_status_check import *
+from vm_test import VMFixture
 
 class QosTestBase(BaseNeutronTest):
 
@@ -114,6 +115,7 @@ class QosTestBase(BaseNeutronTest):
                                     traffic_duration = 5,
                                     min_expected_pkts = 0,
                                     af = "ipv4",
+                                    offset = 110,
                                     **kwargs):
         '''
             dest_compute_fixture should be supplied if underlay traffic is 
@@ -135,9 +137,9 @@ class QosTestBase(BaseNeutronTest):
         ipv6_src = kwargs.get('ipv6_src', None)
         ipv6_dst = kwargs.get('ipv6_dst', None)
         src_vm_cidr = src_vm_fixture.vn_objs[0]['network']\
-                        ['contrail:subnet_ipam'][0]['subnet_cidr']
+                        ['subnet_ipam'][0]['subnet_cidr']
         dest_vm_cidr = dest_vm_fixture.vn_objs[0]['network']\
-                        ['contrail:subnet_ipam'][0]['subnet_cidr']
+                        ['subnet_ipam'][0]['subnet_cidr']
         if IPNetwork(src_vm_cidr) == IPNetwork(dest_vm_cidr):
             traffic_between_diff_networks = False
         else:
@@ -177,7 +179,6 @@ class QosTestBase(BaseNeutronTest):
                 ipv6 = {'tc':tos, 'src':ipv6_src, 'dst':ipv6_dst}
                 ## WA for Bug 1614472. Internal protocol inside IPv6 is must
                 udp_header = {'sport' : 1234}
-            offset =156 if ipv6 else 100
             traffic_obj, scapy_obj = self._generate_scapy_traffic(
                                                         src_vm_fixture, 
                                                         src_compute_fixture,
@@ -607,11 +608,8 @@ class QosTestBase(BaseNeutronTest):
         This method will populate multi queueing interface, it's speed and 
         number of queue supported
         '''
-        # Searching for fabric interface on which to test queuing
-        cmd = 'cat /etc/contrail/contrail-vrouter-agent.conf \
-               | grep "physical_interface=" | grep -v "vmware"'
-        output = cls.inputs.run_cmd_on_server(node_ip, cmd, container='agent')
-        fabric_interface = output.split('=')[-1]
+        fabric_interface = cls.agent_inspect[node_ip].\
+                           get_vna_interface_by_type("eth")[0]
         # Getting the speed of the interface
         cmd= 'ethtool %s | grep "Speed"' % fabric_interface
         output = cls.inputs.run_cmd_on_server(node_ip, cmd)
@@ -640,10 +638,10 @@ class QosTestBase(BaseNeutronTest):
             if elem[0] == node_ip:
                 map = elem[1]
         for hw_to_logical_value in map:
-            hw_queues.append(int(hw_to_logical_value.keys()[0]))
             if 'default' in hw_to_logical_value.values()[0]:
                 default_queue = int(hw_to_logical_value.keys()[0])
             if hw_to_logical_value.values()[0][0] != 'default':
+                hw_queues.append(int(hw_to_logical_value.keys()[0]))
                 logical_id = int(hw_to_logical_value.values()[0][0].split('-')[0])
                 logical_ids.append(logical_id)
         return (hw_queues, logical_ids, default_queue)
@@ -658,9 +656,9 @@ class QosTestBase(BaseNeutronTest):
             if elem[0] == node_ip:
                 map = elem[1]
         for hw_to_logical_value in map:
-            if 'default' in hw_to_logical_value.values()[0]:
-                hw_to_logical_value.values()[0].remove('default')
             for elem in hw_to_logical_value.values()[0]:
+                if elem == 'default':
+                    continue
                 if '-' not in elem:
                     logical_ids.append(int(elem))
                 else:
@@ -1036,24 +1034,42 @@ class TestQosSVCBase(QosTestExtendedBase):
     @classmethod
     def setUpClass(cls):
         super(TestQosSVCBase, cls).setUpClass()
-        if_details = { 'left': {'shared_ip_enable': False,
-                                'static_route_enable' : False},
-                       'right': {'shared_ip_enable': False,
-                                'static_route_enable' : False}}
+        if_details = { 'left': {},
+                       'right': {}}
         cls.st_fixture= SvcTemplateFixture(connections=cls.connections,
                         st_name="service_template",
-                        svc_img_name='ubuntu-in-net', svc_type='firewall',
-                        if_details=if_details, svc_mode='in-network',
-                        svc_scaling=False, flavor='contrail_flavor_2cpu',
-                        availability_zone_enable = True)
+                        service_type='firewall',
+                        if_details=if_details,
+                        service_mode='in-network')
         cls.st_fixture.setUp()
+        if_details = {
+            'left' : {'vn_name' : cls.vn1_fixture.vn_fq_name},
+            'right': {'vn_name': cls.vn2_fixture.vn_fq_name}
+        }
         cls.si_fixture= SvcInstanceFixture(connections=cls.connections,
-                        si_name="service_instance", svc_template= cls.st_fixture.st_obj,
-                        if_details=if_details, left_vn_name=cls.vn1_fixture.vn_fq_name,
-                        right_vn_name=cls.vn2_fixture.vn_fq_name,
-                        do_verify=True, max_inst=1,
-                        availability_zone = "nova:"+cls.first_node_name)
+                                si_name="service_instance",
+                                svc_template= cls.st_fixture.st_obj,
+                                if_details=if_details,
+                                max_inst=1)
         cls.si_fixture.setUp()
+        vns = [cls.vn1_fixture, cls.vn2_fixture]
+        vn_objs = [vn.obj for vn in vns if vn is not None]
+        cls.service_vm_fixture = VMFixture(
+                project_name=cls.inputs.project_name,
+                connections=cls.connections,
+                vm_name="service_vm",
+                image_name='ubuntu-in-net',
+                flavor='contrail_flavor_2cpu',
+                vn_objs=vn_objs,
+                count=1,
+                node_name = cls.first_node_name,
+                zone="nova")
+        cls.service_vm_fixture.setUp()
+        cls.check_vms_booted([cls.service_vm_fixture])
+        svm_pt_props = {'name' : "port_tuple_qos",
+                        'left' : cls.service_vm_fixture.vmi_ids[cls.vn1_fixture.vn_fq_name],
+                        'right' : cls.service_vm_fixture.vmi_ids[cls.vn2_fixture.vn_fq_name]}
+        cls.si_fixture.add_port_tuple(svm_pt_props)
         cls.si_fixture.verify_on_setup()
         cls.action_list =  [":".join(cls.si_fixture.si_fq_name)]
         rules = [{'direction': '<>',
@@ -1097,6 +1113,7 @@ class TestQosSVCBase(QosTestExtendedBase):
         cls.vn1_policy_fixture.cleanUp()
         cls.vn2_policy_fixture.cleanUp()
         cls.policy_fixture.cleanUp()
+        cls.service_vm_fixture.cleanUp()
         cls.si_fixture.cleanUp()
         cls.st_fixture.cleanUp()
         super(TestQosSVCBase, cls).tearDownClass()

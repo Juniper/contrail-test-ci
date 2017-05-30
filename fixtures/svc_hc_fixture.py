@@ -1,6 +1,10 @@
 import vnc_api_test
 from cfgm_common.exceptions import NoIdError
 from tcutils.util import get_random_name, retry
+try:
+    from webui_test import *
+except ImportError:
+    pass
 
 class HealthCheckFixture(vnc_api_test.VncLibFixture):
     '''Fixture to handle ServiceHealthCheck object
@@ -44,6 +48,10 @@ class HealthCheckFixture(vnc_api_test.VncLibFixture):
         self.http_url = kwargs.get('http_url', 'local-ip')
         self.http_codes = kwargs.get('http_codes', None)
         self.created = False
+        if self.inputs.verify_thru_gui():
+            self.browser = self.connections.browser
+            self.browser_openstack = self.connections.browser_openstack
+            self.webui = WebuiTest(self.connections, self.inputs)
 
     def setUp(self):
         super(HealthCheckFixture, self).setUp()
@@ -52,12 +60,17 @@ class HealthCheckFixture(vnc_api_test.VncLibFixture):
 
     def cleanUp(self):
         super(HealthCheckFixture, self).cleanUp()
+        do_cleanup = True
         if (self.created == False or self.inputs.fixture_cleanup == 'no') and\
            self.inputs.fixture_cleanup != 'force':
             self.logger.info('Skipping deletion of Health Check %s :'
-                              %(self.fq_name))
-        else:
-            self.delete()
+                             % (self.fq_name))
+            do_cleanup = False
+        if do_cleanup:
+            if self.inputs.is_gui_based_config():
+                self.webui.delete_svc_health_check(self)
+            else:
+                self.delete()
 
     def read(self):
         self.logger.debug('Fetching info about Health Check %s'%self.uuid)
@@ -86,7 +99,10 @@ class HealthCheckFixture(vnc_api_test.VncLibFixture):
             self.read()
         else:
             self.logger.info('Creating Health Check %s'%self.name)
-            self.uuid = self.vnc_h.create_health_check(self.fq_name,
+            if self.inputs.is_gui_based_config():
+                self.webui.create_svc_health_check(self)
+            else:
+                self.uuid = self.vnc_h.create_health_check(self.fq_name,
                                   enabled=self.status,
                                   health_check_type=self.hc_type,
                                   monitor_type=self.probe_type,
@@ -225,13 +241,13 @@ class HealthCheckFixture(vnc_api_test.VncLibFixture):
                               self.timeout, agent_obj.timeout))
             return False
         if self.max_retries and self.max_retries != int(agent_obj.max_retries):
-            self.logger.warn('HC retries didnt match. Exp: %s Act: %s'%(
-                              self.max_retries, agent_obj.max_retries))
+            self.logger.warn('HC retries didnt match. Exp: %s Act: %s' % (
+                self.max_retries, agent_obj.max_retries))
             return False
         if self.http_url and self.http_url != agent_obj.http_url:
             self.logger.warn('HC http_url didnt match. Exp: %s Act: %s'%(
                               self.http_url, agent_obj.http_url))
-            return False
+#            return False  #Bug 1677166 needs to be addressed
         # Uncomment the below section once http_method and expected_codes
         # are implemented
         '''

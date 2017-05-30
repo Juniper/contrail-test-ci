@@ -23,6 +23,7 @@ from netaddr import *
 from common.policy import policy_test_helper
 from svc_template_fixture import SvcTemplateFixture
 from svc_instance_fixture import SvcInstanceFixture
+from svc_hc_fixture import HealthCheckFixture
 from security_group import SecurityGroupFixture
 from physical_device_fixture import PhysicalDeviceFixture
 from pif_fixture import PhysicalInterfaceFixture
@@ -31,6 +32,10 @@ from virtual_router_fixture import VirtualRouterFixture
 from qos_fixture import QosForwardingClassFixture
 from qos_fixture import QosConfigFixture
 from alarm_test import AlarmFixture
+from rbac_test import RbacFixture
+from tor_fixture import ToRFixture
+from vcpe_router_fixture import VpeRouterFixture
+from interface_route_table_fixture import InterfaceRouteTableFixture
 try:
     from webui_test import *
 except ImportError:
@@ -730,11 +735,12 @@ def createServiceTemplate(self):
                 connections=self.project_connections,
                 st_name=st_name,
                 svc_img_name=self.topo.st_params[st_name]['svc_img_name'],
-                svc_type=self.topo.st_params[st_name]['svc_type'],
-                svc_mode=self.topo.st_params[st_name]['svc_mode'],
+                service_type=self.topo.st_params[st_name]['service_type'],
+                service_mode=self.topo.st_params[st_name]['service_mode'],
                 svc_scaling=self.topo.st_params[st_name]['svc_scaling'],
                 flavor=self.topo.st_params[st_name]['flavor'],
-                ordered_interfaces=self.topo.st_params[st_name]['ordered_interfaces']))
+                if_details=self.topo.st_params[st_name]['if_details'],
+                version=self.topo.st_params[st_name]['version']))
         if self.skip_verify == 'no':
             assert self.st_fixture[st_name].verify_on_setup()
     return self
@@ -776,8 +782,7 @@ def createServiceInstance(self):
                 si_name=si_name,
                 svc_template=self.st_fixture[
                     self.topo.si_params[si_name]['svc_template']].st_obj,
-                if_details=self.topo.si_params[si_name]['if_details'],
-                left_vn_name=self.topo.si_params[si_name]['left_vn']))
+                if_details=self.topo.si_params[si_name]['if_details']))
 
     self.logger.debug("Setup step: Verify Service Instances")
     for si_name in self.topo.si_list:
@@ -806,20 +811,42 @@ def createServiceInstance(self):
     return self
 # end createServiceInstance
 
-def createPhysicalRouter(self):
-    self.pr_fixture = {}
-    if not hasattr(self.topo, 'pr_list'):
+def createServiceHealthCheck(self):
+    self.shc_fixture = {}
+    if not hasattr(self.topo, 'shc_list'):
         return self
-    for self.pr_name in self.topo.pr_list:
+    for shc_name in self.topo.shc_list:
+        shc_param = self.topo.shc_params[shc_name]
+        self.shc_fixture[shc_name] = self.useFixture(
+            HealthCheckFixture(
+                connections=self.project_connections,
+                name = shc_name,
+                hc_type = shc_param['hc_type'],
+                probe_type = shc_param['probe_type'],
+                delay = shc_param['delay'],
+                timeout = shc_param['timeout'],
+                max_retries = shc_param['max_retries'],
+                http_url = shc_param['http_url']))
+        if self.skip_verify == 'no':
+            assert self.shc_fixture[shc_name].verify_on_setup()
+    return self
+# end createServiceHealthCheck
+
+def createPhysicalRouter(self, pr_list, pr_params):
+    self.pr_fixture = {}
+    self.pr_list = pr_list
+    self.pr_params = pr_params
+    for self.pr_name in self.pr_list:
         self.pr_fixture[self.pr_name] = self.useFixture(
             PhysicalDeviceFixture(
                 self.pr_name,
-                self.topo.pr_params[self.pr_name]['mgmt_ip'],
-                vendor=self.topo.pr_params[self.pr_name]['vendor'],
-                model=self.topo.pr_params[self.pr_name]['model'],
-                ssh_username=self.topo.pr_params[self.pr_name]['ssh_username'],
-                ssh_password=self.topo.pr_params[self.pr_name]['ssh_password'],
-                tunnel_ip=self.topo.pr_params[self.pr_name]['tunnel_ip'],
+                self.pr_params[self.pr_name]['mgmt_ip'],
+                vendor=self.pr_params[self.pr_name]['vendor'],
+                model=self.pr_params[self.pr_name]['model'],
+                ssh_username=self.pr_params[self.pr_name]['ssh_username'],
+                ssh_password=self.pr_params[self.pr_name]['ssh_password'],
+                tunnel_ip=self.pr_params[self.pr_name]['tunnel_ip'],
+                set_netconf=self.pr_params[self.pr_name]['set_netconf'],
                 connections=self.project_connections))
     return self
 # end createPhysicalRouter
@@ -911,8 +938,6 @@ def allocNassocFIP(self, config_topo=None, assoc=True):
                     vm_fixture = config_topo[
                         vm_proj]['vm'][vm_list[index]]
                     self.vn_fixture = config_topo[vn_proj]['vn']
-                    assigned_fip = vm_fixture.chk_vmi_for_fip(
-                        vn_fq_name=self.vn_fixture[vn_name].vn_fq_name)
                     self.logger.info(
                         'Allocating and associating FIP from %s VN pool in project %s to %s VM in project %s' %
                         (vn_name, vn_proj, vm_list[index], vm_proj))
@@ -928,6 +953,8 @@ def allocNassocFIP(self, config_topo=None, assoc=True):
                             self.vm_fixture[self.topo.fvn_vm_map_dict[vn_name][index]].vm_ip,
                             assoc)
                     else:
+                        assigned_fip = vm_fixture.chk_vmi_for_fip(
+                            vn_fq_name=self.vn_fixture[vn_name].vn_fq_name)
                         fip_id = self.fip_fixture_dict[vn_name].create_and_assoc_fip(
                             self.vn_fixture[vn_name].uuid,
                             vm_fixture.vm_id)
@@ -1038,6 +1065,70 @@ def createAlarms(self):
         self.alarm_fixture[alarm].create(self.alarm_fixture[alarm].alarm_rules)
     return self
 # end createAlarms
+
+def createRBAC(self):
+    self.rbac_fixture = {}
+    if not hasattr(self.topo, 'rbac_params'):
+        return self
+    for rbac in self.topo.rbac_list:
+        self.rbac_fixture[rbac] = self.useFixture(
+            RbacFixture(rbac,
+                parent_type=self.topo.rbac_params[rbac]['parent_type'],
+                rules=self.topo.rbac_params[rbac]['rules'],
+                connections=self.project_connections))
+    return self
+# end createRBAC
+
+def createOVSDBTORAgent(self):
+    self.tor_fixture = {}
+    if not hasattr(self.topo, 'pr_tor_list'):
+        return self
+    for tor in self.topo.pr_tor_list:
+        self.tor_fixture[tor] = self.useFixture(
+            ToRFixture(
+                tor,
+                self.topo.pr_tor_params[tor]['mgmt_ip'],
+                vendor=self.topo.pr_tor_params[tor]['vendor'],
+                model=self.topo.pr_tor_params[tor]['model'],
+                tunnel_ip=self.topo.pr_tor_params[tor]['tunnel_ip'],
+                tor_agent=self.topo.pr_tor_params[tor]['tor_agent'],
+                tsn=self.topo.pr_tor_params[tor]['tsn'],
+                tor_agent_opt=self.topo.pr_tor_params[tor]['tor_agent_opt'],
+                tsn_opt=self.topo.pr_tor_params[tor]['tsn_opt'],
+                set_tor=self.topo.pr_tor_params[tor]['set_tor'],
+                connections=self.project_connections))
+    return self
+# end createOVSDBTORAgent
+
+def createVCPERouter(self):
+    self.vcpe_fixture = {}
+    if not hasattr(self.topo, 'vcpe_list'):
+        return self
+    for vcpe in self.topo.vcpe_list:
+        self.vcpe_fixture[vcpe] = self.useFixture(
+            VpeRouterFixture(
+                vcpe,
+                self.topo.vcpe_params[vcpe]['mgmt_ip'],
+                tunnel_ip=self.topo.vcpe_params[vcpe]['tunnel_ip'],
+                set_vcpe=self.topo.vcpe_params[vcpe]['set_vcpe'],
+                connections=self.project_connections))
+    return self
+# end createVCPERouter
+
+def createIntfRouteTable(self):
+    self.intf_fixture = {}
+    if not hasattr(self.topo, 'intf_route_table_params'):
+        return self
+    for intf in self.topo.intf_route_table_list:
+        self.intf_fixture[intf] = self.useFixture(
+            InterfaceRouteTableFixture(
+                connections=self.project_connections,
+                inputs=self.project_inputs,
+                name=intf,
+                prefixes=self.topo.intf_route_table_params[intf]['prefixes'],
+                community=self.topo.intf_route_table_params[intf]['community']))
+    return self
+# end createIntfRouteTable
 
 if __name__ == '__main__':
     ''' Unit test to invoke sdn topo setup utils.. '''

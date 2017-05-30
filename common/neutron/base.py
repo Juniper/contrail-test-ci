@@ -37,9 +37,8 @@ class BaseNeutronTest(GenericTestBase):
         else:
             public_creds = cls.isolated_creds
         cls.public_vn_obj = create_public_vn.PublicVn(
-            public_creds,
-            cls.inputs,
-            ini_file=cls.ini_file,
+            connections=cls.connections,
+            isolated_creds_obj=public_creds,
             logger=cls.logger)
     # end setUpClass
 
@@ -330,6 +329,8 @@ class BaseNeutronTest(GenericTestBase):
             vrrp_mas_chk_cmd = 'show vrrp'
             result = vm.get_config_via_netconf(
                 cmd=vrrp_mas_chk_cmd, timeout=10, device='junos', hostkey_verify="False", format='text')
+            if result == False:
+                return result
             if 'master' in result:
                 self.logger.info(
                     '%s is selected as the VRRP Master' % vm.vm_name)
@@ -348,7 +349,8 @@ class BaseNeutronTest(GenericTestBase):
             else:
                 result = False
                 self.logger.error('VRRP Master not selected')
-        result = result and self.check_master_in_agent(vm, vn, ip)
+        result = result and self.check_master_in_agent(vm, vn, ip,
+            prefix_len=prefix)
         return result
     # end vrrp_mas_chk
 

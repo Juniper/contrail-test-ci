@@ -12,6 +12,7 @@ import logging
 
 from fabric.api import env, run, cd
 from fabric.operations import get, put
+from fabric.contrib.files import exists
 from fabric.context_managers import settings, hide
 from fabric.exceptions import NetworkError
 from tcutils.util import *
@@ -146,6 +147,10 @@ class ContrailReportInit:
         '''
         cmd = 'docker ps |grep contrail | awk \'{print $NF}\''
         output = self.run_cmd_on_server(host_dict['ip'], cmd)
+        if 'docker: command not found' in output:
+            print 'No containers on this server'
+            host_dict['containers'] = {}
+            return
         attr_list = output.split('\n')
         attr_list = [x.rstrip('\r') for x in attr_list]
 
@@ -176,8 +181,6 @@ class ContrailReportInit:
         self.bgp_ips = []
         self.bgp_control_ips = []
         self.bgp_names = []
-        self.ds_server_ip = []
-        self.ds_server_name = []
         self.host_ips = []
         self.webui_ips = []
         self.openstack_ips = [] 
@@ -208,8 +211,6 @@ class ContrailReportInit:
                     self.cfgm_control_ips.append(host_control_ip)
                     self.cfgm_control_ip = host_control_ip
                     self.cfgm_names.append(host['name'])
-                    self.ds_server_ip.append(host_ip)
-                    self.ds_server_name.append(host['name'])
                     self.masterhost = self.cfgm_ip
                     self.hostname = host['name']
                 if role['type'] == 'compute':
@@ -236,6 +237,9 @@ class ContrailReportInit:
                     self.database_ip = host_ip
                     self.database_ips.append(host_ip)
                     self.database_names.append(host['name'])
+        if not self.webui_ips:
+            self.webui_ip = self.cfgm_ip
+            self.webui_ips = self.cfgm_ips
         if json_data.has_key('physical_routers'):
             self.physical_routers_data = json_data['physical_routers']
         if json_data.has_key('vgw'):
@@ -315,7 +319,7 @@ class ContrailReportInit:
         bgp_nodes = [self.get_node_name(x) for x in self.bgp_ips]
         collector_nodes = [self.get_node_name(x) for x in self.collector_ips]
         cfgm_nodes = [self.get_node_name(x) for x in self.cfgm_ips]
-        webui_node = self.get_node_name(self.webui_ip)
+        webui_node = [self.get_node_name(x) for x in self.webui_ips]
         ext_rtr = unicode(self.ext_rtr.strip('[()]').split(',')[0])
         phy_dev = []
         phy_dev = self.physical_routers_data.keys()
@@ -381,19 +385,20 @@ class ContrailReportInit:
         if self.build_id:
             return self.build_id
         build_id = None
-        cmd = 'contrail-version | grep contrail-config | head -1 | awk \'{print $2}\''
-        alt_cmd = 'contrail-version | grep contrail-nodemgr | head -1 | awk \'{print $2}\''
+        cmd = 'contrail-version | grep contrail-config | head -1 '
+        alt_cmd = 'contrail-version | grep contrail-nodemgr | head -1 '
         tries = 50
         while not build_id and tries:
             try:
-                build_id = self.run_cmd_on_server(self.cfgm_ips[0], cmd)
+                build_id = self.run_cmd_on_server(self.cfgm_ips[0], cmd, container='controller')
                 if not build_id:
                     build_id = self.run_cmd_on_server(
-                        self.cfgm_ips[0], alt_cmd)
+                        self.cfgm_ips[0], alt_cmd, container='controller')
             except NetworkError, e:
                 time.sleep(1)
                 pass
             tries -= 1
+        build_id = build_id.split()[1]
         build_sku = self.get_os_env("SKU")
         if build_sku is None:
             container = self.host_data[self.openstack_ips[0]].get(
@@ -414,7 +419,7 @@ class ContrailReportInit:
             fi
             '''
         try:
-            self.distro = self.run_cmd_on_server(self.cfgm_ips[0], cmd)
+            self.distro = self.run_cmd_on_server(self.cfgm_ips[0], cmd, container='controller')
             self.distro = self.distro.replace(')', '')
             self.distro = self.distro.replace('(', '')
         except NetworkError, e:
@@ -470,17 +475,22 @@ class ContrailReportInit:
         """Get the list of cores in one of the nodes in the test setup.
         """
         core = ''
-        cmd = 'ls core.* 2>/dev/null'
+        cmd = 'ls %s/core.* 2>/dev/null' % (CORE_DIR)
         containers = self.host_data[node_ip].get('containers', {}).keys()
-        if not containers:
-            core = run_cmd_on_server(cmd, node_ip, user, password)
-            return core
 
         for container in containers:
-            with cd(CORE_DIR):
-                 output = run_cmd_on_server(cmd, node_ip, user, password,
+            #skip contrail-test container
+            if container.find ('contrail_test') == -1:
+                output = run_cmd_on_server(cmd, node_ip, user, password,
                             container=container)
-                 core = '%s %s' %(core, output)
+                output1 = output.replace('%s/' %(CORE_DIR), '')
+                core = '%s %s' %(core, output1)
+        #check for vrouter cores on the host machine on single node
+        #or check for other cores on non-container hosts.
+        if node_ip in self.compute_ips or not containers:
+            output = run_cmd_on_server(cmd, node_ip, user, password)
+            output1 = output.replace('%s/' %(CORE_DIR), '')
+            core = '%s %s' %(core, output1)
         return core
 
 # end
