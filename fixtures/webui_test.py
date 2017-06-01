@@ -2190,52 +2190,29 @@ class WebuiTest:
                     match_index)
                 dom_basic_view = self.ui.get_basic_view_infra()
                 node_status = self.browser.find_element_by_id('allItems').find_elements_by_tag_name('p')
-                node_status_list = []
-                if node_status:
-                    for node in node_status:
-                        node_status_list.append(node.get_attribute('innerHTML').replace('\n', '').strip())
                 for i, item in enumerate(dom_basic_view):
                     if item.get('key') == 'Overall Node Status':
-                        if node_status_list:
-                            node_status_str = ''
-                            for node in node_status_list:
-                                node_status_str += re.search('.*\<.*\>\s+(.*)', node).group(1) + ', '
-                        dom_basic_view[i]['value'] = node_status_str.rstrip(', ')
+                        dom_basic_view[i]['value'] = node_status
                     if item.get('key') == 'CPU Share (%)':
                         dom_basic_view[i]['key'] = 'CPU'
                         dom_basic_view[i]['value'] += ' %'
-                    if item.get('key') == 'Peers':
-                        down_bgp_peers = re.search('.*\<.*\>(.*)\<.*', dom_basic_view[i]['value'])
-                        if down_bgp_peers:
-                            dom_basic_view[i]['value'] = dom_basic_view[i]['value'].split(',')[0] + ', ' + \
-                                                     down_bgp_peers.group(1)
-                        else:
-                            dom_basic_view[i]['value'] = dom_basic_view[i]['value'].split(',')[0].strip()
-                    if item.get('key') == 'IP Address':
-                        dom_basic_view[i]['value'] = re.search('.*\> ((\d+\.)+\d+).*',
-                                                     dom_basic_view[1].get('value')).group(1)
-                    dom_basic_view[i]['key'] = dom_basic_view[i]['key'].replace(' ', '_')
                 bgp_routers_ops_data = self.ui.get_details(
                     bgp_routers_list_ops[n]['href'])
                 ops_basic_data = []
                 host_name = bgp_routers_list_ops[n]['name']
-                ip_address = bgp_routers_ops_data.get('BgpRouterState').get('router_id')
+                ip_address = bgp_routers_ops_data.get(
+                        'BgpRouterState').get('bgp_router_ip_list')[0]
                 if not ip_address:
                     ip_address = '--'
                 version = json.loads(bgp_routers_ops_data.get('BgpRouterState').get(
                     'build_info')).get('build-info')[0].get('build-id')
                 version = self.ui.get_version_string(version)
                 bgp_peers_count = bgp_routers_ops_data.get('BgpRouterState').get('num_bgp_peer')
-                bgp_down_peer_count = bgp_peers_count - bgp_routers_ops_data.get(
-                                      'BgpRouterState').get('num_up_bgp_peer')
-                down = ''
-                if bgp_down_peer_count:
-                    down = ' , ' +  str(bgp_down_peer_count) + ' Down'
                 if not bgp_peers_count:
                     bgp_peers_count = '0 Total'
                 else:
-                    bgp_peers_count = str(bgp_peers_count) + ' Total' + down
-                bgp_peers_string = 'BGP Peers: ' + bgp_peers_count.strip()
+                    bgp_peers_count = str(bgp_peers_count) + ' Total'
+                bgp_peers_string = 'BGP Peers: ' + bgp_peers_count
                 vrouters =  'vRouters: ' + \
                     str(bgp_routers_ops_data.get('BgpRouterState')
                         .get('num_up_xmpp_peer')) + '  Established in Sync'
@@ -2309,16 +2286,10 @@ class WebuiTest:
                 if not reduced_process_keys_dict:
                     for process in exclude_process_list:
                         process_up_start_time_dict.pop(process, None)
-                    if 'UVEAlarms' in bgp_routers_ops_data:
-                        overall_node_status_string = ''
-                        for alarm in bgp_routers_ops_data['UVEAlarms']['alarms']:
-                            overall_node_status_string += alarm['description'].strip('.') + ', '
-                        overall_node_status_string = overall_node_status_string.strip(', ')
-                    else:
-                        recent_time = max(process_up_start_time_dict.values())
-                        overall_node_status_time = self.ui.get_node_status_string(
+                    recent_time = max(process_up_start_time_dict.values())
+                    overall_node_status_time = self.ui.get_node_status_string(
                             str(recent_time))
-                        overall_node_status_string = [
+                    overall_node_status_string = [
                             'Up since ' +
                             status for status in overall_node_status_time]
                 else:
@@ -2334,14 +2305,14 @@ class WebuiTest:
                         {
                             'key': 'Peers', 'value': bgp_peers_string}, {
                             'key': 'Hostname', 'value': host_name}, {
-                            'key': 'IP_Address', 'value': ip_address}, {
+                            'key': 'IP Address', 'value': ip_address}, {
                             'key': 'CPU', 'value': cpu}, {
                             'key': 'Memory', 'value': memory}, {
                                 'key': 'Version', 'value': version}, {
-                                    'key': 'Analytics_Node', 'value': analytics_primary_ip}, {
-                                        'key': 'Analytics_Messages', 'value': analytics_messages_string}, {
-                                                'key': 'Control_Node', 'value': control_node_string}, {
-                                                    'key': 'Overall_Node_Status', 'value': overall_node_status_string}])
+                                    'key': 'Analytics Node', 'value': analytics_primary_ip}, {
+                                        'key': 'Analytics Messages', 'value': analytics_messages_string}, {
+                                                'key': 'Control Node', 'value': control_node_string}, {
+                                                    'key': 'Overall Node Status', 'value': overall_node_status_string}])
                 if self.ui.match_ui_kv(
                         modified_ops_data,
                         dom_basic_view):
@@ -2363,7 +2334,7 @@ class WebuiTest:
                             'key': 'CPU', 'value': cpu}, {
                             'key': 'Memory', 'value': memory}, {
                                 'key': 'Version', 'value': version}, {
-                                    'key': 'Overall_Node_Status', 'value': overall_node_status_string}, {
+                                    'key': 'Overall Node Status', 'value': overall_node_status_string}, {
                                         'key': 'vRouters', 'value': vrouters.split()[1] + ' Total'}])
                 if self.verify_bgp_routers_ops_grid_page_data(
                         host_name,
