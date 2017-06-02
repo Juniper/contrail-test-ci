@@ -279,26 +279,21 @@ class BaseVrouterTest(BaseNeutronTest):
             assert (forward_flow.action != action), ("Flow Action not expected: %s"
                 ",got: %s" % (action, forward_flow.action))
 
-    def verify_traffic_load_balance_si(self, sender_vm_fix, si_vm_list,
-                                dest_vm_fix, dest_ip=None, flow_count=0):
+    def verify_traffic_for_ecmp_si(self, sender_vm_fix, si_vm_list,
+                dest_vm_fix, dest_ip=None, flow_count=0, si_left_vn_name=None):
         '''
-        This method is similar to verify_traffic_load_balance for service chain case.
+        This method is similar to verify_traffic_for_ecmp for service chain case.
         tcpdump is done on left interface of the SIs and ping is used for traffic verification
         The method is written for transparent service chain
         '''
-        try_count = len(si_vm_list) + 2
-        packet_count = 1
         session = {}
         pcap = {}
         compute_node_ips = []
         compute_fixtures = []
         proto = 'icmp' if (self.inputs.get_af() == 'v4') else 'icmp6'
-        errmsg = "Ping to right VM ip %s from left VM failed" % dest_ip
         dest_ip = dest_ip or dest_vm_fix.vm_ip
+        errmsg = "Ping to right VM ip %s from left VM failed" % dest_ip
 
-        if flow_count:
-            #If flow is expected, then flow count should be minimum no. of try_count
-            flow_count = try_count
         #Get all the VMs compute IPs
         compute_node_ips.append(sender_vm_fix.vm_node_ip)
         if dest_vm_fix.vm_node_ip not in compute_node_ips:
@@ -308,45 +303,78 @@ class BaseVrouterTest(BaseNeutronTest):
         for ip in compute_node_ips:
             compute_fixtures.append(self.compute_fixtures_dict[ip])
 
-        #Send traffic multiple times to verify load distribution
-        for i in xrange(try_count):
-            result = True
-            sport = random.randint(12000, 65000)
+        result = False
 
-            #Clean all the old flows before starting the traffic
-            for fixture in compute_fixtures:
-                fixture.delete_all_flows()
-            #Start the tcpdump on all the SI VMs
-            for vm in si_vm_list:
-                filters = '\'(%s and (host %s or host %s))\'' % (
-                    proto, sender_vm_fix.vm_ip, dest_ip)
-                session[vm], pcap[vm] = start_tcpdump_for_vm_intf(self, vm,
-                    self.trans_left_vn_fixture.vn_fq_name, filters = filters)
+        #Start the tcpdump on all the SI VMs
+        for vm in si_vm_list:
+            filters = '\'(%s and (host %s or host %s))\'' % (
+                proto, sender_vm_fix.vm_ip, dest_ip)
+            session[vm], pcap[vm] = start_tcpdump_for_vm_intf(self, vm,
+                si_left_vn_name, filters = filters)
 
-            #Send the traffic
-            for i in xrange(try_count):
-                assert sender_vm_fix.ping_with_certainty(dest_ip), errmsg
+        #wait till ping passes without any loss
+        assert sender_vm_fix.ping_with_certainty(dest_ip), errmsg
 
-            #Verify tcpdump count, all destinations should receive some packets
-            for vm in si_vm_list:
-                ret = verify_tcpdump_count(self, session[vm], pcap[vm])
-                if not ret:
-                    self.logger.error("Tcpdump verification on VM %s failed" %
-                                        vm.vm_ip)
-                    stop_tcpdump_for_vm_intf(self, session[vm], pcap[vm])
-                delete_pcap(session[vm], pcap[vm])
-                result = result and ret
+        #Clean all the old flows before starting the traffic
+        for fixture in compute_fixtures:
+            fixture.delete_all_flows()
 
-            #Verify expected flow count, on all the computes
-            for vm in [sender_vm_fix, dest_vm_fix]:
-                compute_fix = self.compute_fixtures_dict[vm.vm_node_ip]
-                self.verify_flow_on_compute(compute_fix, sender_vm_fix.vm_ip,
-                    dest_ip, proto=proto, ff_exp=flow_count, rf_exp=flow_count)
+        assert sender_vm_fix.ping_to_ip(dest_ip), errmsg
 
-            if result:
-                self.logger.info("Traffic is distributed to all the ECMP routes"
-                        " as expected")
-                return result
+        #Verify tcpdump count, any one SI should receive the packets
+        for vm in si_vm_list:
+            ret = verify_tcpdump_count(self, session[vm], pcap[vm])
+            if ret:
+                self.logger.error("Tcpdump verification on SI %s passed" %
+                                    vm.vm_ip)
+                result = ret
+                break
+
+        for vm in si_vm_list:
+            stop_tcpdump_for_vm_intf(self, session[vm], pcap[vm])
+            delete_pcap(session[vm], pcap[vm])
+
+        #Verify expected flow count, on all the computes
+        for vm in [sender_vm_fix, dest_vm_fix]:
+            compute_fix = self.compute_fixtures_dict[vm.vm_node_ip]
+            self.verify_flow_on_compute(compute_fix, sender_vm_fix.vm_ip,
+                dest_ip, proto=proto, ff_exp=flow_count, rf_exp=flow_count)
+
+        if result:
+            self.logger.info("Traffic verification for ECMP passed")
+        else:
+            self.logger.info("Traffic verification for ECMP failed")
+
+        return result
+
+    def verify_ecmp_routes_si(self, sender_vm_fix, dest_vm_fix):
+        '''
+        Verify ECMP routes in agent for service chain case
+        '''
+        result = False
+        if self.inputs.get_af() == 'v6':
+            prefix_len = 128
+        else:
+            prefix_len = 32
+
+        #Verify ECMP routes
+        vrf_id = sender_vm_fix.agent_vrf_id[sender_vm_fix.vn_fq_name]
+        route_list = self.get_vna_route_with_retry(
+            self.agent_inspect[sender_vm_fix.vm_node_ip], vrf_id,
+            dest_vm_fix.vm_ip, prefix_len)[1]
+
+        if not route_list:
+            self.logger.error("Route itself could not be found in agent for IP %s, test failed"
+                % (dest_vm_fix.vm_ip))
+            return False
+
+        for route in route_list['routes']:
+            for path in route['path_list']:
+                if 'ECMP Composite sub nh count:' in path['nh']['type']:
+                    self.logger.info("ECMP routes found in agent %s, for "
+                        "IP %s" % (sender_vm_fix.vm_node_ip, sender_vm_fix.vm_ip))
+                    result = True
+                    break
 
         return result
 
@@ -354,6 +382,9 @@ class BaseVrouterTest(BaseNeutronTest):
         '''
         Verify ECMP routes in agent and tap interface of each of the VM in ecmp routes.
         more validations can be added here
+        Inputs args:
+            vm_fix_list: list of VM's whose vrfs need to be validated for ecmp routes
+            prefix: prefix for which routes need to be validated
         '''
 
         prefix_split = prefix.split('/')
@@ -410,7 +441,6 @@ class BaseVrouterTest(BaseNeutronTest):
             2. nc is used to send udp traffic
             3. Verify no flow is created on all the computes, when policy is disabled
         '''
-        try_count = len(dest_vm_fix_list) + 1
         session = {}
         pcap = {}
         proto = 'udp'
@@ -758,8 +788,10 @@ class BaseVrouterTest(BaseNeutronTest):
             self.logger.warn('Cannot check routes without enough VM details')
             return False
 
+        tunnel_ip = self.inputs.host_data[vm_fixture.get_host_of_vm()][
+            'host_control_ip']
         result = validate_route_in_vrouter(route, inspect_h, vm_intf['name'],
-                                           vm_fixture.vm_node_ip, vm_intf['label'], self.logger)
+                                           tunnel_ip, vm_intf['label'], self.logger)
         return result
     # end validate_route_is_of_vm_in_vrouter
 
