@@ -3224,7 +3224,7 @@ class WebuiTest:
                 self.logger.info(
                     "Verify advance view details for uuid %s " % (ops_uuid))
                 plus_objs = self.ui.find_element(
-                    'i.node-2.icon-plus.expander',
+                    'i.node-2.fa-plus.expander',
                     'css',
                     elements=True)
                 self.ui.click(plus_objs)
