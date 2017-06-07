@@ -1,5 +1,24 @@
 #!/bin/bash
 
+DOCKER_BUILD_DEBUG=${DOCKER_BUILD_DEBUG:-}
+[[ -n $DOCKER_BUILD_DEBUG ]] && set -x
+
+xtrace_status() {
+  set | grep -q '^SHELLOPTS=.*:xtrace'
+  return $?
+}
+
+if xtrace_status; then		# Debug/verbose mode
+    wget="wget"
+    apt_get="apt-get --assume-yes"
+else
+    wget="wget --quiet"
+    apt_quiet="--quiet"
+    # if an official build, we double-down on quiet
+    [[ -n $BUILD_WORKAREA ]] && apt_quiet="-qq"
+    apt_get="apt-get $apt_quiet --assume-yes"
+fi
+
 CONTRAIL_TEST_CI_REPO=https://github.com/juniper/contrail-test-ci
 CONTRAIL_TEST_CI_REF=master
 CONTRAIL_TEST_REPO=https://github.com/juniper/contrail-test
@@ -9,15 +28,58 @@ CONTRAIL_FAB_REF=master
 CIRROS_IMAGE_URL=${CIRROS_IMAGE_URL:-http://10.84.5.120/cs-shared/images/converts/cirros-0.3.0-x86_64-disk.vmdk.gz}
 SVC_IN_NET_NAT_URL=${SVC_IN_NET_NAT_URL:-http://10.84.5.120/cs-shared/images/tinycore/tinycore-in-network-nat.qcow2.gz}
 SVC_IN_NET_URL=${SVC_IN_NET_URL:-http://10.84.5.120/cs-shared/images/tinycore/tinycore-in-network.qcow2.gz}
-BASE_DIR=`dirname $(readlink -f $0)`
-PACKAGES_REQUIRED_UBUNTU="python-pip ant python-novaclient python-neutronclient python-cinderclient \
-    python-contrail python-glanceclient python-heatclient python-ceilometerclient python-setuptools contrail-utils \
-    patch git ipmitool python-requests"
-PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD="$PACKAGES_REQUIRED_UBUNTU python-dev libxslt1-dev libz-dev libyaml-dev sshpass"
-PACKAGES_REQUIRED_RALLY="libssl-dev libffi-dev python-dev libxml2-dev libxslt1-dev libpq-dev libpq5=9.3.15-0ubuntu0.14.04"
-EXTRAS="http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1-dev_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libexpat1_2.1.0-4ubuntu1.3_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libpython2.7-dev_2.7.6-8ubuntu0.2_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/python2.7-dev_2.7.6-8ubuntu0.2_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxslt1-dev_1.1.28-2ubuntu0.1_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxslt1.1_1.1.28-2ubuntu0.1_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxml2-dev_2.9.1+dfsg1-3ubuntu4.9_amd64.deb http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/libxml2_2.9.1+dfsg1-3ubuntu4.9_amd64.deb"
+BASE_DIR=$(dirname $(readlink -f $0))
 
-#registry server from which ubuntu build images are pulled
+# These packages are always required in order to run on Ubuntu
+PACKAGES_REQUIRED_UBUNTU=(
+    ant
+    contrail-utils
+    git
+    ipmitool
+    patch
+    python-ceilometerclient
+    python-cinderclient
+    python-contrail
+    python-glanceclient
+    python-heatclient
+    python-novaclient
+    python-neutronclient
+    python-pip
+    python-requests
+    python-setuptools
+)
+# These packages are required in docker container for Ubuntu
+PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD=(
+    ${PACKAGES_REQUIRED_UBUNTU[@]}
+    python-dev
+    sshpass
+    libxslt1-dev
+    libyaml-dev
+    libz-dev
+)
+PACKAGES_REQUIRED_RALLY=(
+    libssl-dev
+    libffi-dev
+    libpq-dev
+    libpq5=9.3.15-0ubuntu0.14.04
+    python-dev
+    libxml2-dev
+    libxslt1-dev
+)
+CS_CACHE=http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/
+EXTRAS=(
+    $CS_CACHE/libexpat1-dev_2.1.0-4ubuntu1.3_amd64.deb
+    $CS_CACHE/libexpat1_2.1.0-4ubuntu1.3_amd64.deb
+    $CS_CACHE/libpython2.7-dev_2.7.6-8ubuntu0.2_amd64.deb
+    $CS_CACHE/libxml2-dev_2.9.1+dfsg1-3ubuntu4.9_amd64.deb
+    $CS_CACHE/libxml2_2.9.1+dfsg1-3ubuntu4.9_amd64.deb
+    $CS_CACHE/libxslt1-dev_1.1.28-2ubuntu0.1_amd64.deb
+    $CS_CACHE/libxslt1.1_1.1.28-2ubuntu0.1_amd64.deb
+    $CS_CACHE/python2.7-dev_2.7.6-8ubuntu0.2_amd64.deb
+)
+
+# registry server from which ubuntu build images are pulled
+# This should switch to 10.84.5.71
 registry_server="10.84.34.155:5000"
 
 usage () {
@@ -49,15 +111,15 @@ function have_command {
 }
 
 function fail {
-    echo $@
+    echo '*** ERROR:' $@
     exit 1
 }
 
 function distro {
     if have_command apt-get; then
         DISTRO=ubuntu
-        PACKAGES_REQUIRED=$PACKAGES_REQUIRED_UBUNTU
-        PACKAGES_REQUIRED_DOCKER_BUILD=$PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD
+        PACKAGES_REQUIRED=${PACKAGES_REQUIRED_UBUNTU[@]}
+        PACKAGES_REQUIRED_DOCKER_BUILD=${PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD[@]}
 #    elif have_command rpm; then
 #        DISTRO=redhat
     else
@@ -310,7 +372,7 @@ function make_dockerfile {
     base_image=${2:-$registry_server/ubuntu-14.04.2}
     cat <<EOF
 FROM $base_image
-MAINTAINER Juniper Contrail <contrail@juniper.net>
+MAINTAINER Contrail Builder <contrail-builder@juniper.net>
 ARG http_proxy
 ARG https_proxy
 ARG CONTRAIL_INSTALL_PACKAGE_URL
@@ -323,35 +385,35 @@ EOF
         if [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ ^http[s]*:// ]]; then
             cat <<EOF
 # Just check if $CONTRAIL_INSTALL_PACKAGE_URL is there, if not valid, build will fail
-RUN wget -q --spider $CONTRAIL_INSTALL_PACKAGE_URL
+RUN $wget --spider $CONTRAIL_INSTALL_PACKAGE_URL
 
 # setup contrail-install-packages
-RUN wget $CONTRAIL_INSTALL_PACKAGE_URL -O /contrail-install-packages.deb && \
+RUN $wget $CONTRAIL_INSTALL_PACKAGE_URL -O /contrail-install-packages.deb && \
     dpkg -i /contrail-install-packages.deb && \
     rm -f /contrail-install-packages.deb && \
     cd /opt/contrail/contrail_packages/ && ./setup.sh && \
-    cd /opt/contrail/contrail_install_repo/ && wget $EXTRAS && \
-    cd /opt/contrail/contrail_install_repo/ && dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz && apt-get update && \
-    apt-get install -y $PACKAGES_REQUIRED_DOCKER_BUILD && \
+    cd /opt/contrail/contrail_install_repo/ && $wget ${EXTRAS[@]} && \
+    cd /opt/contrail/contrail_install_repo/ && dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz && $apt_get update && \
+    $apt_get install $PACKAGES_REQUIRED_DOCKER_BUILD && \
     sed -i '/file:\/opt\/contrail\/contrail_install_repo/d' /etc/apt/sources.list ; \
-    rm -fr /opt/contrail/* ; apt-get -y autoremove && apt-get -y clean;
+    rm -fr /opt/contrail/* ; $apt_get autoremove && $apt_get clean;
 EOF
         elif [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ ^ssh[s]*:// ]]; then
             scp_package=1
-            server=` echo $CONTRAIL_INSTALL_PACKAGE_URL | sed 's/ssh:\/\///;s|\/.*||'`
-            path=`echo $CONTRAIL_INSTALL_PACKAGE_URL |sed -r 's#ssh://[a-zA-Z0-9_\.\-]+##'`
+            server=$(echo $CONTRAIL_INSTALL_PACKAGE_URL | sed 's=ssh://==;s|\/.*||')
+            path=$(echo $CONTRAIL_INSTALL_PACKAGE_URL |sed -r 's#ssh://[a-zA-Z0-9_\.\-]+##')
             cat << EOF
 
-RUN apt-get install -y sshpass && \
+RUN $apt_get install sshpass && \
     sshpass -e scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${sshuser_sub}${server}:${path} /contrail-install-packages.deb && \
     dpkg -i /contrail-install-packages.deb && \
     rm -f /contrail-install-packages.deb && \
     cd /opt/contrail/contrail_packages/ && ./setup.sh && \
-    cd /opt/contrail/contrail_install_repo/ && wget $EXTRAS && \
-    cd /opt/contrail/contrail_install_repo/ && dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz && apt-get update && \
-    apt-get install -y $PACKAGES_REQUIRED_DOCKER_BUILD && \
+    cd /opt/contrail/contrail_install_repo/ && $wget ${EXTRAS[@]} && \
+    cd /opt/contrail/contrail_install_repo/ && dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz && $apt_get update && \
+    $apt_get install $PACKAGES_REQUIRED_DOCKER_BUILD && \
     sed -i '/file:\/opt\/contrail\/contrail_install_repo/d' /etc/apt/sources.list ; \
-    rm -fr /opt/contrail/* ; apt-get -y autoremove; apt-get -y clean
+    rm -fr /opt/contrail/* ; $apt_get autoremove; $apt_get clean
 EOF
         else
             echo "ERROR, Unknown url format, only http[s], ssh supported" >&2
@@ -359,27 +421,29 @@ EOF
         fi
 
         cat <<EOF
-    RUN wget -q --spider $CIRROS_IMAGE_URL
-    RUN mkdir -p /images && wget $CIRROS_IMAGE_URL -O /images/cirros-0.3.0-x86_64-disk.vmdk.gz
-    RUN wget $SVC_IN_NET_NAT_URL -O /images/tinycore-in-network-nat.qcow2.gz
-    RUN wget $SVC_IN_NET_URL -O /images/tinycore-in-network.qcow2.gz
+    RUN $wget --spider $CIRROS_IMAGE_URL
+    RUN mkdir -p /images && $wget $CIRROS_IMAGE_URL -O /images/cirros-0.3.0-x86_64-disk.vmdk.gz
+    RUN $wget $SVC_IN_NET_NAT_URL -O /images/tinycore-in-network-nat.qcow2.gz
+    RUN $wget $SVC_IN_NET_URL -O /images/tinycore-in-network.qcow2.gz
 EOF
     #Finished dockerfile for prep image
-    else
+
+    else			# Dockerfile for "final"
         # In case of contrail-test, ci should be added in /contrail-test-ci and later merge both
         # /contrail-test-ci and /contrail-test together
         ci_dir='/contrail-test'
 
         if [[ $build_type == 'contrail-test' ]]; then
+            # Let's do some back-flips to get the firefox set up we want/need
             cat <<EOF
 RUN echo 'deb http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/chrome.list; \
-    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -; \
-    apt-get -q -y update; apt-get -qy install unzip firefox xvfb; \
-    wget -c http://chromedriver.storage.googleapis.com/2.10/chromedriver_linux64.zip; \
+    $wget -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -; \
+    $apt_get update; $apt_get install unzip firefox xvfb; \
+    $wget -c http://chromedriver.storage.googleapis.com/2.10/chromedriver_linux64.zip; \
     unzip chromedriver_linux64.zip; cp ./chromedriver /usr/bin/; chmod ugo+rx /usr/bin/chromedriver; \
-    apt-get -qy install libxpm4 libxrender1 libgtk2.0-0 libnss3 libgconf-2-4 google-chrome-stable; \
-    apt-get remove -y firefox; \
-    wget https://ftp.mozilla.org/pub/mozilla.org/firefox/releases/31.0/linux-x86_64/en-US/firefox-31.0.tar.bz2 -O /tmp/firefox.tar.bz2; \
+    $apt_get install libxpm4 libxrender1 libgtk2.0-0 libnss3 libgconf-2-4 google-chrome-stable; \
+    $apt_get remove -y firefox; \
+    $wget https://ftp.mozilla.org/pub/mozilla.org/firefox/releases/31.0/linux-x86_64/en-US/firefox-31.0.tar.bz2 -O /tmp/firefox.tar.bz2; \
     cd /opt; tar xjf /tmp/firefox.tar.bz2; ln -sf /opt/firefox/firefox /usr/bin/firefox;
 EOF
             ci_dir='/contrail-test-ci'
@@ -409,12 +473,12 @@ RUN git clone $CONTRAIL_TEST_CI_REPO $ci_dir; \
     git reset --hard; \
     rm -fr .git
 EOF
-         fi
+        fi
 
         if [[ ! -z $RALLY_REPO ]]; then
             cat <<EOF
 RUN cd contrail-test-ci ; \
-    apt-get install -y $PACKAGES_REQUIRED_RALLY ; \
+    $apt_get install $PACKAGES_REQUIRED_RALLY ; \
     ./install_rally.sh $RALLY_REPO
 EOF
         fi
@@ -493,7 +557,7 @@ EOF
 
     build_prep () {
         image_tag=${1:-$PREP_IMAGE}
-        BUILD_DIR=`mktemp -d`
+        BUILD_DIR=$(mktemp -d)
         make_dockerfile prep "$registry_server/ubuntu-14.04.2" > $BUILD_DIR/Dockerfile
 
         if [[ -n $scp_package ]]; then
@@ -515,21 +579,12 @@ EOF
 
     build_final () {
         base_image=${1:-$PREP_IMAGE}
-        BUILD_DIR=`mktemp -d`
+        BUILD_DIR=$(mktemp -d)
         make_dockerfile final $base_image > $BUILD_DIR/Dockerfile
 
-        if [[ -f $CONTRAIL_TEST_ARTIFACT ]]; then
-            cp $CONTRAIL_TEST_ARTIFACT $BUILD_DIR/
-        fi
-
-        if [[ -f $CONTRAIL_TEST_CI_ARTIFACT ]]; then
-            cp $CONTRAIL_TEST_CI_ARTIFACT $BUILD_DIR
-        fi
-
-        if [[ -f $CONTRAIL_FAB_ARTIFACT ]]; then
-            cp $CONTRAIL_FAB_ARTIFACT $BUILD_DIR
-        fi
-
+        [[ -f $CONTRAIL_TEST_ARTIFACT ]] &&	cp $CONTRAIL_TEST_ARTIFACT $BUILD_DIR
+        [[ -f $CONTRAIL_TEST_CI_ARTIFACT ]] &&	cp $CONTRAIL_TEST_CI_ARTIFACT $BUILD_DIR
+        [[ -f $CONTRAIL_FAB_ARTIFACT ]] && 	cp $CONTRAIL_FAB_ARTIFACT $BUILD_DIR
 
         if [[ $build_type == 'contrail-test' ]]; then
             make_entrypoint_contrail_test > ${BUILD_DIR}/docker_entrypoint.sh
@@ -558,12 +613,10 @@ EOF
                 if [ $rv -eq 0 ]; then
                     echo "Cleaned up the image $CONTAINER_TAG from build environment"
                 else
-                    echo "Failed to cleanup the image $CONTAINER_TAG from the build environment, please cleanup manually"
-                    exit 1
+                    fail "Failed to cleanup the image $CONTAINER_TAG from the build environment, please cleanup manually"
                 fi
             else
-                echo "Failed to export the image $CONTAINER_TAG"
-                exit 2
+                fail "Failed to export the image $CONTAINER_TAG"
             fi
         fi
     }
@@ -618,7 +671,7 @@ EOF
     fi
 
     # IS docker runnable?
-    docker  -v &> /dev/null ; rv=$?
+    docker -v &> /dev/null ; rv=$?
 
     if [ $rv -ne 0 ]; then
       echo "docker is not installed, please install docker-engine (https://docs.docker.com/engine/installation/)"
@@ -644,26 +697,22 @@ EOF
         if [ $rv -eq 0 ]; then
             echo "Successfully built prep image"
         else
-            fail "ERROR!! Failed to build prep image"
+            fail "Failed to build prep image"
         fi
     fi
+
     echo "Building final image - $CONTAINER_TAG"
     build_final; rv=$?
     if [ $rv -eq 0 ]; then
         echo "Successfully built the container image - $CONTAINER_TAG"
         save
     else
-        fail "ERROR! Failed to build the container image - $CONTAINER_TAG"
+        fail "Failed to build the container image - $CONTAINER_TAG"
     fi
 }
 
-xtrace_status() {
-  set | grep -q SHELLOPTS=.*:xtrace
-  return $?
-}
-
 try_wget () {
-    wget -q --spider $1;
+    $wget --spider $1;
     return $?
 }
 
@@ -753,18 +802,16 @@ EOF
     if [[ -n $CONTRAIL_INSTALL_PACKAGE_URL ]]; then
         if [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ ^http[s]*:// ]]; then
             if try_wget $CONTRAIL_INSTALL_PACKAGE_URL; then
-               wget $CONTRAIL_INSTALL_PACKAGE_URL -O /tmp/contrail-install-packages.deb
+               $wget $CONTRAIL_INSTALL_PACKAGE_URL -O /tmp/contrail-install-packages.deb
             else
-                echo "ERROR! $CONTRAIL_INSTALL_PACKAGE_URL is not accessible"
-                exit 1
+                fail "$CONTRAIL_INSTALL_PACKAGE_URL is not accessible"
             fi
         elif [[ $CONTRAIL_INSTALL_PACKAGE_URL =~ ^ssh:// ]]; then
             server=` echo $CONTRAIL_INSTALL_PACKAGE_URL | sed 's/ssh:\/\///;s|\/.*||'`
             path=`echo $CONTRAIL_INSTALL_PACKAGE_URL |sed -r 's#ssh://[a-zA-Z0-9_\.\-]+##'`
             sshpass -e scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${sshuser_sub}${server}:${path} /tmp/contrail-install-packages.deb
         else
-            echo "ERROR, Unknown url format, only http[s], ssh supported"
-            exit 1
+            fail "Unknown url format, only http[s], ssh supported"
         fi
 
         dpkg -i /tmp/contrail-install-packages.deb
