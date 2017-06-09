@@ -1177,7 +1177,7 @@ class ContrailTestInit(object):
             host, cmd, self.host_data[host]['username'],
             self.host_data[host]['password'],
             container=container)
-        if output is not None:
+        if output is not None and output != "":
             return True
         else:
             return False

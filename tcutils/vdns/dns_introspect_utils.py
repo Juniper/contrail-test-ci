@@ -69,3 +69,17 @@ class DnsAgentInspect (VerificationUtilBase):
         rt = EtreeToDict(xpath).get_all_entry(p)
         rabbit_mq_node = rt['url'].split("@")[1].split(":")[0]
         return rabbit_mq_node
+    
+    def get_connected_configdb(self):
+        '''
+        Return the ConfigDB server to which Control/DNS connects
+        '''
+        path = 'Snh_ConfigClientInfoReq?'
+        xpath = './ConfigClientInfoResp/db_conn_info/ConfigDBConnInfo'
+        p = self.dict_get(path)
+        rt = EtreeToDict(xpath).get_all_entry(p)
+        configdb_ips = [elem.strip() for elem in rt['cluster'].split(",")]
+        status = rt['connection_status']
+        return configdb_ips, status
+    # end of get_connected_configdb
+
