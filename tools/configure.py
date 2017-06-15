@@ -62,7 +62,6 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
             return ""
 
     cfgm_host = env.roledefs['cfgm'][0]
-
     auth_protocol = get_authserver_protocol()
     try:
         auth_server_ip = get_authserver_ip()
@@ -127,6 +126,18 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     with open(sample_ini_file, 'r') as fd_sample_ini:
        contents_sample_ini = fd_sample_ini.read()
     sanity_ini_templ = string.Template(contents_sample_ini)
+
+    ixia_linux_host_ip = None
+    ixia_host_ip = None
+    spirent_linux_host_ip = None
+    if env.has_key('traffic_data'):
+        sanity_testbed_dict['traffic_data'] = env.traffic_data
+	if 'ixia_linux_host_ip' in sanity_testbed_dict['traffic_data']:
+	    ixia_linux_host_ip = sanity_testbed_dict['traffic_data']['ixia_linux_host_ip']
+	if 'ixia_host_ip' in sanity_testbed_dict['traffic_data']:
+	    ixia_host_ip = sanity_testbed_dict['traffic_data']['ixia_host_ip']
+	if 'spirent_linux_host_ip' in sanity_testbed_dict['traffic_data']:
+	    spirent_linux_host_ip = sanity_testbed_dict['traffic_data']['spirent_linux_host_ip']
 
     if env.get('orchestrator', 'openstack') == 'openstack':
         with settings(host_string = env.roledefs['openstack'][0]), hide('everything'):
@@ -549,6 +560,9 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
          '__gc_user_pwd__'         : gc_user_pwd,
          '__keystone_password__'   : keystone_password,
          '__slave_orch__'          : slave_orch,
+	 '__ixia_linux_host_ip__'  : ixia_linux_host_ip,
+	 '__ixia_host_ip__'        : ixia_host_ip,
+	 '__spirent_linux_host_ip__': spirent_linux_host_ip,
 
         })
 
