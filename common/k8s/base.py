@@ -614,3 +614,15 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
                                      metadata=metadata,
                                      spec=spec)
     # end setup_nginx_deployment
+
+    def restart_kube_manager(self):
+
+    
+        # TODO 
+        # For now considering kube-manager running on first controller host 
+        # Need to add kube-manager representation in testbed file
+        self.logger.info('Will restart contrail-kube-manager  services now')
+        self.inputs.restart_service('contrail-kube-manager', 
+                                     [self.inputs.cfgm_ips[0]], 
+                                     container='contrail-kube-manager')
+    # end restart_kube_manager
