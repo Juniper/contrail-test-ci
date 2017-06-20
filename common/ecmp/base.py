@@ -80,14 +80,14 @@ class ECMPTestBase(GenericTestBase):
     # end tearDownClass
 
     @retry(delay=1, tries=30)
-    def get_svm_count(self, expected_count):
+    def get_svm_count(self, si, expected_count):
         svms = self.get_svms_in_si(
-            self.si_fixtures[0], self.inputs.project_name)
+            si, self.inputs.project_name)
         svms = sorted(set(svms))
         svms = filter(None, svms)
         if len(svms) == expected_count:
             self.logger.info('The Service VMs in the Service Instance %s are %s' % (
-                self.si_fixtures[0].si_name, svms))
+                si.si_name, svms))
             return True, svms
         self.logger.warn('The SVMs count has not decreased..retrying')
         return False, False
