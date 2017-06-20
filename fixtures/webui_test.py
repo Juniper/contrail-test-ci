@@ -2080,7 +2080,7 @@ class WebuiTest:
                 intf_dict['Virtual Networks'] = vn_names
                 self.ui.extract_keyvalue(intf_dict, ops_list)
                 self.ui.type_change(ops_list)
-                if self.ui.match_ui_values(
+                if self.ui.match_ui_kv(
                         ops_list, ui_list):
                     self.logger.info("VM basic view data matched")
 
@@ -2358,7 +2358,7 @@ class WebuiTest:
                 complete_ops_data.extend([ops_data_connected_networks])
                 dom_list = []
                 self.ui.extract_keyvalue(dom_arry_basic, dom_list)
-                if self.ui.match_ui_values(
+                if self.ui.match_ui_kv(
                         complete_ops_data,
                         dom_list):
                     self.logger.info(
@@ -2613,7 +2613,7 @@ class WebuiTest:
                 self.logger.info(
                     "Verify advance view details for uuid %s " % (ops_uuid))
                 plus_objs = self.ui.find_element(
-                    'i.node-2.icon-plus.expander',
+                    'i.node-2.fa-plus.expander',
                     'css',
                     elements=True)
                 self.ui.click(plus_objs)
