@@ -1983,7 +1983,7 @@ class WebuiTest:
             result = result and False
         self.ui.select_project(self.project_name_input)
         self.ui.select_network(network_name)
-        rows = self.ui.get_rows()
+        rows = self.ui.get_rows(canvas=True)
         vm_list_ops = self.ui.get_vm_list_ops()
         vmi_list_ops = self.ui.get_vmi_list_ops()
         result = True
@@ -1995,7 +1995,7 @@ class WebuiTest:
             vmname = ops_data['vm_name']
             if not self.ui.click_monitor_instances():
                 result = result and False
-            rows = self.ui.get_rows()
+            rows = self.ui.get_rows(canvas=True)
             self.logger.info(
                 "Vm uuid %s exists in opserver..checking if exists in webui as well" %
                 (ops_uuid))
@@ -2084,7 +2084,7 @@ class WebuiTest:
                 intf_dict['Virtual Networks'] = vn_names
                 self.ui.extract_keyvalue(intf_dict, ops_list)
                 self.ui.type_change(ops_list)
-                if self.ui.match_ui_values(
+                if self.ui.match_ui_kv(
                         ops_list, ui_list):
                     self.logger.info("VM basic view data matched")
 
