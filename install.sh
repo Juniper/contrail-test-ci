@@ -379,11 +379,12 @@ EOF
                 cat <<EOF
 RUN echo 'deb http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/chrome.list; \
     wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -; \
-    apt-get -q -y update; apt-get -qy install unzip xvfb; \
+    apt-get -q -y update; apt-get -qy install unzip firefox xvfb; \
     wget -c http://chromedriver.storage.googleapis.com/2.10/chromedriver_linux64.zip; \
     unzip chromedriver_linux64.zip; cp ./chromedriver /usr/bin/; chmod ugo+rx /usr/bin/chromedriver; \
     apt-get -qy install libxpm4 libxrender1 libgtk2.0-0 libnss3 libgconf-2-4 google-chrome-stable; \
-    wget https://ftp.mozilla.org/pub/firefox/releases/46.0/linux-x86_64/en-US/firefox-46.0.tar.bz2 -O /tmp/firefox.tar.bz2; \
+    apt-get remove -y firefox; \
+    wget https://ftp.mozilla.org/pub/mozilla.org/firefox/releases/31.0/linux-x86_64/en-US/firefox-31.0.tar.bz2 -O /tmp/firefox.tar.bz2; \
     cd /opt; tar xjf /tmp/firefox.tar.bz2; ln -sf /opt/firefox/firefox /usr/bin/firefox;
 
 RUN git clone $CONTRAIL_TEST_REPO /contrail-test; \
