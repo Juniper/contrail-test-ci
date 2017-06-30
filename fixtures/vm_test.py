@@ -803,9 +803,9 @@ class VMFixture(fixtures.Fixture):
         if refresh or not getattr(self, '_local_ip', None):
             local_ips = self.get_local_ips(refresh=refresh)
             for vn_fq_name in self.vn_fq_names:
-                if  self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) =='l2':
-                    self.logger.debug("skipping ping to one of the 169.254.x.x IPs")
-                    return True
+                if self.vnc_lib_fixture.get_active_forwarding_mode(vn_fq_name) == 'l2':
+                    self.logger.debug(
+                        "skipping ping to one of the 169.254.x.x IPs")
                 if vn_fq_name in local_ips and local_ips[vn_fq_name] != '0.0.0.0':
                     if self.ping_vm_from_host(vn_fq_name):
                         self._local_ip = self.local_ips[vn_fq_name]
