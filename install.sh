@@ -371,12 +371,7 @@ EOF
         ci_dir='/contrail-test'
 
         if [[ $build_type == 'contrail-test' ]]; then
-            ci_dir='/contrail-test-ci'
-            merge_code='cp -RTf /contrail-test-ci /contrail-test; '
-            if [[ -f $CONTRAIL_TEST_ARTIFACT ]]; then
-                echo -e "ADD $(basename $CONTRAIL_TEST_ARTIFACT) /"
-            else
-                cat <<EOF
+            cat <<EOF
 RUN echo 'deb http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/chrome.list; \
     wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -; \
     apt-get -q -y update; apt-get -qy install unzip firefox xvfb; \
@@ -386,7 +381,13 @@ RUN echo 'deb http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sou
     apt-get remove -y firefox; \
     wget https://ftp.mozilla.org/pub/mozilla.org/firefox/releases/31.0/linux-x86_64/en-US/firefox-31.0.tar.bz2 -O /tmp/firefox.tar.bz2; \
     cd /opt; tar xjf /tmp/firefox.tar.bz2; ln -sf /opt/firefox/firefox /usr/bin/firefox;
-
+EOF
+            ci_dir='/contrail-test-ci'
+            merge_code='cp -RTf /contrail-test-ci /contrail-test; '
+            if [[ -f $CONTRAIL_TEST_ARTIFACT ]]; then
+                echo -e "ADD $(basename $CONTRAIL_TEST_ARTIFACT) /"
+            else
+                cat <<EOF
 RUN git clone $CONTRAIL_TEST_REPO /contrail-test; \
     cd /contrail-test ; \
     git checkout $CONTRAIL_TEST_REF; \
