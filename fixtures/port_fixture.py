@@ -42,6 +42,8 @@ class PortFixture(vnc_api_test.VncLibFixture):
         self.api_type = kwargs.get('api_type', 'neutron')
         self.project_obj = kwargs.get('project_obj', None)
         self.binding_profile = kwargs.get('binding_profile', None)
+        self.vlan_id = kwargs.get('vlan_id', None)
+        self.parent_vmi = kwargs.get('parent_vmi', None)
         self.vn_obj = None
      # end __init__
 
@@ -78,6 +80,7 @@ class PortFixture(vnc_api_test.VncLibFixture):
         self.uuid = neutron_obj['id']
 
     def _contrail_create_port(self):
+        vmi_props = vnc_api_test.VirtualMachineInterfacePropertiesType()
         if not self.project_obj:
             self.project_obj = self.vnc_api_h.project_read(id=self.project_id)
         vmi_id = str(uuid.uuid4())
@@ -107,12 +110,20 @@ class PortFixture(vnc_api_test.VncLibFixture):
             # TODO
             pass
 
+        if self.vlan_id:
+            vmi_props.set_sub_interface_vlan_tag(int(self.vlan_id))
+
+        if self.parent_vmi:
+            vmi_obj.add_virtual_machine_interface(self.parent_vmi)
+
         if self.binding_profile:
             bind_kv = vnc_api_test.KeyValuePair(key='profile', value=str(self.binding_profile))
             kv_pairs = vmi_obj.get_virtual_machine_interface_bindings() or\
                        vnc_api_test.KeyValuePairs()
             kv_pairs.add_key_value_pair(bind_kv)
             vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
+
+        vmi_obj.set_virtual_machine_interface_properties(vmi_props)
 
         self.vmi_obj = self.vnc_api_h.virtual_machine_interface_create(vmi_obj)
         self.uuid = vmi_id
