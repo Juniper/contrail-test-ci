@@ -41,7 +41,7 @@ class AnalyticsBasicTestSanity(base.AnalyticsBaseTest):
         assert vm1_fixture.verify_on_setup()
         vm_uuid=vm1_fixture.vm_id
         self.logger.info("Waiting for logs to be updated in the database...")
-        time.sleep(20)
+        self.sleep(20)
         query='('+'ObjectId=%s)'%vn_fixture.vn_fq_name
         result=True
         msg = "ObjectVNTable for vn %s on analytics node %s"%(
