@@ -58,7 +58,7 @@ class VMFixture(fixtures.Fixture):
 
     def __init__(self, connections, vm_name=None, vn_obj=None,
                  vn_objs=[],
-                 image_name='ubuntu', subnets=[],
+                 image_name='ubuntu-traffic', subnets=[],
                  flavor=None,
                  node_name=None, sg_ids=[], count=1, userdata=None,
                  port_ids=[], fixed_ips=[], zone=None, vn_ids=[], uuid=None,*args,**kwargs):
@@ -1085,7 +1085,7 @@ class VMFixture(fixtures.Fixture):
                                 gateway = 'NOT set'
                             if not allocation_pool:
                                 allocation_pool = 'NOT set'
-                            self.logger.info("Gateway for vn %s is %s and allocation pool is %s"\
+                            self.logger.debug("Gateway for vn %s is %s and allocation pool is %s"\
                                              %(vn_fq_name,gateway,allocation_pool))
                     return False
                 else:
