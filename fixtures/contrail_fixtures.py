@@ -78,7 +78,7 @@ class ContrailFixture (fixtures.Fixture):
        self._args = self._handle_args(copy.deepcopy(params))
        self._api_ctx = ApiContextManager(self._ctrl,
                self._args['type'] if self._args else None)
-       self._verify_on_cleanup = int(os.getenv('VERIFY_ON_CLEANUP')) or False
+       self._verify_on_cleanup = os.getenv('VERIFY_ON_CLEANUP') or False
        self._minimal_read()
 
    def _setup_ref_fields (self):
