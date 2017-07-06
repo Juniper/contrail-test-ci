@@ -161,4 +161,4 @@ class OsVnMixin:
        for subnet in upd_subnets:
            subnet_id = subnet['id']
            del subnet['id']
-           self.update_subnet(subnet_id, type='openstack', **subnet)
+           self.update_subnet(uuid=subnet_id, type='openstack', **subnet)
