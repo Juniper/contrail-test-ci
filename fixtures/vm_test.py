@@ -143,7 +143,7 @@ class VMFixture(fixtures.Fixture):
             self.browser_openstack = self.connections.browser_openstack
             self.webui = WebuiTest(self.connections, self.inputs)
         self._vm_interface = {}
-        self.vrf_ids = {}
+        self._vrf_ids = {}
         self._interested_computes = []
         self.created = False
 
@@ -831,6 +831,10 @@ class VMFixture(fixtures.Fixture):
     def local_ip(self):
         return self.get_local_ip()
 
+    @property
+    def vrf_ids(self):
+        return self.get_vrf_ids()
+
     #Need to retry many times due to bug 1683478, once bug is fixed we can reduce the no. of retry
     @retry(delay=3, tries=30)
     def verify_vm_in_agent(self):
@@ -1017,7 +1021,6 @@ class VMFixture(fixtures.Fixture):
                              (self.vm_name))
         self.vm_in_agent_flag = self.vm_in_agent_flag and True
 
-        self.vrf_ids = self.get_vrf_ids()
         if self.inputs.many_computes:
             self.get_interested_computes()
         return True
@@ -1357,7 +1360,7 @@ class VMFixture(fixtures.Fixture):
             self.logger.debug('No interested compute node info present.'
                               ' Skipping vm cleanup check in vrouter')
             return True
-        curr_vrf_ids = self.get_vrf_ids()
+        curr_vrf_ids = self.get_vrf_ids(refresh=True)
         for compute_ip in compute_ips:
             vrf_id = None
             earlier_agent_vrfs = self.vrf_ids.get(compute_ip)
@@ -1367,8 +1370,18 @@ class VMFixture(fixtures.Fixture):
             curr_vrf_id = curr_vrf_ids.get(compute_ip, {}).get(vn_fq_name)
             if vrf_id and not curr_vrf_id:
                 # The vrf is deleted in agent. Check the same in vrouter
+                # if the vrf id not used by some other VN
                 vrouter_route_table = inspect_h.get_vrouter_route_table(
                     vrf_id)
+                curr_vrf_dict = inspect_h.get_vna_vrf_by_id(vrf_id)
+                if vn_fq_name not in curr_vrf_dict.get('name'):
+                    self.logger.debug('VRF %s already used by some other VN %s'
+                        '. Would have to skip vrouter check on %s' % (
+                        vrf_id, curr_vrf_dict.get('name'), compute_ip))
+                    return True
+
+                # VRF id is not re-used, can check if vrf table has 
+                # been removed in vrouter
                 if vrouter_route_table:
                     self.logger.warn('Vrouter on Compute node %s still has vrf '
                         ' %s for VN %s. Check introspect logs' %(
@@ -1845,8 +1858,11 @@ class VMFixture(fixtures.Fixture):
         return True
     # end tcp_data_transfer
 
-    def get_vrf_ids(self):
-        vrfs = dict()
+    def get_vrf_ids(self, refresh=False):
+        if getattr(self, '_vrf_ids', None) and not refresh:
+            return self._vrf_ids
+
+        self._vrf_ids = dict()
         try:
             for ip in self.inputs.compute_ips:
                 inspect_h = self.agent_inspect[ip]
@@ -1856,11 +1872,11 @@ class VMFixture(fixtures.Fixture):
                     if vrf_id:
                         dct.update({vn_fq_name: vrf_id})
                 if dct:
-                    vrfs[ip] = dct
+                    self._vrf_ids[ip] = dct
         except Exception as e:
             self.logger.exception('Exception while getting VRF id')
         finally:
-            return vrfs
+            return self._vrf_ids
     # end get_vrf_ids
 
     def cleanUp(self):
