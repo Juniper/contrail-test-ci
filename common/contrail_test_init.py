@@ -1126,6 +1126,7 @@ class ContrailTestInit(object):
         return None
 
     def verify_service_state(self, host, service=None, role=None, container=None):
+        services = self.get_contrail_services(service_name=service, role=role)
         try:
             m = self.get_contrail_status(host, container=container)
             for service in services:
