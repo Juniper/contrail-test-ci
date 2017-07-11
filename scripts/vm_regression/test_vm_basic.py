@@ -118,7 +118,7 @@ echo "Hello World.  The time is now $(date -R)!" | tee /tmp/output.txt
         assert result
         return True
 
-    @test.attr(type=['sanity','ci_sanity','quick_sanity','suite1'])
+    @test.attr(type=['suite1'])
     @preposttest_wrapper
     @skip_because(orchestrator = 'vcenter', address_family = 'v6')
     def test_ipam_add_delete(self):
@@ -242,7 +242,7 @@ echo "Hello World.  The time is now $(date -R)!" | tee /tmp/output.txt
         return True
     #test_ping_within_vn_two_vms_two_different_subnets
 
-    @test.attr(type=['sanity','ci_sanity', 'quick_sanity', 'vcenter', 'suite1'])
+    @test.attr(type=['vcenter', 'suite1'])
     @preposttest_wrapper
     def test_vn_add_delete(self):
         '''
@@ -257,7 +257,7 @@ echo "Hello World.  The time is now $(date -R)!" | tee /tmp/output.txt
         return True
     #end test_vn_add_delete
 
-    @test.attr(type=['sanity','ci_sanity','vcenter', 'suite1'])
+    @test.attr(type=['vcenter', 'suite1'])
     @preposttest_wrapper
     def test_vm_add_delete(self):
         '''
@@ -276,7 +276,7 @@ echo "Hello World.  The time is now $(date -R)!" | tee /tmp/output.txt
         return True
     # end test_vm_add_delete
 
-    @test.attr(type=['sanity','ci_sanity','quick_sanity', 'suite1', 'vcenter','vrouter_gw'])
+    @test.attr(type=['suite1', 'vcenter','vrouter_gw'])
     @preposttest_wrapper
     def test_ping_within_vn(self):
         '''
