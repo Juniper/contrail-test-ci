@@ -97,7 +97,7 @@ class ContrailConnections():
 
     def get_project_id(self, project_name=None):
         project_name = project_name or self.project_name
-        auth = self.get_auth_h(project_name)
+        auth = self.get_auth_h(project_name=project_name)
         return auth.get_project_id(project_name or self.project_name, self.domain_id)
 
     def get_auth_h(self, refresh=False, project_name=None,
@@ -116,7 +116,7 @@ class ContrailConnections():
                 env[attr] = VcenterAuth(username, password,
                                        project_name, self.inputs)
         return env.get(attr)
-    
+
     def get_vnc_lib_h(self, refresh=False):
         attr = '_vnc_lib_fixture_' + self.project_name + '_' + self.username
         cfgm_ip = self.inputs.api_server_ip or \

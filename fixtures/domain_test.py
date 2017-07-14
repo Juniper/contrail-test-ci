@@ -81,7 +81,7 @@ class DomainFixture(fixtures.Fixture):
         self.create()
 
     def create(self):
-        self.uuid = self.uuid or self.auth.get_domain_id(self.domain_name)
+        self.uuid = self.uuid or get_dashed_uuid(self.auth.get_domain_id(self.domain_name))
         if self.uuid:
             self.read()
             self.logger.info(

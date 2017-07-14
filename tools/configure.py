@@ -344,7 +344,6 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     admin_tenant = get_admin_tenant_name()
     # Few hardcoded variables for sanity environment
     # can be removed once we move to python3 and configparser
-    stack_domain = env.get('stack_domain', 'default-domain')
     webserver_host = env.test.get('webserver_host',
                          os.getenv('WEBSERVER_HOST') or '')
     webserver_user = env.test.get('webserver_user',
