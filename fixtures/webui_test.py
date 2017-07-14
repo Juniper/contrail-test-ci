@@ -1423,9 +1423,6 @@ class WebuiTest:
         self.logger.info(
             "Verifying vrouter Opserver advance data on Monitor->Infra->Virtual Routers->Details(advance view) page......")
         self.logger.debug(self.dash)
-        if not self.ui.click_monitor_vrouters():
-            result = result and False
-        rows = self.ui.get_rows()
         vrouters_list_ops = self.ui.get_vrouters_list_ops()
         result = True
         for n in range(len(vrouters_list_ops)):
@@ -1435,6 +1432,7 @@ class WebuiTest:
                 (ops_vrouter_name))
             if not self.ui.click_monitor_vrouters():
                 result = result and False
+            self.ui.wait_till_ajax_done(self.browser, wait=15)
             rows = self.ui.get_rows()
             for i in range(len(rows)):
                 match_flag = 0
