@@ -28,8 +28,9 @@ class KeystoneCommands():
         self.region_name = region_name
         self.insecure = insecure
         self.version = self.get_version(version)
-        self.scope = scope
+        self.scope = 'project' if self.version == '2' else scope
         self.keystone = self.get_client(self.scope)
+        self.session = self.keystone.session
 
     def get_version(self, version):
         if not version:
@@ -40,10 +41,6 @@ class KeystoneCommands():
         else:
             version = 2
         return str(version)
-
-    @property
-    def session(self):
-        return self.get_session(scope='project')
 
     def get_session(self, scope='project'):
         if scope in self.sessions:
@@ -317,13 +314,21 @@ class KeystoneCommands():
         return self.keystone.services.list()
     
     def get_domain_id(self, domain_name):        
-       try:        
-           obj =  self.find_domain(domain_name=domain_name)        
-           return obj.id       
-       except ks_exceptions.NotFound:        
+       try:
+           obj = self.find_domain(domain_name=domain_name)
+           return obj.id
+       except ks_exceptions.NotFound:
            return None
 
+    @property
+    def domain_id(self):
+        if not getattr(self, '_domain_id', None):
+            self._domain_id = self.session.auth.get_auth_ref(self.session)['domain']['id']
+        return self._domain_id
+
     def get_id(self):
+        if self.version == '3' and self.scope == 'domain':
+            return self.get_project_id(self.project, self.domain_id)
         return get_dashed_uuid(self.session.get_project_id())
 
     def get_project_id(self, name, domain_id):
