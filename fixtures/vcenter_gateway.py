@@ -28,9 +28,7 @@ def GetHostsPortgroups(hosts):
     print("\tPortgroup collection complete.")
     return hostPgDict
 
-def getvmnics(content,vm):
-
-    hosts = GetVMHosts(content)
+def getvmnics(content,vm,hosts):
     hostPgDict = GetHostsPortgroups(hosts)
     nic = {
           'vlan_id': None,
@@ -105,20 +103,20 @@ class VcenterGatewayOrch(VcenterOrchestrator):
         for vm in vm_objs:
             nics = None
             content = self._si.RetrieveContent()
-            nics = getvmnics(content,vm.vmobj)
+            hosts = [host for cluster in self._dc.hostFolder.childEntity for host in cluster.host]
+            nics = getvmnics(content,vm.vmobj,hosts)
             for nic in nics:    
                 self.plug_api.create_vmi_lif_and_attach_vmi_to_lif\
                       (vn_name=nic['port_group'],mac_address=nic['mac'],vlan=nic['vlan_id'],vm=vm)
             
                  
         for vm in vm_objs:
-            if self.get_vm_detail(vm): 
-                try:
-                    self.plug_api.create_vmobj_in_api_server(vm)
-                except Exception as e:
-                    self.logger.error("Create VM object in API server failed..")
-                    self.delete_vm(vm)
-                    raise
+            try:
+                self.plug_api.create_vmobj_in_api_server(vm)
+            except Exception as e:
+                self.logger.error("Create VM object in API server failed..")
+                self.delete_vm(vm)
+                raise
         return vm_objs
     
     def create_vn_vmi_for_stp_bpdu_to_be_flooded(self,**kwargs):
@@ -148,7 +146,6 @@ class ContrailPlugApi(object):
         self._inputs = inputs
         self._vnc = vnc
         self.logger = logger
-        self._proj_obj = self._get_project_object()
         self._ipam_obj = self._get_ipam_object()
         self._gw = self._process_vcenter_gateway_info()
         self.vnc_h = ContrailVncApi(self._vnc, self.logger)
@@ -210,6 +207,7 @@ class ContrailPlugApi(object):
 
     def _create_vn(self, vn_name, vn_subnet):
 
+        self._proj_obj = self._get_project_object()
         vn_obj = VirtualNetwork(vn_name, parent_obj=self._proj_obj)
         for pfx in vn_subnet:
             px = pfx['cidr'].split('/')[0]
@@ -223,6 +221,7 @@ class ContrailPlugApi(object):
             pass
 
     def _delete_vn(self, vn_name):
+        self._proj_obj = self._get_project_object()
         vn_fq_name = VirtualNetwork(vn_name, self._proj_obj).get_fq_name()
         try:
             self._vnc.virtual_network_delete(fq_name=vn_fq_name)
@@ -232,6 +231,7 @@ class ContrailPlugApi(object):
     # end _delete_vn
  
     def _read_vn(self,vn_name):
+        self._proj_obj = self._get_project_object()
         vn_fq_name = VirtualNetwork(vn_name, self._proj_obj).get_fq_name()
         try:
             vn_obj = self._vnc.virtual_network_read(fq_name=vn_fq_name)
@@ -254,6 +254,7 @@ class ContrailPlugApi(object):
                      fixed_ips=[],security_groups=[],
                      extra_dhcp_opts=[],
                      project_obj=None,vm=None):
+        self._proj_obj = self._get_project_object()
         port = PortFixture(vn_id,
                                 api_type='contrail',
                                 mac_address=mac_address,
