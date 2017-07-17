@@ -8,7 +8,7 @@ from policy_fixture import PolicyFixture_v2
 #from svc_template_fixture_new import SvcTemplateFixture_v2
 #from svc_instance_fixture_new import SvcInstanceFixture_v2
 #from port_tuple_fixture import PortTupleFixture
-#import vm_fix, vmi_fix
+#import vm_fix
 #from instance_ip_fixture import InstanceIpFixture
 #from bgp_router_fixture import BgpRouterFixture
 #from interface_route_table_fixture import InterfaceRouteTableFixture
@@ -31,7 +31,6 @@ _HEAT_2_FIXTURE = {
    #'OS::ContrailV2::InstanceIp': InstanceIpFixture,
    #'OS::ContrailV2::Alarm': AlarmFixture_v2,
    #'OS::ContrailV2::LogicalInterface': LogicalInterfaceFixture_v2,
-   #'OS::ContrailV2::VirtualMachineInterface': vmi_fix.PortFixture_v2,
    #'OS::Nova::Server': vm_fix.VMFixture,
 }
 
