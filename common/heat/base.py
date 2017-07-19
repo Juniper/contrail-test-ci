@@ -47,7 +47,10 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
             ini_file=cls.ini_file,
             logger=cls.logger)
         cls.public_vn_obj.configure_control_nodes()
-
+        if cls.inputs.get_os_version(cls.inputs.host_ips[0]) == 'redhat':
+            cls.admin_connections.auth.add_user_to_project(user=cls.inputs.stack_user,
+                      project = cls.inputs.project_name,
+                      role='heat_stack_owner')
     # end setUpClass
 
     @classmethod
