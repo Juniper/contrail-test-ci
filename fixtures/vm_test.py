@@ -2060,8 +2060,8 @@ class VMFixture(fixtures.Fixture):
             # Create the file on the remote machine so that put can be done
             absolute_filename = '/var/lib/tftpboot/' + filename
             dest_vm_fixture.run_cmd_on_vm(
-                cmds=['sudo touch %s' % (absolute_filename),
-                      'sudo chmod 777 %s' % (absolute_filename)])
+                cmds=['touch %s' % (absolute_filename),
+                      'chmod 777 %s' % (absolute_filename)], as_sudo=True)
         else:
             self.logger.error('No transfer mode specified!!')
             return False
@@ -2088,8 +2088,9 @@ class VMFixture(fixtures.Fixture):
                     cmds=['rm -f %s' % (absolute_filename)])
                 if mode == 'tftp':
                     dest_vm_fixture.run_cmd_on_vm(
-                        cmds=['sudo touch %s' % (absolute_filename),
-                              'sudo chmod 777 %s' % (absolute_filename)])
+                        cmds=['touch %s' % (absolute_filename),
+                              'chmod 777 %s' % (absolute_filename)],
+                        as_sudo=True)
                 if expectation:
                     return False
         return True
@@ -2352,15 +2353,17 @@ class VMFixture(fixtures.Fixture):
         Creates the file and sends it to ip dest_ip
         '''
         nc_cmd = 'nc ' + nc_options
-        # Create file
-        cmd = 'dd bs=%s count=1 if=/dev/zero of=%s' % (size, filename)
-        self.run_cmd_on_vm(cmds=[cmd], as_sudo=True)
-        host = self.inputs.host_data[self.vm_node_ip]
+        dd_cmd = 'dd bs=%s count=1 if=/dev/zero of=%s' % (size, filename)
+        nc_send_cmd = '%s -p %s %s %s < %s' % (nc_cmd, local_port, dest_ip,
+            remote_port, filename)
 
-        # Transfer the file
-        cmd = '%s -p %s %s %s < %s' % (nc_cmd, local_port, dest_ip, remote_port,
-            filename)
-        self.run_nc_with_retry(nc_cmd=cmd, retry=retry)
+        # Create the file and transfer it
+        cmd = '%s;%s' % (dd_cmd, nc_send_cmd)
+        output = self.run_cmd_on_vm(cmds=[cmd], as_sudo=True)
+
+        if retry and output and output[cmd]:
+            if "bind failed: Address already in use" in output[cmd]:
+                self.run_nc_with_retry(nc_cmd=nc_send_cmd, retry=retry)
 
     @retry(delay=3, tries=10)
     def verify_file_size_on_vm(self, filename, size='100', expectation=True):
@@ -2408,9 +2411,9 @@ class VMFixture(fixtures.Fixture):
         #so run without -p option also
         nc_l = ['%s -ll -p %s > %s' % (nc_cmd, listen_port, filename),
                     '%s -ll %s > %s' % (nc_cmd, listen_port, filename)]
-        cmds=[ 'rm -f %s;ls -la' % (filename) ]
+        cmds=[ 'rm -f %s;ls -la;%s' % (filename, nc_l[0]) ]
         dest_vm_fixture.run_cmd_on_vm(cmds=cmds, as_sudo=True, as_daemon=True)
-        dest_vm_fixture.run_cmd_on_vm(cmds=nc_l, as_sudo=True, as_daemon=True)
+        dest_vm_fixture.run_cmd_on_vm(cmds=[nc_l[1]], as_sudo=True, as_daemon=True)
 
         self.nc_send_file_to_ip(filename, dest_vm_ip, size=size,
             local_port=local_port, remote_port=listen_port,
@@ -2435,6 +2438,7 @@ class VMFixture(fixtures.Fixture):
     def wait_for_ssh_on_vm(self):
         self.logger.debug('Waiting to SSH to VM %s, IP %s' % (self.vm_name,
                                                               self.vm_ip))
+        result = False
         host = self.inputs.host_data[self.vm_node_ip]
         vm_hoststring = '@'.join([self.vm_username, self.local_ip])
         if sshable(vm_hoststring, self.vm_password,
@@ -2443,11 +2447,16 @@ class VMFixture(fixtures.Fixture):
                    logger=self.logger):
             self.logger.debug('VM %s is ready for SSH connections'
                               % self.vm_name)
-            return True
+            result = True
         else:
             self.logger.debug('VM %s is NOT ready for SSH connections'
                               % self.vm_name)
             return False
+
+        #Check if interface on the VM has the ip assigned
+        result = True if self.get_vm_interface_list(ip=self.vm_ip) else False
+
+        return result
     # end wait_for_ssh_on_vm
 
     def copy_file_to_vm(self, localfile, dstdir=None, force=False):
@@ -2813,13 +2822,16 @@ class VMFixture(fixtures.Fixture):
         '''if ip is None, returns all interfaces list.
            this method should work on ubuntu as well as redhat and centos'''
 
+        name = []
         cmd = 'ifconfig -a'
         if ip:
             cmd = cmd + '| grep %s -A2 -B4' % (ip)
         cmd = cmd + \
             '| grep -i \'hwaddr\|flags\' | awk \'{print $1}\' | cut -d \':\' -f 1'
-        name = self.run_cmd_on_vm([cmd])[cmd].splitlines()
+        output = self.run_cmd_on_vm([cmd])
 
+        if output and output[cmd]:
+            name = output[cmd].splitlines()
         return name
 
     def arping(self, ip, interface=None):
