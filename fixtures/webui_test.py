@@ -11035,3 +11035,136 @@ class WebuiTest:
                     result = result and False
         return result
     # end verify_projects_api_basic_data
+
+    def verify_vmi_ops_advance_data(self, option='networks'):
+        network_name = 'all networks'
+        self.logger.info(
+            "Verifying interface opsserver advance data on Monitor Networking(Advance view) page......")
+        self.logger.debug(self.dash)
+        vmi_list_ops = self.ui.get_vmi_list_ops()
+        result = True
+        for ind in range(len(vmi_list_ops)):
+            vmi_name = vmi_list_ops[ind]['name']
+            vmi_ops_data_value = self.ui.get_details(vmi_list_ops[ind]['href'])
+            if option == 'dashboard':
+                click_func = 'networking_dashboard'
+            else:
+                click_func = 'networks'
+            if not eval('self.ui.click_monitor_' + click_func)('interfaces'):
+                result = result and False
+            if option != 'dashboard':
+                self.ui.select_project(self.project_name_input)
+                self.ui.select_network(network_name)
+            br = self.ui.select_max_records('interfaces')
+            rows = self.ui.get_rows(br, canvas=True)
+            self.logger.info(
+                "Vmi uuid %s exists in opserver..checking if exists in webui as well" %
+                (vmi_name))
+            for i in range(len(rows)):
+                match_flag = 0
+                self.ui.click_element(
+                    ('slick-cell', 0), 'class', rows[i], elements=True)
+                ui_list = []
+                self.ui.get_item_list(ui_list)
+                match_flag = 0
+                obj_text = ui_list[0]
+                if obj_text == vmi_name:
+                    self.logger.info(
+                        "Vmi  %s matched in webui..Verifying advance view details..." %
+                        (vmi_name))
+                    self.logger.debug(self.dash)
+                    match_index = i
+                    match_flag = 1
+                    break
+                else:
+                    self.ui.click_element(('slick-cell', 0), 'class', rows[i], elements=True)
+            if not match_flag:
+                self.logger.error(
+                    "Vmi exists in opserver but vm %s not found in webui..." %
+                    (vmi_name))
+                self.logger.debug(self.dash)
+            else:
+                self.ui.click_monitor_interfaces_advance(
+                    match_index,
+                    length=len(vmi_list_ops),
+                    option=option)
+                self.logger.info(
+                    "Verify advance view details for uuid %s " % (vmi_name))
+                try:
+                    plus_objs = self.ui.find_element(
+                        'i.node-2.fa-plus.expander',
+                        'css',
+                        elements=True)
+                    self.ui.click(plus_objs)
+                except:
+                    pass
+                dom_arry = self.ui.parse_advanced_view()
+                dom_arry_str = []
+                dom_arry_str = self.ui.get_advanced_view_str()
+                dom_arry_num = self.ui.get_advanced_view_num()
+                dom_arry_num_new = []
+                for item in dom_arry_num:
+                    dom_arry_num_new.append(
+                        {'key': item['key'].replace('\\', '"').replace(' ', ''), 'value': item['value']})
+                dom_arry_num = dom_arry_num_new
+                merged_arry = dom_arry + dom_arry_str + dom_arry_num
+                list_keys = ['in_bw_usage', 'out_bw_usage', 'count_floating_ips', 'throughput']
+                for element in merged_arry:
+                    for key in list_keys:
+                        if element['key'] == key:
+                            index = merged_arry.index(element)
+                            del merged_arry[index]
+                vm_agent_ops_data = []
+                vm_contrail_ops_data = []
+                if vmi_ops_data_value:
+                    if 'UveVMInterfaceAgent' in vmi_ops_data_value:
+                        ops_data = vmi_ops_data_value['UveVMInterfaceAgent']
+                        self.ui.extract_keyvalue(ops_data, vm_agent_ops_data)
+                    if 'ContrailConfig' in vmi_ops_data_value:
+                        vm_contrail_ops_data.append({'key': 'fq_name', 'value': vmi_ops_data_value[
+                            'ContrailConfig']['elements']['fq_name']})
+                    complete_ops_data = vm_agent_ops_data + vm_contrail_ops_data
+                    for t in range(len(complete_ops_data)):
+                        if complete_ops_data[t]['key'] == 'fq_name':
+                            fq_name_list = complete_ops_data[t]['value'].strip('\[').strip('\]').split(',')
+                            name = ''
+                            for index, fq_name in enumerate(fq_name_list):
+                                name += fq_name_list[index].strip(" \"")
+                                if index != len(fq_name_list) - 1:
+                                    name += ':'
+                            complete_ops_data[t]['value'] = name
+                            complete_ops_data[t]['key'] = 'name'
+                        elif isinstance(complete_ops_data[t]['value'], list):
+                            for m in range(len(complete_ops_data[t]['value'])):
+                                complete_ops_data[t]['value'][m] = str(
+                                    complete_ops_data[t]['value'][m])
+                        elif isinstance(complete_ops_data[t]['value'], unicode):
+                            complete_ops_data[t]['value'] = str(
+                                complete_ops_data[t]['value'])
+                        else:
+                            complete_ops_data[t]['value'] = str(
+                                complete_ops_data[t]['value'])
+                    for element in complete_ops_data:
+                        if element['value'] in ['True', 'False']  or \
+                            element['key'] in ['in_bw_usage', 'out_bw_usage', 'metric']:
+                            index = complete_ops_data.index(element)
+                            del complete_ops_data[index]
+                    if option == 'dashboard':
+                        if self.ui.match_ui_kv(merged_arry, complete_ops_data, data='WebUI', matched_with='OPS'):
+                            flag = True
+                        else:
+                            flag = False
+                    else:
+                        if self.ui.match_ui_kv(complete_ops_data, merged_arry):
+                            flag = True
+                        else:
+                            flag = False
+                    if flag:
+                        self.logger.info(
+                            "VMi advance view data matched in webui")
+                    else:
+                        self.logger.error(
+                            "VMi advance data match failed in webui")
+                        result = result and False
+        return result
+    # end verify_vmi_ops_advance_data_in_webui
