@@ -1274,6 +1274,7 @@ class WebuiTest:
                         self.ui.wait_till_ajax_done(self.browser)
                         self.ui.click_element(['tooltip-success', 'i'], ['class', 'tag'])
                         self.ui.click_on_accordian('rtAgg', def_type=False)
+                        self.wait_till_ajax_done(self.browser)
                         for index, (intf, agg) in enumerate(int_ra.iteritems()):
                             br = self.ui.find_element('rtAggregates')
                             if attach:
