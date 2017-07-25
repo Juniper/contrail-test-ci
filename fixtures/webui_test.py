@@ -3335,25 +3335,28 @@ class WebuiTest:
         return result
     # end verify_config_nodes_ops_advance_data_in_webui
 
-    def verify_vn_ops_advance_data(self):
+    def verify_vn_ops_advance_data(self, option='networks'):
         self.logger.info(
             "Verifying vn opserver advance data on Monitor->Networking->Networks Summary(Advanced view) page .....")
         self.logger.debug(self.dash)
-        if not self.ui.click_monitor_networks():
-            result = result and False
-        self.ui.select_project(self.project_name_input)
-        rows = self.ui.get_rows()
         vn_list_ops = self.ui.get_vn_list_ops()
         result = True
         for n in range(len(vn_list_ops)):
             ops_fqname = vn_list_ops[n]['name']
+            if '__link_local__' in ops_fqname or 'ip-fabric' in ops_fqname or 'svc-vn' in ops_fqname:
+                continue
             self.logger.info(
                 "Vn fq name %s exists in opserver..checking if exists in webui as well" %
                 (ops_fqname))
-            if not self.ui.click_monitor_networks():
+            if option == 'dashboard':
+                click_func = 'networking_dashboard'
+            else:
+                click_func = 'networks'
+            if not eval('self.ui.click_monitor_' + click_func)():
                 result = result and False
-            rows = self.browser.find_element_by_class_name('grid-canvas')
-            rows = self.ui.get_rows(rows, canvas=True)
+            self.ui.select_project(self.project_name_input)
+            br = self.ui.select_max_records()
+            rows = self.ui.get_rows(br, canvas=True)
             for i in range(len(rows)):
                 match_flag = 0
                 obj_text = self.ui.get_slick_cell_text(rows[i])
@@ -3376,16 +3379,31 @@ class WebuiTest:
                 self.ui.click_monitor_networks_advance(match_index)
                 vn_ops_data = self.ui.get_details(
                     vn_list_ops[n]['href'])
+                new_list = []
+                element_list = [[('routing_instance_list', 0), ('connected_networks', 4)],
+                    [('vrf_stats_list', 0), ('virtualmachine_list', 5),
+                                 ('interface_list', 7)]]
+                agent_name_list = [('UveVirtualNetworkConfig', 6), ('UveVirtualNetworkAgent', 7)]
+                for index, elements in enumerate(element_list):
+                    parent_click = False
+                    parent = True
+                    for element in elements:
+                        key1, val1, flag = self.ui.get_advanced_view_list(
+                            agent_name_list[index][0], element[0], element[1], parent=parent, \
+                            parent_click=parent_click)
+                        parent_click = True
+                        parent = False
+                        if flag:
+                            new_list.append({'key' : key1, 'value' : val1})
                 self.ui.expand_advance_details()
                 dom_arry = self.ui.parse_advanced_view()
                 dom_arry_str = self.ui.get_advanced_view_str()
-                merged_arry = dom_arry + dom_arry_str
+                merged_arry = dom_arry + dom_arry_str + new_list
                 if 'UveVirtualNetworkConfig' in vn_ops_data:
                     ops_data = vn_ops_data['UveVirtualNetworkConfig']
                     modified_ops_data = []
                     self.ui.extract_keyvalue(
                         ops_data, modified_ops_data)
-
                 if 'UveVirtualNetworkAgent' in vn_ops_data:
                     ops_data_agent = vn_ops_data['UveVirtualNetworkAgent']
                     if 'udp_sport_bitmap' in ops_data_agent:
@@ -3411,9 +3429,7 @@ class WebuiTest:
                         else:
                             complete_ops_data[k]['value'] = str(
                                 complete_ops_data[k]['value'])
-                    if self.ui.match_ui_kv(
-                            merged_arry,
-                            complete_ops_data):
+                    if self.ui.match_ui_kv(complete_ops_data, merged_arry):
                         self.logger.info(
                             "VN advance view data matched in webui")
                     else:
