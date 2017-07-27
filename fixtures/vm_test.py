@@ -2809,6 +2809,22 @@ class VMFixture(fixtures.Fixture):
         return name
     # end get_vm_interface_name
 
+    @retry(delay=2, tries=10)
+    def wait_till_interface_created(self, interface, ip=None):
+        '''
+        Wait till interface is found on VM and it has the given ip assigned
+        '''
+        interface_list = self.get_vm_interface_list(ip=ip)
+
+        if interface in interface_list:
+            self.logger.info("Interface %s is found on VM %s" % (interface,
+                self.vm_id))
+            return (True, None)
+        else:
+            self.logger.warn("Interface %s is not found on VM %s" % (interface,
+                self.vm_id))
+            return (False, None)
+
     def get_vm_interface_list(self, ip=None):
         '''if ip is None, returns all interfaces list.
            this method should work on ubuntu as well as redhat and centos'''
