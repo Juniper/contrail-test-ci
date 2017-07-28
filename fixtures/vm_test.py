@@ -2427,7 +2427,6 @@ class VMFixture(fixtures.Fixture):
     def wait_for_ssh_on_vm(self):
         self.logger.debug('Waiting to SSH to VM %s, IP %s' % (self.vm_name,
                                                               self.vm_ip))
-        result = False
         host = self.inputs.host_data[self.vm_node_ip]
         vm_hoststring = '@'.join([self.vm_username, self.local_ip])
         if sshable(vm_hoststring, self.vm_password,
@@ -2436,17 +2435,12 @@ class VMFixture(fixtures.Fixture):
                    logger=self.logger):
             self.logger.debug('VM %s is ready for SSH connections'
                               % self.vm_name)
-            result = True
+            return True
         else:
             self.vm_obj.get()
             self.logger.debug('VM %s is NOT ready for SSH connections, VM status: %s'
                               % (self.vm_name, self.vm_obj.status))
             return False
-
-        #Check if interface on the VM has the ip assigned
-        result = True if self.get_vm_interface_list(ip=self.vm_ip) else False
-
-        return result
     # end wait_for_ssh_on_vm
 
     def copy_file_to_vm(self, localfile, dstdir=None, force=False):
@@ -2791,6 +2785,22 @@ class VMFixture(fixtures.Fixture):
         self._vm_interface[mac_address] = name
         return name
     # end get_vm_interface_name
+
+    @retry(delay=2, tries=10)
+    def wait_till_interface_created(self, interface, ip=None):
+        '''
+        Wait till interface is found on VM and it has the given ip assigned
+        '''
+        interface_list = self.get_vm_interface_list(ip=ip)
+
+        if interface in interface_list:
+            self.logger.info("Interface %s is found on VM %s" % (interface,
+                self.vm_id))
+            return (True, None)
+        else:
+            self.logger.warn("Interface %s is not found on VM %s" % (interface,
+                self.vm_id))
+            return (False, None)
 
     def get_vm_interface_list(self, ip=None):
         '''if ip is None, returns all interfaces list.
