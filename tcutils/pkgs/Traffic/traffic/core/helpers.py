@@ -74,13 +74,7 @@ class Helper(object):
                     output = run_fab_cmd_on_node(
                         host_string='%s@%s' % (self.rhost.user, self.rhost.ip),
                         password='ubuntu', as_sudo=True, cmd=cmd,
-                        logger=self.log)
-                    if (not output) and retry:
-                        self.log.error(
-                            "Scapy issue while sending/receiving packets. Will retry after 5 secs.")
-                        sleep(5)
-                        retry -= 1
-                        continue
+                        logger=self.log, raw=True)
                     if ("Connection timed out" in output or
                             "Connection refused" in output) and retry:
                         self.log.debug(
