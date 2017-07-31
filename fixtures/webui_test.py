@@ -475,7 +475,7 @@ class WebuiTest:
                 self.ui.select_from_dropdown(sel_vn)
             if not self.ui.click_on_create('Service Instance', 'service_instance', save=True):
                 result = result and False
-            time.sleep(40)
+            time.sleep(80)
             self.logger.info("Running verify_on_setup..")
             fixture.verify_on_setup()
             self.logger.info("Svc instance %s creation successful" %
