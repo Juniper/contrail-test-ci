@@ -728,7 +728,7 @@ class WebuiTest:
                     view='advanced',
                     search_ele='forwarding-class-grid',
                     browser=br)[1]
-            fixture.uuid = self.ui.get_value_of_key(rows_detail, 'uuid')
+            fixture.uuid = self.ui.get_value_of_key(rows_detail, 'uuid', view='advanced')
             self.logger.info("Running verify_on_setup..")
             fixture.verify_on_setup()
         except WebDriverException:
@@ -9008,6 +9008,7 @@ class WebuiTest:
         self.logger.info("Verifying global config api server data on \
                         Config->Infrastructure->Global Config page ...")
         self.logger.debug(self.dash)
+        ecmp_value = ''
         result = True
         complete_api_data = []
         global_config_forwarding = self.ui.get_global_config_api_href('vrouter')
@@ -9039,7 +9040,6 @@ class WebuiTest:
                 if ecmp_fields:
                     ecmp_keys = ecmp_fields.keys()
                     ecmp_values = ecmp_fields.values()
-                    ecmp_value = ''
                     for ecmp in range(len(ecmp_values)):
                         if ecmp_values[ecmp]:
                             if ecmp_keys[ecmp] == 'hashing_configured':
