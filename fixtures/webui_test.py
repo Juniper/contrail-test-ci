@@ -2359,7 +2359,7 @@ class WebuiTest:
         self.logger.debug(self.dash)
         if not self.ui.click_monitor_control_nodes():
             result = result and False
-        rows = self.ui.get_rows()
+        rows = self.ui.get_rows(canvas=True)
         bgp_routers_list_ops = self.ui.get_bgp_routers_list_ops()
         result = True
         for n in range(len(bgp_routers_list_ops)):
@@ -7697,7 +7697,7 @@ class WebuiTest:
                 self.logger.info(self.dash)
             else:
                 rows_detail = self.ui.click_basic_and_get_row_details(
-                                'service_instance', match_index)[1]
+                                'service_instance', match_index, canvas=True)[1]
                 self.logger.info(
                     "Verify basic view details for fq_name %s" % (api_fq_name))
                 for detail in range(len(rows_detail)):
@@ -7723,58 +7723,41 @@ class WebuiTest:
                             Status=status,
                             Power_State=power,
                             Networkss=network_list)
-                        self.ui.click_monitor_instances()
-                        self.ui.select_network(network_name)
-                        rows = self.ui.get_rows(canvas=True)
-                        vmi_list_ops = self.ui.get_vmi_list_ops()
-                        for insta in range(len(rows)):
-                            if self.ui.get_slick_cell_text(
-                                    rows[insta], 2) == vm_name:
-                                uuid = self.ui.get_slick_cell_text(
-                                        rows[insta], 1)
-                                for vm_inst in range(len(vmi_list_ops)):
-                                    vmi_inst_ops_data = self.ui.get_details(
-                                        vmi_list_ops[vm_inst]['href'])
-                                    ops_data_basic_intf = vmi_inst_ops_data.get(
-                                            'UveVMInterfaceAgent')
-                                    if ops_data_basic_intf[
-                                            'vm_name'] == vm_name:
-                                        vmi_inst_ops_data = self.ui.get_details(
-                                                vmi_list_ops[vm_inst]['href'])
-                                        if 'UveVMInterfaceAgent' in vmi_inst_ops_data:
-                                            ops_data_basic = vmi_inst_ops_data.get(
-                                                    'UveVMInterfaceAgent')
-                                            vm1 = ops_data_basic['vm_name']
-                                            if ops_data_basic.get('active'):
-                                                status1 = 'ACTIVE'
-                                                power1 = 'RUNNING'
-                                                status_main_row = 'Active'
-                                            else:
-                                                status_main_row = 'Inactive'
-                                break
-                        self.ui.keyvalue_list(
-                            complete_api_data1,
-                            Virtual_machine=vm1,
-                            Status=status1,
-                            Power_State=power1)
-                        self.logger.info(
-                            "Matching the instance details of service instance %s " %
-                                (vm1))
-                        if self.ui.match_ui_kv(
-                                complete_api_data1,
-                                dom_arry_basic1):
-                            self.logger.info(
-                                "Service instance %s config details matched on Config->Services->Service Instances page" %
-                                    (vm1))
-                        else:
-                            self.logger.error(
-                                "Service instance %s config details not matched on Config->Services->Service Instances page" %
-                                    (vm1))
                     if '\n' in value_arry:
                         value_arry = str(value_arry).split('\n')
                         dom_arry_basic.append({'key': key_arry, 'value': value_arry})
                     else:
                         dom_arry_basic.append({'key': key_arry, 'value': value_arry})
+                self.ui.click_monitor_instances()
+                self.ui.select_network(network_name)
+                rows = self.ui.get_rows(canvas=True)
+                vmi_list_ops = self.ui.get_vmi_list_ops()
+                for insta in range(len(rows)):
+                    if self.ui.get_slick_cell_text(rows[insta], 2) == vm_name:
+                        uuid = self.ui.get_slick_cell_text(rows[insta], 1)
+                        for vm_inst in range(len(vmi_list_ops)):
+                            vmi_inst_ops_data = self.ui.get_details(vmi_list_ops[vm_inst]['href'])
+                            ops_data_basic_intf = vmi_inst_ops_data.get('UveVMInterfaceAgent')
+                            if 'UveVMInterfaceAgent' in vmi_inst_ops_data:
+                                if ops_data_basic_intf['vm_name'] == vm_name:
+                                    vm1 = ops_data_basic_intf['vm_name']
+                                    if ops_data_basic_intf.get('active'):
+                                        status1 = 'ACTIVE'
+                                        power1 = 'RUNNING'
+                                        status_main_row = 'Active'
+                                    else:
+                                        status_main_row = 'Inactive'
+                        break
+                self.ui.keyvalue_list(complete_api_data1, Virtual_machine=vm1, Status=status1, Power_State=power1)
+                self.logger.info("Matching the instance details of service instance %s " % (vm1))
+                if self.ui.match_ui_kv(complete_api_data1, dom_arry_basic1):
+                    self.logger.info(
+                        "Service instance %s config details matched on Config->Services->Service Instances page" %
+                        (vm1))
+                else:
+                    self.logger.error(
+                        "Service instance %s config details not matched on Config->Services->Service Instances page" %
+                        (vm1))
                 service_inst_api_data = self.ui.get_details(
                     service_instance_list_api['service-instances'][instance]['href'])
                 complete_api_data = []
@@ -7798,8 +7781,7 @@ class WebuiTest:
                 if api_data_basic.get('service_template_refs'):
                     template_string = api_data_basic[
                         'service_template_refs'][0]['to'][1]
-                    for temp in range(
-                            len(service_temp_list_api['service-templates']) - 1):
+                    for temp in range(len(service_temp_list_api['service-templates']) - 1):
                         if template_string == service_temp_list_api[
                                 'service-templates'][temp]['fq_name'][1]:
                             service_temp_api_data = self.ui.get_details(
@@ -7825,14 +7807,14 @@ class WebuiTest:
                                     flavor = svc_prop['flavor']
                                     if not flavor:
                                         flavor = '-'
+                                self.ui.keyvalue_list(
+                                complete_api_data,
+                                Template=template_string + ' ' +
+                                '(' + attached_temp + ', ' + 'version ' + str(version_info) + ')',
+                                Template_main_row=template_string +
+                                ' ' + '(' + attached_temp + ', ' + 'version ' + str(version_info) + ')',
+                                Status_main_row=status_main_row)
                                 break
-                    self.ui.keyvalue_list(
-                        complete_api_data,
-                        Template=template_string + ' ' +
-                        '(' + attached_temp + ', ' + 'version ' + str(version_info) + ')',
-                        Template_main_row=template_string +
-                        ' ' + '(' + attached_temp + ', ' + 'version ' + str(version_info) + ')',
-                        Status_main_row=status_main_row)
                 if api_data_basic.get('service_instance_properties'):
                     serv_inst_list = api_data_basic[
                         'service_instance_properties']
