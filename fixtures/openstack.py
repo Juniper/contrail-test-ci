@@ -338,6 +338,18 @@ class OpenstackOrchestrator(Orchestrator):
                   return False
        return ret
 
+   def get_service_vm_image_dict(self):
+       svc_type_props = {
+                           'firewall': {'in-network-nat': 'tiny_nat_fw', 
+                           'in-network': 'tiny_in_net', 
+                           'transparent': 'tiny_trans_fw',
+                         },
+                           'analyzer': {'transparent': 'analyzer',
+                                       'in-network' : 'analyzer',
+                                       }
+                   }
+       return svc_type_props
+
 class OpenstackAuth(OrchestratorAuth):
 
    def __init__(self, username, password, project_name,
