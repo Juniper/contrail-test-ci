@@ -49,8 +49,10 @@ class ConfigSvcChain(fixtures.Fixture):
                      svc_img_name=None, st_version=1):
         domain = domain or self.connections.domain_name
         svc_type_props = {
-            'firewall': {'in-network-nat': 'tiny_nat_fw',
-                         'in-network': 'tiny_in_net',
+            'firewall': {'in-network-nat': 'tiny_nat_fw' if self.inputs.orchestrator == 'openstack' and \
+                          not self.inputs.vcenter_gw_setup else 'ubuntu-in-net',
+                         'in-network': 'tiny_in_net' if self.inputs.orchestrator == 'openstack' \
+                                and not self.inputs.vcenter_gw_setup else 'ubuntu-in-net',
                          'transparent': 'tiny_trans_fw',
                          },
             'analyzer': {'transparent': 'analyzer',

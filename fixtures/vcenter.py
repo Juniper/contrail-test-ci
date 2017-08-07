@@ -251,10 +251,21 @@ class VcenterOrchestrator(Orchestrator):
             run('wget %s -P %s' % (url_vmx, dst))
             run('wget %s -P %s' % (url_vmdk, dst))
             try:
-                run('vmkfstools -i %s -d zeroedthick %s' % (tmp_vmdk, dst_vmdk))
+                if 'service_chain' in tmp_vmdk:
+                    vmdk_file = self._images_info[image].get('vmdk', None)
+                    url_vmdk_file = url + vmdk_file
+                    run('wget %s -P %s' % (url_vmdk_file, dst))
+                    self._log.info("Unzipping the vmdk file.May take several minutes...")
+                    run('cd %s' % (dst))
+                    image_file = vmdk_file.split('/')[-1]
+                    image_file = dst + '/' + image_file
+                    run('gunzip %s' % (image_file),timeout=1200)
+                    vmx = vmx.split('/')[-1]
+                else:
+                    run('vmkfstools -i %s -d zeroedthick %s' % (tmp_vmdk, dst_vmdk))
+                    run('rm %s' % tmp_vmdk)
             except Exception as e:
                 pass
-            run('rm %s' % tmp_vmdk)
 
         return self._nfs_ds.name, image + '/' + vmx
 
