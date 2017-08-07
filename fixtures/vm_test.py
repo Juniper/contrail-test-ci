@@ -392,7 +392,7 @@ class VMFixture(fixtures.Fixture):
                     iip_obj['instance-ip'].get('instance_ip_secondary')):
                     continue
                 ip = iip_obj.ip
-                if self.hack_for_v6(ip) or iip_obj['instance-ip']['service_instance_ip']:
+                if self.hack_for_v6(ip) or iip_obj['instance-ip'].get('service_instance_ip'):
                     continue
                 self.vm_ip_dict[iip_obj.vn_fq_name].append(ip)
         return self.vm_ip_dict
