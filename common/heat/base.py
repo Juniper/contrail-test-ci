@@ -172,8 +172,8 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         fixs = []
         for vn_fix, prf in zip(vn_list, ['left', 'right']):
             stack_name = get_random_name('%s_vm' % prf)
-            template = self.get_template('endvm')
-            env = self.get_env('endvm')
+            template = self.get_template('single_vm')
+            env = self.get_env('single_vm')
             env['parameters']['vm_name'] = stack_name
             env['parameters']['net_id'] = vn_fix.vn_id
             if os.environ.has_key('ci_image'):
