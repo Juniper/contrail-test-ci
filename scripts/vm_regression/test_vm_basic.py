@@ -1,5 +1,6 @@
 import traffic_tests
 from vn_test import *
+from bgpaas_test import *
 from vm_test import *
 from floating_ip import *
 from policy_test import *
@@ -260,6 +261,60 @@ echo "Hello World.  The time is now $(date -R)!" | tee /tmp/output.txt
         assert vn_obj.verify_on_setup()
         return True
     #end test_vn_add_delete
+
+    @test.attr(type=['sanity','ci_sanity','vcenter', 'suite1'])
+    @preposttest_wrapper
+    def test_bgpaas_vm_add_delete(self):
+        '''
+        Description:  Test to BGPaas.
+        Test steps:
+		1. Create VN ctest_Private_BGP_Addnl_VN0 with subnet 1.3.0.0/16.
+		2. Create VN ctest_Private_VSRX_MX_VN0 with subnet 2.3.0.0/16.
+		3. Bring up vSRX VM with VMI1 in ctest_Private_BGP_Addnl_VN0 and VMI2 in ctest_Private_VSRX_MX_VN0.
+		4. Bring up client VM bgpass-v6-vm in ctest_Private_BGP_Addnl_VN0.
+		5. Configure BGPaas object with asn 652.
+		6. Attach VMI ,which is in ctest_Private_BGP_Addnl_VN0 network ( where the client VM was spawned ), of vSRX VM to the bgpaas object.
+		7. From the client VM , verify if the BGP exported IP 3.1.1.5 is pingable.
+
+        Pass criteria: BGP advertised ip 3.1.1.5 should be pingable from the client VM
+        Maintainer : vageesant@juniper.net
+        '''
+
+        project_obj = self.vnc_lib.project_read(id=self.project.get_uuid())
+
+        vn1_fixture = self.create_vn(vn_name='ctest_Private_BGP_Addnl_VN0',subnets=['1.3.0.0/16'])
+        vn2_fixture = self.create_vn(vn_name='ctest_Private_VSRX_MX_VN0',subnets=['2.3.0.0/16'])
+        vn_obj = self.vnc_lib.virtual_network_read(id=vn1_fixture.vn_id)
+        vn_obj.get_virtual_network_properties()
+        vn_obj_properties = vn_obj.get_virtual_network_properties() or VirtualNetworkType()
+        vn_obj_properties.set_forwarding_mode("l2_l3")
+        vn_obj.set_virtual_network_properties(vn_obj_properties)
+        self.vnc_lib.virtual_network_update(vn_obj)
+        assert vn1_fixture.verify_on_setup()
+        assert vn2_fixture.verify_on_setup()
+        vm1_fixture = self.create_vm(vn_ids=[vn1_fixture.uuid,vn2_fixture.uuid],
+                                     vm_name=get_random_name('bgp_vm'),image_name='vSRX')
+        vm2_fixture = self.create_vm(vn_fixture=vn1_fixture,
+                                     vm_name=get_random_name('vm1'),image_name='bgpass-v6-vm')
+
+        time.sleep(300)
+        assert vm1_fixture.verify_on_setup()
+        assert vm2_fixture.verify_on_setup()
+
+	service_name = "bgpaas.router"
+        asn   = "652"
+
+        self.create_bgpaas_obj(vm_fixture=vm1_fixture,service_name=service_name,asn=asn)
+        self.logger.info("Verify ping to BGP exported IP: 3.1.1.5")
+        time.sleep(120)
+        ret = vm2_fixture.ping_with_certainty(
+            '3.1.1.5', expectation=True)
+        result_msg = "vm ping test result to vm %s is: %s" % (
+            "3.1.1.5", ret)
+        self.logger.info(result_msg)
+        return True
+
+    # end test_vm_add_delete
 
     @test.attr(type=['vcenter', 'suite1'])
     @preposttest_wrapper

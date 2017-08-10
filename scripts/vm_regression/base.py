@@ -4,6 +4,7 @@ from common.connections import ContrailConnections
 from common import isolated_creds
 from vm_test import VMFixture
 from vn_test import VNFixture
+from bgpaas_test import BgpaasFixture
 
 class BaseVnVmTest(test_v1.BaseTestCase_v1):
 
@@ -75,6 +76,16 @@ class BaseVnVmTest(test_v1.BaseTestCase_v1):
                           inputs=self.inputs,
                           *args, **kwargs
                           ))
+
+    def create_bgpaas_obj(self,vm_fixture,service_name,asn):
+        return self.useFixture(
+		BgpaasFixture(
+		    project_name=self.inputs.project_name,
+		    connections=self.connections,
+		    vm_fixture = vm_fixture,
+		    service_name = service_name,
+                    asn = asn ))
+
 
     def create_vm(self, vn_fixture=None, image_name='ubuntu', *args, **kwargs):
         if vn_fixture:
