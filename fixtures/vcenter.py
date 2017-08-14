@@ -251,10 +251,24 @@ class VcenterOrchestrator(Orchestrator):
             run('wget %s -P %s' % (url_vmx, dst))
             run('wget %s -P %s' % (url_vmdk, dst))
             try:
-                run('vmkfstools -i %s -d zeroedthick %s' % (tmp_vmdk, dst_vmdk))
+                if 'no' in self._images_info[image].get('shrinked_vmdk','yes'):
+                    #This is not shrinked vmdk which could be expanded with 
+                    #vmkfs tools.So just copy the image and vmdk file poiniting
+                    #to the raw image and return the vmtx path
+                    vmdk_file = self._images_info[image].get('vmdk', None)
+                    url_vmdk_file = url + vmdk_file
+                    run('wget %s -P %s' % (url_vmdk_file, dst))
+                    self._log.info("Unzipping the vmdk file.May take several minutes...")
+                    run('cd %s' % (dst))
+                    image_file = vmdk_file.split('/')[-1]
+                    image_file = dst + '/' + image_file
+                    run('gunzip %s' % (image_file),timeout=1200)
+                    vmx = vmx.split('/')[-1]
+                else:
+                    run('vmkfstools -i %s -d zeroedthick %s' % (tmp_vmdk, dst_vmdk))
+                    run('rm %s' % tmp_vmdk)
             except Exception as e:
                 pass
-            run('rm %s' % tmp_vmdk)
 
         return self._nfs_ds.name, image + '/' + vmx
 
@@ -562,6 +576,14 @@ class VcenterOrchestrator(Orchestrator):
         vrouter = self._inputs.host_data[self.get_host_of_vm(vm_obj)]['host_ip']
         inspect = self.get_vcenter_introspect()
         return inspect.get_vmi_from_vcenter_introspect(vrouter,vm_name)
+
+    def get_service_vm_image_dict(self):
+        svc_type_props = {
+                            'firewall': {'in-network-nat': 'ubuntu-in-net',
+                                         'in-network': 'ubuntu-in-net',
+                                         },
+                         }
+        return svc_type_props 
 
 class Subnets(object):
 

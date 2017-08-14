@@ -48,15 +48,7 @@ class ConfigSvcChain(fixtures.Fixture):
                      static_route=[None, None, None], ordered_interfaces=True,
                      svc_img_name=None, st_version=1):
         domain = domain or self.connections.domain_name
-        svc_type_props = {
-            'firewall': {'in-network-nat': 'tiny_nat_fw',
-                         'in-network': 'tiny_in_net',
-                         'transparent': 'tiny_trans_fw',
-                         },
-            'analyzer': {'transparent': 'analyzer',
-                         'in-network' : 'analyzer',
-                         }
-        }
+        svc_type_props = self.orch.get_service_vm_image_dict() 
 
         svc_mode_props = {
             'in-network-nat':   {'left': {'shared': True},
