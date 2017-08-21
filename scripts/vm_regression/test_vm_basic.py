@@ -304,7 +304,9 @@ echo "Hello World.  The time is now $(date -R)!" | tee /tmp/output.txt
 	service_name = "bgpaas.router"
         asn   = "652"
 
-        self.create_bgpaas_obj(vm_fixture=vm1_fixture,service_name=service_name,asn=asn)
+        bgpaas_fixture = self.create_bgpaas_obj(vn_fixture=vn1_fixture,vm_fixture=vm1_fixture,service_name=service_name,bgp_vm_peer_ip="1.3.0.3",asn=asn,bgp_exported_routes_list=["3.1.1.5/32"])
+        assert bgpaas_fixture.verify_on_setup()
+
         self.logger.info("Verify ping to BGP exported IP: 3.1.1.5")
         time.sleep(120)
         ret = vm2_fixture.ping_with_certainty(

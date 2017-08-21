@@ -77,14 +77,18 @@ class BaseVnVmTest(test_v1.BaseTestCase_v1):
                           *args, **kwargs
                           ))
 
-    def create_bgpaas_obj(self,vm_fixture,service_name,asn):
+    def create_bgpaas_obj(self,vn_fixture,vm_fixture,service_name,
+                            bgp_vm_peer_ip,asn,bgp_exported_routes_list):
         return self.useFixture(
 		BgpaasFixture(
 		    project_name=self.inputs.project_name,
 		    connections=self.connections,
+                    vn_fixture=vn_fixture,
 		    vm_fixture = vm_fixture,
 		    service_name = service_name,
-                    asn = asn ))
+                    bgp_vm_peer_ip = bgp_vm_peer_ip,
+                    asn = asn,
+                    bgp_exported_routes_list = bgp_exported_routes_list ))
 
 
     def create_vm(self, vn_fixture=None, image_name='ubuntu', *args, **kwargs):

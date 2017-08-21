@@ -16,8 +16,12 @@ except ImportError:
 
 class BgpaasFixture(fixtures.Fixture):
 
-    def __init__(self,project_name,connections,vm_fixture,service_name,asn):
+    def __init__(self,project_name,connections,vn_fixture,vm_fixture,service_name,
+		   bgp_vm_peer_ip,asn,bgp_exported_routes_list):
 
+        self.bgp_exported_routes_list = bgp_exported_routes_list
+        self.bgp_vm_peer_ip = bgp_vm_peer_ip
+        self.vn_fixture   = vn_fixture
         self.vm_fixture   = vm_fixture
         self.service_name = service_name
         self.asn          = asn
@@ -50,11 +54,11 @@ class BgpaasFixture(fixtures.Fixture):
         bgpaas_obj = BgpAsAService(name=self.service_name,parent_obj=self.project_obj)
         vmi = None
         vmi_ids = self.vm_fixture.get_vmi_ids()
+        bgp_vn_fq_name = self.vn_fixture.vn_fq_name.split(":")
         for k,vmi_id in vmi_ids.iteritems():
             vmi_obj  = self.connections.vnc_lib.virtual_machine_interface_read(id=vmi_id)
-            networks = vmi_obj.get_virtual_network_refs()[0]['to']
-            def_dom,t_name,netname = networks
-            if re.search('BGP',netname):
+            network_fq_name = vmi_obj.get_virtual_network_refs()[0]['to']
+            if network_fq_name == bgp_vn_fq_name: 
                vmi = vmi_obj
                break
             else:
@@ -69,50 +73,98 @@ class BgpaasFixture(fixtures.Fixture):
             bgp_addr_fams = AddressFamilies(['inet','inet6'])
             bgp_sess_attrs = BgpSessionAttributes(address_families=bgp_addr_fams,hold_time=300)
             bgpaas_obj.set_bgpaas_session_attributes(bgp_sess_attrs)
-            self.bgpaas_obj = self.connections.vnc_lib.bgp_as_a_service_create(bgpaas_obj)
-            self.logger.info('Created BGPaas Object')
+            self.bgpaas_obj_uuid = self.connections.vnc_lib.bgp_as_a_service_create(bgpaas_obj)
+            self.logger.info('Created BGPaas Object:%s'%self.bgpaas_obj_uuid)
 
             time.sleep(60)
-
-	    return True
-            cn_nodes = self.cn_inspect.keys()
-            cn = cn_nodes[0]
-            cn_bgp_neighbors = self.cn_inspect[cn].get_cn_bgp_neigh_entry()
-            peer_info = None
-            for cn_bgp_neighbor in cn_bgp_neighbors:
-               if cn_bgp_neighbor['state'] != 'Established':
-                  result = result and False
-                  self.logger.error(
-                      'With Peer %s peering is not Established. Current State %s ' %
-                      (cn_bgp_neighbor['peer_id'], cn_bgp_neighbor['state']))
-                  continue
-	       if cn_bgp_neighbor['peer_id'] == '1.3.0.3' :
-                  self.logger.info(
-                      'With Peer %s peering is Established.' %
-                      (cn_bgp_neighbor['peer_id'] ))
-                  peer_info = cn_bgp_neighbor
-            rt_name = None
-            if peer_info:
-               for rt in peer_info['routing_tables']:
-                   if re.search('Private_BGP_Addnl',rt['name']):
-		      rt_name = rt['name']	
-            route_seen = False
-            if rt_name:
-               route_table = self.cn_inspect[cn].get_cn_route_table(rt_name)
-	       for route in route_table['routes']:
-	           if route['prefix']  == '3.1.1.5/32':
-                      route_seen = True
-            if route_seen:        
-               self.logger.info('Route 3.1.1.5/32 from BGPaas is seen in CN') 		
-            else:
-               self.logger.error('Route 3.1.1.5/32 from BGPaas is NOT seen in CN') 		
-               result = result and False
-            return result
 
     def cleanUp(self):
         super(BgpaasFixture, self).cleanUp()
         self.delete()
 
+    @retry(delay=5, tries=10)
+    def verify_bgpaas_in_control_nodes(self):
+
+        result = True
+        cn_nodes = self.cn_inspect.keys()
+        for cn in cn_nodes:
+            cn_bgp_neighbors = self.cn_inspect[cn].get_cn_bgp_neigh_entry()
+            peer_info = None
+            for cn_bgp_neighbor in cn_bgp_neighbors:
+               if cn_bgp_neighbor['state'] != 'Established' and \
+                      cn_bgp_neighbor['peer_id'] == self.bgp_vm_peer_ip:
+                  result = result and False
+                  self.logger.error(
+                      'With Peer %s peering is not Established. Current State %s ' %
+                      (cn_bgp_neighbor['peer_id'], cn_bgp_neighbor['state']))
+                  continue
+	       if cn_bgp_neighbor['peer_id'] == self.bgp_vm_peer_ip :
+                  self.logger.info(
+                      'With Peer %s peering is Established.' %
+                      (cn_bgp_neighbor['peer_id'] ))
+                  peer_info = cn_bgp_neighbor
+            vn_fq_name = self.vn_fixture.vn_fq_name.split(":")
+            rt_name = self.vn_fixture.vn_fq_name + ":" + vn_fq_name[-1] + ".inet.0"
+            rt_name_exist = False
+            if peer_info:
+               for rt in peer_info['routing_tables']:
+                   if rt['name'] == rt_name:
+	              rt_name_exist = True
+            route_seen = False
+            for route_bgp in self.bgp_exported_routes_list:
+                if rt_name_exist:
+                   route_table = self.cn_inspect[cn].get_cn_route_table(rt_name)
+	           for route in route_table['routes']:
+                       self.logger.info("Route:%s"%route['prefix'])
+	               if route['prefix']  == route_bgp:
+                          route_seen = True
+                if route_seen:        
+                   self.logger.info('Route %s from BGPaas is seen in CN'%route_bgp) 		
+                else:
+                   self.logger.error('Route %s from BGPaas is NOT seen in CN'%route_bgp)
+                   result = result and False
+        return result
+
+
+    @retry(delay=5, tries=10)
+    def verify_bgpaas_in_api_server(self):
+        self.api_verification_flag = True
+        import pdb;pdb.set_trace()
+        self.api_s_bgpaas_obj = self.api_s_inspect.get_cs_vn(
+            domain=self.domain_name, project=self.project_name,
+            vn=self.vn_name, refresh=True)
+
+    def verify_on_setup(self):
+        result = True
+        #if not self.verify_bgpaas_in_api_server():
+        #    result = result and False
+        #    self.logger.error(
+        #        "One or more verifications in API Server for BGPaaS %s failed" % (self.vn_name))
+        #    return result
+        if not self.verify_bgpaas_in_control_nodes():
+            result = result and False
+            self.logger.error(
+                "One or more verifications in Control-nodes for BGPaaS failed")
+            return result
+        return result
+        if not self.verify_bgpaas_in_opserver():
+            result = result and False
+            self.logger.error(
+                "One or more verifications in OpServer for BGPaaS %s failed" % (self.vn_name))
+            return result
+        if self.inputs.verify_thru_gui():
+            self.webui.verify_bgpaas(self)
+
+        if not self.verify_bgpaas_in_agent():
+            result = result and False
+            self.logger.error('One or more verifications in agent for BGPaaS %s'
+                'failed' % (self.vn_name))
+
+        self.verify_is_run = True
+        self.verify_result = result
+        return result
+    # end verify
+
     def delete(self, verify=False):
-           self.logger.info('Deleting BGPaas Object: ' + self.bgpaas_obj )
-           self.connections.vnc_lib.bgp_as_a_service_delete(id=self.bgpaas_obj)
+           self.logger.info('Deleting BGPaas Object: ' + self.bgpaas_obj_uuid )
+           self.connections.vnc_lib.bgp_as_a_service_delete(id=self.bgpaas_obj_uuid)
