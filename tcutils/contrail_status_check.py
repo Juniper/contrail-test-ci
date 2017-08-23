@@ -158,6 +158,8 @@ class ContrailStatusChecker():
                     service_status = line.split()
                     try:
                         service = service_status[0]
+                        if service[-1] == ":":
+                            service = service[:-1]
                     except IndexError:
                         service = None
                     if len(service_status) == 2:
