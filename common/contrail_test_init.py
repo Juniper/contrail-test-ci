@@ -30,11 +30,17 @@ import subprocess
 from collections import namedtuple
 import random
 from cfgm_common import utils
+import argparse
+
 
 ORCH_DEFAULT_DOMAIN = {
     'openstack' : 'Default',
-    'kubernetes': 'default-domain'
+    'kubernetes': 'default-domain',
+    'vcenter': 'default-domain',
 }
+DEFAULT_CERT = '/etc/contrail/ssl/certs/server.pem'
+DEFAULT_PRIV_KEY = '/etc/contrail/ssl/private/server-privkey.pem'
+DEFAULT_CA = '/etc/contrail/ssl/certs/ca-cert.pem'
 
 # monkey patch subprocess.check_output cos its not supported in 2.6
 if "check_output" not in dir(subprocess):  # duck punch it in!
@@ -88,7 +94,7 @@ class TestInputs(object):
         self.domain_isolation = read_config_option(self.config,
             'Basic',
             'domain_isolation',
-            False)
+            False) if self.keystone_version == 'v3' else False
         self.cloud_admin_domain = read_config_option(self.config,
             'Basic',
             'cloud_admin_domain',
@@ -300,6 +306,7 @@ class TestInputs(object):
         self.sriov_data = {}
         self.dpdk_data = {}
         self.mysql_token = None
+        self.pcap_on_vm = False
 
         self.public_host = read_config_option(self.config, 'Basic',
                                               'public_host', '10.204.216.50')
@@ -327,13 +334,25 @@ class TestInputs(object):
             self.authn_url = '/v2.0/tokens'
         self._set_auth_vars()
         self.apicertfile = read_config_option(self.config,
-                                             'cfgm', 'api_certfile', None)
+                                             'cfgm', 'api_certfile', DEFAULT_CERT)
         self.apikeyfile = read_config_option(self.config,
-                                            'cfgm', 'api_keyfile', None)
+                                            'cfgm', 'api_keyfile', DEFAULT_PRIV_KEY)
         self.apicafile = read_config_option(self.config,
-                                           'cfgm', 'api_cafile', None)
+                                           'cfgm', 'api_cafile', DEFAULT_CA)
         self.api_insecure = bool(read_config_option(self.config,
                                  'cfgm', 'api_insecure_flag', False))
+
+        self.introspect_certfile = read_config_option(self.config,
+                                             'introspect', 'introspect_certfile', DEFAULT_CERT)
+        self.introspect_keyfile = read_config_option(self.config,
+                                            'introspect', 'introspect_keyfile', DEFAULT_PRIV_KEY)
+        self.introspect_cafile = read_config_option(self.config,
+                                           'introspect', 'introspect_cafile', DEFAULT_CA)
+        self.introspect_insecure = bool(read_config_option(self.config,
+                                 'introspect', 'introspect_insecure_flag', True))
+        self.introspect_protocol = read_config_option(self.config,
+                                          'introspect', 'introspect_protocol', 'http')
+
         self.keystonecertfile = read_config_option(self.config,
                                 'Basic', 'keystone_certfile',
                                 os.getenv('OS_CERT', None))
@@ -363,10 +382,15 @@ class TestInputs(object):
             apicertbundle = utils.getCertKeyCaBundle(api_bundle,
                             [self.apicertfile, self.apikeyfile,
                              self.apicafile])
+        introspect_certbundle = None
+        if not self.introspect_insecure and self.introspect_protocol == 'https' and \
+           self.introspect_cafile:
+            introspect_certbundle = self.introspect_cafile
+
         self.certbundle = None
-        if keycertbundle or apicertbundle:
+        if keycertbundle or apicertbundle or introspect_certbundle:
             bundle = '/tmp/' + get_random_string() + '.pem'
-            certs = [cert for cert in [keycertbundle, apicertbundle] if cert]
+            certs = [cert for cert in [keycertbundle, apicertbundle, introspect_certbundle] if cert]
             self.certbundle = utils.getCertKeyCaBundle(bundle, certs)
 
         self.prov_file = self.prov_file or self._create_prov_file()
@@ -388,8 +412,9 @@ class TestInputs(object):
         try:
             if 'vcenter_servers' in self.prov_data.keys():
                 for server in self.prov_data['vcenter_servers']:
-                    for k in server.keys():
-                        self.dv_switch = server[k]['dv_switch']['dv_switch_name']
+                    for dc in server['datacenters']:
+                        for dv in server['datacenters'][dc]['dv_switches']:
+                            self.dv_switch = dv
             elif 'vcenter' in self.prov_data.keys():
                 self.dv_switch = self.prov_data['vcenter'][0]['dv_switch']['dv_switch_name']
         except Exception as e:
@@ -400,19 +425,17 @@ class TestInputs(object):
         # List of service correspond to each module
         self.compute_services = [
             'contrail-vrouter-agent',
-            'supervisor-vrouter',
             'contrail-vrouter-nodemgr']
-        self.control_services = ['contrail-control', 'supervisor-control',
+        self.control_services = ['contrail-control',
                                  'contrail-control-nodemgr', 'contrail-dns',
                                  'contrail-named']
         self.cfgm_services = [
             'contrail-api',
             'contrail-schema',
-            'supervisor-config',
+            'contrail-svc-monitor',
             'contrail-config-nodemgr',
             'contrail-device-manager']
-        self.webui_services = ['contrail-webui', 'contrail-webui-middleware',
-                               'supervisor-webui']
+        self.webui_services = ['contrail-webui', 'contrail-webui-middleware']
         self.openstack_services = [
             'openstack-cinder-api', 'openstack-cinder-scheduler',
             'openstack-cinder-scheduler', 'openstack-glance-api',
@@ -420,10 +443,11 @@ class TestInputs(object):
             'openstack-nova-api', 'openstack-nova-scheduler',
             'openstack-nova-cert']
         self.collector_services = [
-            'contrail-collector', 'contrail-analytics-api',
+            'contrail-collector', 'contrail-analytics-api', 'contrail-alarm-gen',
             'contrail-query-engine', 'contrail-analytics-nodemgr',
-            'supervisor-analytics',
             'contrail-snmp-collector', 'contrail-topology']
+        self.database_services = [
+            'contrail-database', 'contrail-database-nodemgr', 'kafka']
         self.correct_states = ['active', 'backup']
 
         self.gc_host_mgmt = read_config_option(self.config,
@@ -440,6 +464,27 @@ class TestInputs(object):
 
         self.keystone_password = read_config_option(self.config,
                                              'global-controller', 'keystone_password', 'None')
+
+	self.ixia_linux_host_ip = read_config_option(self.config, 
+                                             'traffic_data', 'ixia_linux_host_ip', None)
+
+	self.ixia_host_ip = read_config_option(self.config, 
+                                             'traffic_data', 'ixia_host_ip', None)
+
+	self.spirent_linux_host_ip = read_config_option(self.config, 
+                                             'traffic_data', 'spirent_linux_host_ip', None)
+
+	self.ixia_linux_username = read_config_option(self.config,
+	                                     'traffic_data', 'ixia_linux_username', None)
+
+	self.ixia_linux_password = read_config_option(self.config,
+                                             'traffic_data', 'ixia_linux_password', None)
+
+	self.spirent_linux_username = read_config_option(self.config,
+                                             'traffic_data', 'spirent_linux_username', None)
+
+	self.spirent_linux_password = read_config_option(self.config,
+                                             'traffic_data', 'spirent_linux_password', None)
 
 
     def get_os_env(self, var, default=''):
@@ -491,6 +536,11 @@ class TestInputs(object):
         return self.os_type[host_ip]
     # end get_os_version
 
+    def is_contrail_cloud_container(self, container_name):
+        cc_container_names = ['agent', 'controller', 'analytics', 'analyticsdb',
+            'contrail-kube-manager']
+        return container_name in cc_container_names
+
     def _check_containers(self, host_dict):
         '''
         Find out which components have containers and set 
@@ -503,10 +553,11 @@ class TestInputs(object):
         if not output:
             return
         attr_list = output.split('\n')
-        attr_list = [x.rstrip('\r') for x in attr_list]
+        attr_list = [x.rstrip('\r') for x in attr_list
+                     if self.is_contrail_cloud_container(x.rstrip('\r'))]
 
         for attr in attr_list:
-            host_dict['containers'][attr] =  True
+            host_dict['containers'][attr] = attr
         return
     # end _check_containers
 
@@ -556,6 +607,8 @@ class TestInputs(object):
                                                                 {u'scheduling': u'rr', u'bandwidth': u'10', u'priority_id': u'2'}]],
                             ,                ['10.204.217.130', [{u'scheduling': u'strict', u'bandwidth': u'0', u'priority_id': u'1'},
                                                                 {u'scheduling': u'rr', u'bandwidth': u'25', u'priority_id': u'3'}]]]'''
+        self.ns_agilio_vrouter_data = {}
+
         self.esxi_vm_ips = {}
         self.vgw_data = {}
         self.hypervisors = {}
@@ -590,6 +643,8 @@ class TestInputs(object):
                     self.openstack_control_ips.append(host_control_ip)
                     self.openstack_control_ip = host_control_ip
                     self.openstack_names.append(host['name'])
+                    if role['container']:
+                        host['containers']['openstack'] = role['container']
                 if role['type'] == 'cfgm':
                     self.cfgm_ip = host_ip
                     self.cfgm_ips.append(host_ip)
@@ -598,11 +653,15 @@ class TestInputs(object):
                     self.cfgm_names.append(host['name'])
                     self.masterhost = self.cfgm_ip
                     self.hostname = host['name']
+                    if role['container']:
+                        host['containers']['controller'] = role['container']
                 if role['type'] == 'compute':
                     self.compute_ips.append(host_ip)
                     self.compute_names.append(host['name'])
                     self.compute_info[host['name']] = host_ip
                     self.compute_control_ips.append(host_control_ip)
+                    if role['container']:
+                        host['containers']['agent'] = role['container']
                 if role['type'] == 'bgp':
                     self.bgp_ips.append(host_ip)
                     self.bgp_control_ips.append(host_control_ip)
@@ -616,11 +675,15 @@ class TestInputs(object):
                     self.collector_ips.append(host_ip)
                     self.collector_control_ips.append(host_control_ip)
                     self.collector_names.append(host['name'])
+                    if role['container']:
+                        host['containers']['analytics'] = role['container']
                 if role['type'] == 'database':
                     self.database_ip = host_ip
                     self.database_ips.append(host_ip)
                     self.database_names.append(host['name'])
                     self.database_control_ips.append(host_control_ip)
+                    if role['container']:
+                        host['containers']['analyticsdb'] = role['container']
             # end for
         # end for
 
@@ -643,6 +706,11 @@ class TestInputs(object):
 
         if 'physical_routers' in json_data:
             self.physical_routers_data = json_data['physical_routers']
+        if 'ns_agilio_vrouter' in json_data:
+            self.ns_agilio_vrouter_data = json_data['ns_agilio_vrouter']
+            if self.ns_agilio_vrouter_data:
+                self.pcap_on_vm = True
+
         self._process_tor_data()
         self._process_for_vcenter_gateway()
         self._process_other_orchestrators(json_data)
@@ -825,12 +893,10 @@ class TestInputs(object):
             raise Exception('Please specify testbed info in $PARAMS_FILE '
                             'under "Basic" section, keyword "provFile"')
         if self.orchestrator.lower() == 'openstack':
-            domain = self.admin_domain if self.stack_domain == 'default-domain' else \
-                     self.stack_domain
             keystone = KeystoneCommands(username=self.stack_user,
                                         password=self.stack_password,
                                         tenant=self.stack_tenant,
-                                        domain_name=domain,
+                                        domain_name=self.stack_domain,
                                         auth_url=self.auth_url,
                                         region_name=self.region_name,
                                         insecure=self.insecure,
@@ -968,13 +1034,14 @@ class TestInputs(object):
             if not password:
                 password = self.host_data[server_ip]['password']
         if container:
+            cntr = self.host_data[server_ip].get('containers', {}).get(container)
             # If the container does not exist on this host, log it and 
             # run the cmd on the host itself 
             # This helps backward compatibility
-            if not self.host_data[server_ip].get('containers', {}).get(container):
-                container = None
+            if not cntr:
                 self.logger.debug('Container %s not in host %s, running on '
                     ' host itself' % (container, server_ip))
+            container = cntr
         output = run_cmd_on_server(issue_cmd,
                           server_ip,
                           username,
@@ -1007,7 +1074,10 @@ class ContrailTestInit(object):
         self.stack_password = stack_password or self.stack_password
         self.stack_domain = stack_domain or self.stack_domain
         self.stack_tenant = stack_tenant or self.stack_tenant
-        self.project_fq_name = [self.stack_domain, self.stack_tenant]
+        if self.stack_domain == 'Default':
+            self.project_fq_name = ['default-domain', self.stack_tenant]
+        else:
+            self.project_fq_name = [self.stack_domain, self.stack_tenant]
         self.project_name = self.stack_tenant
         self.domain_name = self.stack_domain
         # Possible af values 'v4', 'v6' or 'dual'
@@ -1042,47 +1112,36 @@ class ContrailTestInit(object):
     def verify_state(self):
         result = True
         for host in self.host_ips:
-            username = self.host_data[host]['username']
-            password = self.host_data[host]['password']
             if host in self.compute_ips:
-                for service in self.compute_services:
-                    result = result and self.verify_service_state(
+                result = result and self.verify_service_state(
                         host,
-                        service,
-                        username,
-                        password)
+                        container='agent',
+                        role='compute')
             if host in self.bgp_ips:
-                for service in self.control_services:
-                    result = result and self.verify_service_state(
+                result = result and self.verify_service_state(
                         host,
-                        service,
-                        username,
-                        password,
-                        container='controller')
+                        container='controller',
+                        role='control')
             if host in self.cfgm_ips:
-                for service in self.cfgm_services:
-                    result = result and self.verify_service_state(
+                result = result and self.verify_service_state(
                         host,
-                        service,
-                        username,
-                        password,
-                        container='controller')
+                        container='controller',
+                        role='config')
             if host in self.collector_ips:
-                for service in self.collector_services:
-                    result = result and self.verify_service_state(
+                result = result and self.verify_service_state(
                         host,
-                        service,
-                        username,
-                        password,
-                        container='analytics')
+                        container='analytics',
+                        role='analytics')
             if host in self.webui_ips:
-                for service in self.webui_services:
-                    result = result and self.verify_service_state(
+                result = result and self.verify_service_state(
                         host,
-                        service,
-                        username,
-                        password,
-                        container='controller')
+                        container='controller',
+                        role='webui')
+            if host in self.database_ips:
+                result = result and self.verify_service_state(
+                        host,
+                        container='analyticsdb',
+                        role='database')
             # Need to enhance verify_service_state to verify openstack services status as well
             # Commenting out openstack service verifcation untill then
             # if host == self.openstack_ip:
@@ -1105,27 +1164,25 @@ class ContrailTestInit(object):
                 return cls
         return None
 
-    def verify_service_state(self, host, service, username, password,
-                             container=None):
-        m = None
-        cls = None
+    def verify_service_state(self, host, service=None, role=None, container=None):
+        services = self.get_contrail_services(service_name=service, role=role)
         try:
             m = self.get_contrail_status(host, container=container)
-            if ((container is not None) and ('supervisor' in service)):
-                return True
-            cls = self.get_service_status(m, service)
-            if (cls.state in self.correct_states):
-                return True
+            for service in services:
+                cls = self.get_service_status(m, service)
+                if (cls.state not in self.correct_states):
+                    self.logger.error("Service %s not in correct state on %s - "
+                                "its in %s state" %(cls.name, host, cls.state))
+                    return False
+                else:
+                    self.logger.debug('Service %s is in %s state on %s'
+                                      %(cls.name, cls.state, host))
         except Exception as e:
+            self.logger.error("Unable to get service status of %s on %s"
+                              %(service, host))
             self.logger.exception("Got exception as %s" % (e))
-            self.logger.exception(
-                "Service %s not in correct state - its in %s state" %
-                (cls.name, cls.state))
             return False
-        self.logger.exception(
-            "Service %s not in correct state - its in %s state" %
-            (cls.name, cls.state))
-        return False
+        return True
 
     # Commenting below 4 lines due to discovery changes in R4.0 - Bug 1658035
     ###def verify_control_connection(self, connections):
@@ -1160,105 +1217,96 @@ class ContrailTestInit(object):
     # end reboot
 
     @retry(delay=10, tries=10)
-    def confirm_service_active(self, service_name, host, container=None):
-        cmd = 'contrail-status | grep %s | grep " active "' % (service_name)
+    def confirm_service_active(self, service_name, host, container=None,
+            certs_dict=None):
+        '''
+        In some cases service certificates can be different than client(test
+        cases in this case). so we need service certs to be used in contrail-status,
+        which can be passed as certs_dict.
+        certs_dict = {'key':value, 'cert':value, 'ca':value}
+        '''
+        if not self.introspect_insecure:
+            if certs_dict:
+                key = certs_dict['key']
+                cert = certs_dict['cert']
+                ca = certs_dict['ca']
+            else:
+                key = self.introspect_keyfile
+                cert = self.introspect_certfile
+                ca = self.introspect_cafile
+            ssl_args = ' -k %s -c %s -a %s' % (key, cert, ca)
+        else:
+            ssl_args = None
+
+        status = " active"
+        cmd = 'contrail-status'
+        if ssl_args:
+            cmd = cmd + ssl_args
+        cmd = '%s | grep %s' % (cmd, service_name)
+
         output = self.run_cmd_on_server(
             host, cmd, self.host_data[host]['username'],
             self.host_data[host]['password'],
             container=container)
-        if output is not None:
+        if output and (service_name in output) and (status in output):
             return True
         else:
             return False
     # end confirm_service_active
 
-    def restart_service(
-            self,
-            service_name,
-            host_ips=[],
-            contrail_service=True,
-            container=None):
-        result = True
-        if len(host_ips) == 0:
-            host_ips = self.host_ips
-        for host in host_ips:
-            username = self.host_data[host]['username']
-            password = self.host_data[host]['password']
-            self.logger.info('Restarting %s.service in %s' %
-                             (service_name, self.host_data[host]['name']))
-            if contrail_service:
-                issue_cmd = 'service %s restart' % (service_name)
-            else:
-                issue_cmd = 'service %s restart' % (service_name)
-            self.run_cmd_on_server(
-                host, issue_cmd, username, password, pty=False, container=container)
-            assert self.confirm_service_active(service_name, host, container=container), \
-                "Service Restart failed for %s" % (service_name)
+    def get_contrail_services(self, role=None, service_name=None):
+        ''' get contrail services of a role or 
+            if supervisor services return all services of the role
+            Note: role takes precedence over service_name
+        '''
+        service_name = None if role else service_name
+        if role == 'config' or 'supervisor-config' == service_name:
+            return self.cfgm_services
+        if role == 'control' or 'supervisor-control' == service_name:
+            return self.control_services
+        if role == 'compute' or 'supervisor-vrouter' == service_name:
+            return self.compute_services
+        if role == 'webui' or 'supervisor-webui' == service_name:
+            return self.webui_services
+        if role == 'database' or 'supervisor-database' == service_name:
+            return self.database_services
+        if role == 'analytics' or 'supervisor-analytics' == service_name:
+            return self.collector_services
+        return [service_name] if service_name else []
+
+    def _action_on_service(self, service_name, event, host_ips=None, container=None,
+            verify_service=True):
+        services = self.get_contrail_services(service_name=service_name)
+        for service in services:
+            for host in host_ips or self.host_ips:
+                username = self.host_data[host]['username']
+                password = self.host_data[host]['password']
+                self.logger.info('%s %s.service on %s' %
+                                 (event, service, self.host_data[host]['name']))
+                issue_cmd = 'service %s %s' % (service, event)
+                self.run_cmd_on_server(
+                    host, issue_cmd, username, password, pty=False, container=container)
+                if verify_service and (event == 'restart'):
+                    assert self.confirm_service_active(service_name, host, container=container), \
+                        "Service Restart failed for %s" % (service_name)
+
+    def restart_service(self, service_name, host_ips=None, contrail_service=True,
+                        container=None, verify_service=True):
+        self._action_on_service(service_name, 'restart', host_ips, container,
+            verify_service=verify_service)
     # end restart_service
 
-    def stop_service(self, service_name, host_ips=[], contrail_service=True,
+    def stop_service(self, service_name, host_ips=None, contrail_service=True,
                      container=None):
-        result = True
-        if len(host_ips) == 0:
-            host_ips = self.host_ips
-        for host in host_ips:
-            username = self.host_data[host]['username']
-            password = self.host_data[host]['password']
-            self.logger.info('Stoping %s.service in %s' %
-                             (service_name, self.host_data[host]['name']))
-            if contrail_service:
-                issue_cmd = 'service %s stop' % (service_name)
-            else:
-                issue_cmd = 'service %s stop' % (service_name)
-            self.run_cmd_on_server(
-                host, issue_cmd, username, password, pty=True,
-                container=container)
+        self._action_on_service(service_name, 'stop', host_ips, container)
     # end stop_service
 
-    def start_service(self, service_name, host_ips=[], contrail_service=True,
+    def start_service(self, service_name, host_ips=None, contrail_service=True,
                       container=None):
-        result = True
-        if len(host_ips) == 0:
-            host_ips = self.host_ips
-        for host in host_ips:
-            username = self.host_data[host]['username']
-            password = self.host_data[host]['password']
-            self.logger.info('Starting %s.service in %s' %
-                             (service_name, self.host_data[host]['name']))
-            if contrail_service:
-                issue_cmd = 'service %s start' % (service_name)
-            else:
-                issue_cmd = 'service %s start' % (service_name)
-            self.run_cmd_on_server(
-                host, issue_cmd, username, password, pty=True,
-                container=container)
+        self._action_on_service(service_name, 'start', host_ips, container)
     # end start_service
 
-    def _compare_service_state(
-        self, host, service, state, state_val, active_str1, active_str1_val,
-            active_str2, active_str2_val):
-        result = False
-        if 'xen' in self.os_type[host] or 'centos' in self.os_type[host]:
-            if active_str2 != active_str2_val:
-                result = False
-                self.logger.warn(
-                    'On host %s,Service %s state is (%s) .. NOT Expected !!' %
-                    (host, service, active_str2))
-        elif 'fc' in self.os_type[host]:
-            if (state,
-                active_str1,
-                active_str2) != (state_val,
-                                 active_str1_val,
-                                 active_str2_val):
-                result = False
-                self.logger.warn(
-                    'On host %s,Service %s states are %s, %s, %s .. NOT Expected !!' %
-                    (host, service, state, active_str1, active_str2))
-        return result
-    # end _compare_service_state
-
-    def get_contrail_status(self, server_ip, username='root',
-                            password='contrail123', container=None):
+    def get_contrail_status(self, server_ip, container=None):
         cache = self.run_cmd_on_server(server_ip, 'contrail-status',
                                        container=container)
         m = dict([(n, tuple(l.split(';')))
@@ -1417,18 +1465,6 @@ class ContrailTestInit(object):
                 return output
     # end unconfigure_mx
 
-    def get_openstack_release(self):
-        with settings(
-            host_string='%s@%s' % (
-                self.username, self.cfgm_ips[0]),
-                password=self.password, warn_only=True, abort_on_prompts=False, debug=True):
-            ver = run('contrail-version')
-            pkg = re.search(r'contrail-install-packages(.*)~(\w+)(.*)', ver)
-            os_release = pkg.group(2)
-            self.logger.info("%s" % os_release)
-            return os_release
-    # end get_openstack_release
-
     def copy_file_to_server(self, ip, src, dstdir, dst, force=False,
                             container=None):
         host = {}
@@ -1454,3 +1490,23 @@ class ContrailTestInit(object):
         copy_file_from_server(host, src_file_path, dest_folder,
             container=container)
     # end copy_file_from_server
+
+def _parse_args( args_str):
+    parser = argparse.ArgumentParser()
+    args, remaining_argv = parser.parse_known_args(args_str.split())
+    parser.add_argument(
+                "--conf_file", nargs='?', default="check_string_for_empty",help="pass sanity_params.ini",required=True)
+    args = parser.parse_args(remaining_argv)
+    return args
+
+
+def main(args_str = None):
+    if not args_str:
+       script_args = ' '.join(sys.argv[1:])
+    script_args = _parse_args(script_args)
+    inputs = ContrailTestInit(ini_file=script_args.conf_file)
+
+if __name__ == '__main__':
+    main()
+
+    

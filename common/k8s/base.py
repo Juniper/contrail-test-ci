@@ -2,6 +2,8 @@ from fabric.api import local, settings
 
 import test
 import ipaddress
+import vnc_api_test
+import uuid
 from tcutils.util import get_random_name, retry
 from k8s.pod import PodFixture
 from k8s.service import ServiceFixture
@@ -19,7 +21,7 @@ K8S_PUBLIC_VN_NAME = '__public__'
 K8S_PUBLIC_FIP_POOL_NAME = '__fip_pool_public__'
 
 
-class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
+class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods, vnc_api_test.VncLibFixture):
 
     @classmethod
     def setUpClass(cls):
@@ -116,14 +118,18 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
     def setup_ingress(self,
                       name=None,
                       namespace='default',
-                      metadata={},
-                      default_backend={},
-                      rules=[],
-                      spec={}):
+                      metadata=None,
+                      default_backend=None,
+                      rules=None,
+                      spec=None):
         '''
         A very basic helper method to create an ingress
 
         '''
+        if metadata is None: metadata = {}
+        if spec is None: spec = {}
+        if default_backend is None: default_backend = {}
+        if rules is None: rules = []
         name = name or get_random_name('nginx-ingress')
         metadata.update({'name': name})
         if default_backend:
@@ -204,10 +210,15 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
 
     # end setup_nginx_pod
 
-    def verify_nginx_pod(self, pod):
+    def verify_nginx_pod(self, pod, path=None):
         result = pod.verify_on_setup()
         if result:
-            pod.run_cmd('echo %s > /usr/share/nginx/html/index.html' % (
+            if path:
+                pod.run_cmd('echo %s > /usr/share/nginx/html/index.html' % (pod.name)) 
+                cmd = "cp /usr/share/nginx/html/index.html /usr/share/nginx/html/%s" %(path)
+                pod.run_cmd(cmd)
+            else:
+                pod.run_cmd('echo %s > /usr/share/nginx/html/index.html' % (
                 pod.name))
         return result
     # end verify_nginx_pod
@@ -238,6 +249,33 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
                               labels=labels,
                               shell='/bin/sh')
     # end setup_busybox_pod
+
+    def setup_ubuntuapp_pod(self,
+                          name=None,
+                          namespace='default',
+                          metadata=None,
+                          spec=None,
+                          labels=None):
+        metadata = metadata or {}
+        spec = spec or {}
+        labels = labels or {}
+        name = name or get_random_name('ubuntuapp-pod')
+        spec = spec or {
+            'containers': [
+                {'image': 'ubuntu-upstart',
+                 'command': ['sleep', '1000000'],
+                 'image_pull_policy': 'IfNotPresent',
+                 }
+            ],
+            'restart_policy': 'Always',
+        }
+        return self.setup_pod(name=name,
+                              namespace=namespace,
+                              metadata=metadata,
+                              spec=spec,
+                              labels=labels,
+                              shell='/bin/sh')
+    # end setup_ubuntuapp_pod
 
     @retry(delay=1, tries=5)
     def validate_wget(self, pod, link, expectation=True, **kwargs):
@@ -614,3 +652,64 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods):
                                      metadata=metadata,
                                      spec=spec)
     # end setup_nginx_deployment
+
+    def restart_kube_manager(self):
+
+        self.logger.info('Will restart contrail-kube-manager  services now')
+        self.inputs.restart_service('contrail-kube-manager',
+                                     [self.inputs.kube_manager_ip],
+                                     container='contrail-kube-manager')
+    # end restart_kube_manager
+
+    def create_snat_router(self, name):
+
+        obj =  self.connections.vnc_lib_fixture.vnc_h.create_router(name=name, 
+                                          project_obj=self.connections.vnc_lib_fixture.get_project_obj())
+
+        self.addCleanup(self.connections.vnc_lib_fixture.vnc_h.delete_router, obj)
+        return obj 
+
+    def connect_vn_with_router(self, router_obj, vn_name):
+
+        # Configure VN name from namespace
+        vn_fq_name= "default-domain" + ":" + \
+                    str(self.connections.vnc_lib_fixture.get_project_obj().name) \
+                    + ":" + vn_name
+
+        # Read VN from API
+        vn_obj=self.vnc_lib.virtual_network_read(fq_name_str=vn_fq_name)
+
+        # To associate VN to logical router need to create a dummy port
+        vmi_id = str(uuid.uuid4())
+        vmi_obj = vnc_api_test.VirtualMachineInterface(name=vmi_id,
+                                                       parent_obj=self.connections.vnc_lib_fixture.get_project_obj())
+        vmi_obj.add_virtual_network(vn_obj)
+        self.vnc_lib.virtual_machine_interface_create(vmi_obj)
+        self.addCleanup(self.vnc_lib.virtual_machine_interface_delete, id=vmi_obj.uuid)
+
+        # Connect namespace VN to router
+        router_obj.add_virtual_machine_interface(vmi_obj)
+        self.addCleanup(self._remove_namespace_from_router,router_obj,vmi_obj)
+
+        # Update logical router object
+        self.vnc_lib.logical_router_update(router_obj)
+
+        return router_obj
+
+    def _remove_namespace_from_router(self, router_obj, vmi_obj):
+        router_obj.del_virtual_machine_interface(vmi_obj)
+        # Update logical router object
+        self.vnc_lib.logical_router_update(router_obj)
+     
+
+    def configure_snat_for_pod (self, pod):
+  
+        # Create logical router 
+        router_obj = self.create_snat_router("snat_router")
+
+        # Connect router with virtual network associated to pod 
+        self.connect_vn_with_router(router_obj, pod.vn_names[0])
+ 
+        # Configure external_gateway
+        self.connections.vnc_lib_fixture.vnc_h.connect_gateway_with_router(router_obj,\
+                                                  self.public_vn.public_vn_fixture.obj)

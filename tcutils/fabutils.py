@@ -94,7 +94,8 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
     _run = sudo if with_sudo else run
 
     # with hide('everything'), settings(host_string=host_string,
-    with hide('everything'), settings(
+    #with hide('everything'), settings(
+    with settings(
             host_string=host_string,
             gateway=gateway,
             warn_only=warn_only,
@@ -108,8 +109,8 @@ def remote_cmd(host_string, cmd, password=None, gateway=None,
         while tries > 0:
             try:
                 output = _run(cmd, timeout=timeout, pty=not as_daemon, shell=shell)
-            except (CommandTimeout, NetworkError) as e:
-                logger.warn('Unable to run command %s: %s' % (cmd, str(e)))
+            except (CommandTimeout, NetworkError, SystemExit) as e:
+                logger.exception('Unable to run command %s: %s' % (cmd, str(e)))
                 tries -= 1
                 time.sleep(5)
                 continue

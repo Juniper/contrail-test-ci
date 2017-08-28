@@ -112,7 +112,7 @@ class ContrailConnections():
 
     def get_project_id(self, project_name=None):
         project_name = project_name or self.project_name
-        auth = self.get_auth_h(project_name)
+        auth = self.get_auth_h(project_name=project_name)
         if auth:
             return auth.get_project_id(project_name or self.project_name,
                                        self.domain_id)
@@ -226,7 +226,7 @@ class ContrailConnections():
         if not getattr(self, '_svc_mon_inspect', None) or refresh:
             for cfgm_ip in self.inputs.cfgm_ips:
                 #contrail-status would increase run time hence netstat approach
-                cmd = 'netstat -antp | grep 8088 | grep LISTEN'
+                cmd = 'netstat -antp | grep :8088 | grep LISTEN'
                 if 'LISTEN' in self.inputs.run_cmd_on_server(cfgm_ip, cmd, container='controller'):
                     self._svc_mon_inspect = SvcMonInspect(cfgm_ip,
                                            logger=self.logger)

@@ -3,6 +3,7 @@ import subprocess
 import os
 import re
 import time
+import netifaces
 from collections import defaultdict, MutableMapping
 from netaddr import *
 import pprint
@@ -417,8 +418,13 @@ def sshable(host_string, password=None, gateway=None, gateway_password=None,
                 if safe_run('(echo > /dev/tcp/%s/%s)' % (host_string_split[1], host_port), timeout=timeout)[1].succeeded:
                     return True
                 else:
-                    logger.error("Error on ssh to %s" % host_string)
+                    logger.error("Error on ssh to %s, result: %s %s" % (host_string,
+                        result, result.__dict__))
                     return False
+            else:
+                logger.error("Error on ssh to %s, result: %s %s" % (host_string,
+                    result, result.__dict__))
+                return False
         except CommandTimeout, e:
             logger.debug('Could not ssh to %s ' % (host_string))
             return False
@@ -525,11 +531,15 @@ def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
 
 def get_dashed_uuid(id):
     ''' Return a UUID with dashes '''
+    if not id:
+        return None
     return(str(uuid.UUID(id)))
 
 
 def get_plain_uuid(id):
     ''' Remove the dashes in a uuid '''
+    if not id:
+        return None
     return id.replace('-', '')
 
 
@@ -540,7 +550,10 @@ def get_random_string(size=8, chars=string.digits):
 def get_random_name(prefix=None, constant_prefix='ctest'):
     if not prefix:
         prefix = 'random'
-    return constant_prefix + '-' + prefix + '-' + get_random_string()
+    ret_val = prefix + '-' + get_random_string()
+    if not prefix.startswith(constant_prefix):
+        ret_val = '%s-%s' %(constant_prefix, ret_val)
+    return ret_val
 
 
 def gen_str_with_spl_char(size, char_set=None):
@@ -1218,3 +1231,15 @@ def retry_and_log(tries=5, delay=3):
     return deco_retry  # @retry(arg[, ...]) -> true decorator
 # end retry_and_log
 
+def is_ip_mine(ip):
+    ''' Returns true if the ip is local
+    Note that if check is run on a container, the container should be using 
+    host networking
+    '''
+    for iface in netifaces.interfaces():
+        if netifaces.AF_INET in netifaces.ifaddresses(iface):
+            if str(ip) == netifaces.ifaddresses(iface)[netifaces.AF_INET][0]['addr']:
+                return True
+    return False
+
+#end is_ip_mine

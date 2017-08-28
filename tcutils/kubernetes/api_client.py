@@ -58,7 +58,9 @@ class Client():
         for rule in rules:
             rule_obj = client.V1beta1IngressRule(
                 host=rule.get('host'),
-                http=self._get_ingress_path(rule.get('http')))
+                http=client.V1beta1HTTPIngressRuleValue(
+                     paths=self._get_ingress_path(rule.get('http'))))
+
             ing_rules.append(rule_obj)
         return ing_rules
     # end _get_ingress_rules
@@ -66,14 +68,19 @@ class Client():
     def create_ingress(self,
                        namespace='default',
                        name=None,
-                       metadata={},
-                       default_backend={},
-                       rules=[],
-                       tls=[],
-                       spec={}):
+                       metadata=None,
+                       default_backend=None,
+                       rules=None,
+                       tls=None,
+                       spec=None):
         '''
         Returns V1beta1Ingress object
         '''
+        if metadata is None: metadata = {}
+        if default_backend is None: default_backend = {}
+        if rules is None: rules = []
+        if tls is None: tls = []
+        if spec is None: spec = {}
         metadata_obj = self._get_metadata(metadata)
         if name:
             metadata_obj.name = name
@@ -156,11 +163,13 @@ class Client():
     def update_network_policy(self,
                               policy_name,
                               namespace='default',
-                              metadata={},
-                              spec={}):
+                              metadata=None,
+                              spec=None):
         '''
         Returns V1beta1NetworkPolicy object
         '''
+        if metadata is None: metadata = {}
+        if spec is None: spec = {}
         policy_obj = self.v1_beta_h.read_namespaced_network_policy(
             policy_name, namespace)
         metadata_obj = self._get_metadata(metadata)
@@ -179,8 +188,8 @@ class Client():
     def create_network_policy(self,
                               namespace='default',
                               name=None,
-                              metadata={},
-                              spec={}):
+                              metadata=None,
+                              spec=None):
         '''
         spec = {
             'ingress' : [ { 'from': [
@@ -202,6 +211,8 @@ class Client():
 
         Returns V1beta1NetworkPolicy object
         '''
+        if metadata is None: metadata = {}
+        if spec is None: spec = {}
         metadata_obj = self._get_metadata(metadata)
         if name:
             metadata_obj.name = name
@@ -228,8 +239,8 @@ class Client():
     def create_service(self,
                        namespace='default',
                        name=None,
-                       metadata={},
-                       spec={}):
+                       metadata=None,
+                       spec=None):
         '''
                 Returns V1Service object
                 Ex :
@@ -247,6 +258,8 @@ class Client():
                         ]
         '''
         #kind = 'Service'
+        if metadata is None: metadata = {}
+        if spec is None: spec = {}
         metadata_obj = self._get_metadata(metadata)
         if name:
             metadata_obj.name = name
@@ -268,8 +281,8 @@ class Client():
     def create_pod(self,
                    namespace='default',
                    name=None,
-                   metadata={},
-                   spec={}):
+                   metadata=None,
+                   spec=None):
         '''
         metadata : dict to create V1ObjectMeta {'name': 'xyz','namespace':'abc'}
         spec : dict to create V1PodSpec object
@@ -288,6 +301,8 @@ class Client():
         return V1Pod instance
 
         '''
+        if metadata is None: metadata = {}
+        if spec is None: spec = {}
         metadata_obj = self._get_metadata(metadata)
         if name:
             metadata_obj.name = name
@@ -328,10 +343,11 @@ class Client():
         return self.v1_h.read_namespaced_pod(name, namespace)
     # end read_pod
 
-    def _get_container(self, pod_name=None, kwargs={}):
+    def _get_container(self, pod_name=None, kwargs=None):
         '''
         return container object
         '''
+        kwargs = kwargs or {}
         if not kwargs.get('name'):
             kwargs['name'] = pod_name or get_random_name('container')
         ports_obj = []
@@ -470,11 +486,13 @@ class Client():
     def create_deployment(self,
                           namespace='default',
                           name=None,
-                          metadata={},
-                          spec={}):
+                          metadata=None,
+                          spec=None):
         '''
         Returns AppsV1beta1Deployment object
         '''
+        if metadata is None: metadata = {}
+        if spec is None: spec = {}
         metadata_obj = self._get_metadata(metadata)
         if name:
             metadata_obj.name = name
