@@ -363,8 +363,8 @@ class ConfigSvcChain(fixtures.Fixture):
     # end _get_vn_for_config
 
     def _get_end_vm_image(self, image_name):
-        if os.environ.get('ci_image') and self.inputs.get_af() == 'v4':
-            image_name = 'cirros'
+        if self.inputs.is_ci_setup() and self.inputs.get_af() == 'v4':
+            image_name = self.inputs.get_ci_image()
         else:
             image_name = image_name or 'ubuntu-traffic'
         return image_name
