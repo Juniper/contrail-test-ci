@@ -3,7 +3,8 @@ from netaddr import *
 from vnc_api.vnc_api import *
 #from vn_test import VNFixture
 from vn_fixture import VNFixture
-from vm_test import VMFixture
+#from vm_test import VMFixture
+from vm_fixture import VMFixture
 from policy_test import PolicyFixture
 from port_fixture import PortFixture
 from interface_route_table_fixture import InterfaceRouteTableFixture
@@ -126,6 +127,7 @@ class GenericTestBase(test_v1.BaseTestCase_v1, _GenericTestBaseMethods):
                     flavor=flavor,
                     node_name=node_name,
                     port_ids=port_ids,
+                    vn_fixtures=[vn_fixture],
                     **kwargs)
         vm_obj.setUp()
         return vm_obj

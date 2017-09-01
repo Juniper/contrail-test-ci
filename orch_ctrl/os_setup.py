@@ -60,10 +60,11 @@ class OpenstackControl (object):
        zones = self._osapi.get_zones()
        self.zones = {}
        self.hosts = {}
+       self.hypervisors = self._osapi.get_hypervisor()
        for z in zones:
            self.zones[z.zoneName] = {'hosts': list(z.hosts.keys())}
-           for h in z.hosts:
-               self.hosts[h] = self._osapi.get_hypervisor(hypervisor_hostname=h)
+       for hypervisor in self.hypervisors:
+           self.hosts[hypervisor.hypervisor_hostname.split('.')[0]] = hypervisor
 
    def __getattr__ (self, fn):
 

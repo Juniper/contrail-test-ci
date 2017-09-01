@@ -293,7 +293,7 @@ class VNFixture_v2 (ContrailFixture):
        api_s_route_targets = self.api_s_inspect.get_cs_route_targets(
                vn_id=self.uuid)
        if not api_s_route_targets:
-           errmsg = "Route targets not found in API-Server for VN %s" % (
+           msg = "Route targets not found in API-Server for VN %s" % (
                      self.name)
            return False, msg
        rt_names = self.api_s_inspect.get_cs_rt_names(api_s_route_targets)
@@ -608,7 +608,7 @@ class VNFixture (VNFixture_v2):
        for policy in kwargs.get('policy_objs', []):
            policy_refs.append(policy.fq_name)
        if policy_refs:
-           self._params['contrail:policys'] = policy_refs
+           self._params['policys'] = policy_refs
        self._policies = policy_refs
 
        ipam_fqn = kwargs.get('ipam_fq_name') or NetworkIpam().get_fq_name()
@@ -622,7 +622,7 @@ class VNFixture (VNFixture_v2):
                'enable_dhcp': dhcp,
                'ip_version': '6' if is_v6(subnet) else '4',
                'cidr': subnet,
-               'contrail:ipam_fq_name': ipam_fqn,
+               'ipam_fq_name': ipam_fqn,
            }
            if gw:
                dd['gateway_ip'] = None
@@ -816,7 +816,7 @@ class VNFixture (VNFixture_v2):
                                VirtualNetworkPolicyType(sequence=seq_obj))
            self.vnc_api.virtual_network_update(self.vnc_obj)
        else:
-           net_req = {'contrail:policys': policy_fq_names}
+           net_req = {'policys': policy_fq_names}
            self._qh.update_network(self.uuid, {'network': net_req})
        self.update()
        self._policies = policy_fq_names
@@ -841,7 +841,7 @@ class VNFixture (VNFixture_v2):
                policys_to_remain = copy.copy(self._policies)
                for policy in policy_fq_names:
                    policys_to_remain.remove(policy)
-           net_req = {'contrail:policys': policys_to_remain}
+           net_req = {'policys': policys_to_remain}
            self._qh.update_network(self.uuid, {'network': net_req})
        self.update()
        self._policies = policys_to_remain

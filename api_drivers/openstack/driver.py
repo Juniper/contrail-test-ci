@@ -93,7 +93,7 @@ try:
                except novaException.NotFound:
                    return None
            else:
-               return self._nh.hypervisor.list()
+               return self._nh.hypervisors.list()
 
        def get_flavor (self, name):
            try:
