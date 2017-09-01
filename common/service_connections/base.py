@@ -127,7 +127,7 @@ class BaseServiceConnectionsTest(GenericTestBase):
         3. Port number of that server
         It reads .conf file to get the list 
         Values to argument "service_name" can be:
-                    "collector", "xmpp", "dns" or "rabbitmq"
+                    "collector", "xmpp", "dns", "configdb" or "rabbitmq"
         Values to argument "client_role" can be:
                     "agent", "control", "config", "analytics" and "database" '''
         client_node_name = self.inputs.host_data[client_ip]['name']
@@ -201,6 +201,18 @@ class BaseServiceConnectionsTest(GenericTestBase):
                           " to '%s' server running on IP %s" % (client_process, 
                             client_node_name, service_name, rabbitmq_server_address))
             return rabbitmq_server_address
+        elif service_name == "configdb" and client_role == "control":
+            connection_info = None
+            if client_process == "contrail-control":
+                configdb_server_address = self.cn_inspect[client_ip].\
+                                        get_connected_configdb()
+            elif client_process == "contrail-dns":
+                configdb_server_address = self.dns_inspect[client_ip].\
+                                        get_connected_configdb()
+            self.logger.info("Client process '%s' running on node '%s' is connected"
+                          " to '%s' server running on IP %s" % (client_process, 
+                            client_node_name, service_name, configdb_server_address))
+            return configdb_server_address
         for connections in connection_info:
             if service_name == "collector":
                 if connections['type'] == 'Collector':
@@ -226,7 +238,7 @@ class BaseServiceConnectionsTest(GenericTestBase):
     # end get_all_in_use_servers
     
     def add_remove_server(self, operation, server_ip, section, option,
-                           client_role, client_process, index = 0):
+                           client_role, client_process, index = 0, server_port = None):
         ''' This function add or remove an entry from list of servers 
         configured in .conf file of the client.
         It reads .conf file to get the list.
@@ -245,35 +257,40 @@ class BaseServiceConnectionsTest(GenericTestBase):
             for ip in self.inputs.compute_ips:
                 server_list = self.get_new_server_list(operation, ip,
                                                        cmd, server_ip, index,
-                                                       container = "compute")
+                                                       container = "compute",
+                                                       server_port = server_port)
                 self.configure_server_list(ip, client_process,
                         section, option, server_list, container = "compute")
         elif client_role == "control":
             for ip in self.inputs.bgp_ips:
                 server_list = self.get_new_server_list(operation, ip,
                                                        cmd, server_ip, index,
-                                                       container = "controller")
+                                                       container = "controller",
+                                                       server_port = server_port)
                 self.configure_server_list(ip, client_process,
                         section, option, server_list, container = "controller")
         elif client_role == "config":
             for ip in self.inputs.cfgm_ips:
                 server_list = self.get_new_server_list(operation, ip,
                                                        cmd, server_ip, index,
-                                                       container = "controller")
+                                                       container = "controller",
+                                                       server_port = server_port)
                 self.configure_server_list(ip, client_process,
                         section, option, server_list, container = "controller")
         elif client_role == "analytics":
             for ip in self.inputs.collector_ips:
                 server_list = self.get_new_server_list(operation, ip,
                                                        cmd, server_ip, index,
-                                                       container = "analytics")
+                                                       container = "analytics",
+                                                       server_port = server_port)
                 self.configure_server_list(ip, client_process,
                         section, option, server_list, container = "analytics")
         elif client_role == "database":
             for ip in self.inputs.database_ips:
                 server_list = self.get_new_server_list(operation, ip,
                                                        cmd, server_ip, index,
-                                                       container = "analyticsdb")
+                                                       container = "analyticsdb",
+                                                       server_port = server_port)
                 self.configure_server_list(ip, client_process,
                         section, option, server_list, container = "analyticsdb")
         status_checker = ContrailStatusChecker(self.inputs)
@@ -282,7 +299,7 @@ class BaseServiceConnectionsTest(GenericTestBase):
             assert result, "Contrail cluster not up after add/remove of entry"
     
     def get_new_server_list(self, operation, client_ip, cmd, server_ip,
-                            index, container = None):
+                            index, container = None, server_port = None):
         '''
         client_ip = IP of node where "cmd" will be executed
         server_ip = IP of server to be searched in .conf file
@@ -295,8 +312,9 @@ class BaseServiceConnectionsTest(GenericTestBase):
                             container = container)
         output = output.split(" ")
         server_list= [elem for elem in output if elem != " "]
-        server_port = server_list[0].split(":")[1]
-        server = server_ip + ":" + server_port
+        if not server_port:
+            server_port = server_list[0].split(":")[1]
+        server = server_ip + ":" + str(server_port)
         if operation == "add":
             if server in server_list:
                 self.logger.debug("IP already present in list")
@@ -328,6 +346,12 @@ class BaseServiceConnectionsTest(GenericTestBase):
                             self.inputs.host_data[client_ip]['username']\
                             , self.inputs.host_data[client_ip]['password'],
                             container = container)
+        self.send_sighup(client_ip, client_process, container)
+    
+    def send_sighup(self, client_ip, client_process, container):
+        '''
+        This function search for PID of the process and send SIGHUP on it
+        '''
         if "nodemgr" in client_process:
             nodetype = client_process.rstrip("-nodemgr")
             client_process = "contrail-nodemgr --nodetype=%s" % nodetype
@@ -404,4 +428,51 @@ class BaseServiceConnectionsTest(GenericTestBase):
             skip = True
             msg = "Skipping because setup requirements are not met"
             raise testtools.TestCase.skipException(msg)
-        
+    
+    def get_connections_after_server_restart(self, server_type, client_type,
+                                            server_process, client_process, server_ip,
+                                            client_ip, server_container):
+        '''
+        This function restarts the server and then reutrns the updated connections
+        of the client to the type of server.
+        Note that this step is requirement of multiple test cases.
+        Thus made a seperate function to repeat these steps.
+        '''
+        self.inputs.stop_service(server_process,[server_ip],
+                                 container = server_container) 
+        self.sleep(15)
+        in_use_servers, status, ports = self.get_all_in_use_servers(
+                                            server_type ,client_type, 
+                                            client_process,
+                                            client_ip)
+        self.inputs.start_service(server_process,
+                        [server_ip], container = server_container)
+        self.inputs.confirm_service_active(server_process,
+                        server_ip, container = server_container)
+        return in_use_servers, status, ports
+    
+    def verify_connection_switched_after_sighup(self, server_type, client_type,
+                                                client_process, client_ip,
+                                                client_container, servers_list_before_sighup):
+        ''' This function sends SIGHPUP to clients.
+            It also takes list of current connections as user input
+            and compares the new connections after issueing SIGHUP.
+            It return True or False based on that.
+        '''   
+        new_connection_found = False
+        for i in range(0,20):
+            self.send_sighup(client_ip,client_process,
+                                 container = client_container)
+            self.sleep(2)
+            new_in_use_servers, status, ports = self.get_all_in_use_servers(
+                                            server_type ,client_type, 
+                                            client_process, client_ip)
+            if new_in_use_servers != servers_list_before_sighup:
+                    self.logger.info("New connections found after issuing SIGHUP")
+                    self.logger.info("Re allocation/Load balancing happened after SIGHUP")
+                    new_connection_found = True
+                    break
+            else:
+                self.logger.debug("Connections unaffected after SIGHUP "
+                                "Retry number %s" % (i+1))
+        return new_in_use_servers, status, ports, new_connection_found
