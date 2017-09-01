@@ -54,12 +54,12 @@ class VerifyIntfMirror(VerifySvcMirror):
         compute_nodes  = self.get_compute_nodes(0, 1, 2)
         return self.verify_intf_mirroring(compute_nodes, [0, 0, 0], sub_intf)
 
-    def verify_intf_mirroring_src_on_cn1_vn1_dst_on_cn2_vn2_analyzer_on_cn3_vn3(self, sub_intf=False):
+    def verify_intf_mirroring_src_on_cn1_vn1_dst_on_cn2_vn2_analyzer_on_cn3_vn3(self, sub_intf=False, nic_mirror = False):
         """Validate the interface mirroring
         src vm, dst vm and analyzer vm on different CNs, all in different VNs
         """
         compute_nodes  = self.get_compute_nodes(0, 1, 2)
-        return self.verify_intf_mirroring(compute_nodes, [0, 1, 2], sub_intf)
+        return self.verify_intf_mirroring(compute_nodes, [0, 1, 2], sub_intf, nic_mirror)
 
     def verify_intf_mirroring_src_on_cn1_vn1_dst_on_cn2_vn1_analyzer_on_cn3_vn2(self, sub_intf=False):
         """Validate the interface mirroring
@@ -247,7 +247,7 @@ class VerifyIntfMirror(VerifySvcMirror):
     # end get_sub_intf_port
 
 
-    def verify_intf_mirroring(self, compute_nodes, vn_index_list, sub_intf=False):
+    def verify_intf_mirroring(self, compute_nodes, vn_index_list, sub_intf=False, nic_mirror = False):
         """Validate the interface mirroring
            Test steps:
            1. Create vn1/vm1_vn1, vn1/vm2_vn1, vn1/mirror_vm_vn1,  vn2/vm2_vn2, vn2/mirror_vm_vn2, vn3/mirror_vm_vn3
@@ -563,15 +563,16 @@ class VerifyIntfMirror(VerifySvcMirror):
             src_port = self.src_port.vmi_obj
 
         if not self._verify_intf_mirroring(self.src_vm_fixture, self.dst_vm_fixture, self.analyzer_vm_fixture, \
-                self.src_vn_fq_name, self.dst_vn_fq_name, self.analyzer_vn_fq_name,
-                self.analyzer_vm_ip, self.analyzer_fq_name, self.routing_instance, src_port=src_port, sub_intf=sub_intf) :
+                self.src_vn_fq_name, self.dst_vn_fq_name, self.analyzer_vn_fq_name, \
+                self.analyzer_vm_ip, self.analyzer_fq_name, self.routing_instance, src_port=src_port, \
+                sub_intf=sub_intf, nic_mirror = nic_mirror) :
             result = result and False
 
         return result
     # end verify_intf_mirroring
 
     def _verify_intf_mirroring(self, src_vm_fixture, dst_vm_fixture, mirror_vm_fixture, src_vn_fq, dst_vn_fq, mirr_vn_fq,\
-            analyzer_ip_address, analyzer_name, routing_instance, src_port=None, sub_intf=False):
+            analyzer_ip_address, analyzer_name, routing_instance, src_port=None, sub_intf=False, nic_mirror = False):
         result = True
 
         vnc = src_vm_fixture.vnc_lib_h
@@ -583,11 +584,28 @@ class VerifyIntfMirror(VerifySvcMirror):
             tap_intf_obj = src_port
             vlan = self.vlan
 
-        self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance)
+        if not nic_mirror:
+            self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance)
 
-        if not self.verify_port_mirroring(src_vm_fixture, dst_vm_fixture, mirror_vm_fixture, vlan=vlan):
-            result = result and False
-            self.logger.error("Intf not mirrored")
+            if not self.verify_port_mirroring(src_vm_fixture, dst_vm_fixture, mirror_vm_fixture, vlan=vlan):
+                result = result and False
+                self.logger.error("Intf not mirrored")
+        else:
+            self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address= None, analyzer_name = analyzer_name, \
+                routing_instance= None, udp_port=None, nic_assisted_mirroring = True, nic_assisted_mirroring_vlan = 100)
+            if src_vm_fixture.vm_obj.status == 'ACTIVE':
+                host = self.get_svm_compute(src_vm_fixture.vm_obj.name)
+            session = ssh(host['host_ip'], host['username'], host['password'])
+            agent_physical_interface = src_vm_fixture.agent_inspect[host['host_ip']].get_agent_physical_interface()
+            pcap = self.start_tcpdump(session, agent_physical_interface, vlan=100)
+            src_vm_fixture.ping_with_certainty(mirror_vm_fixture.vm_ip, count=11, size='1400')
+            filt = '-e | grep \"vlan 100\"'
+            mirror_pkt_count = self.stop_tcpdump(session, pcap, filt)
+            if mirror_pkt_count == 0:
+                self.logger.error("Nic mirroring doesn't works correctly")
+                result = result and False 
+            else:
+                self.logger.info("Nic mirroring works correctly")
 
         self.disable_intf_mirroring(vnc, tap_intf_obj)
 
@@ -595,14 +613,15 @@ class VerifyIntfMirror(VerifySvcMirror):
     # end verify_intf_mirroring
 
     def enable_intf_mirroring(self, vnc, tap, analyzer_ip_address, analyzer_name, routing_instance,
-                             direction='both', udp_port=8099,  encapsulation=None):
+                             direction='both', udp_port=8099,  encapsulation=None, \
+                             nic_assisted_mirroring = None, nic_assisted_mirroring_vlan = None):
         prop_obj = tap.get_virtual_machine_interface_properties()
         if not prop_obj:
             prop_obj = VirtualMachineInterfacePropertiesType()
         interface_mirror = prop_obj.get_interface_mirror()
         if not interface_mirror:
             mirror_to = MirrorActionType(analyzer_name=analyzer_name, encapsulation=None, 
-                analyzer_ip_address=analyzer_ip_address, routing_instance=routing_instance, udp_port=udp_port)
+                analyzer_ip_address=analyzer_ip_address, routing_instance=routing_instance, udp_port=udp_port, nic_assisted_mirroring = nic_assisted_mirroring, nic_assisted_mirroring_vlan = nic_assisted_mirroring_vlan)
             interface_mirror = InterfaceMirrorType(direction, mirror_to)
             prop_obj.set_interface_mirror(interface_mirror)
             tap.set_virtual_machine_interface_properties(prop_obj)
