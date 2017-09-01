@@ -29,7 +29,7 @@ def _setup_1 (conn):
            'project_name': conn.project_name,
            'domain_name': conn.domain_name,
            'project_id': conn.get_project_id(),
-           'openstack_ip': conn.inputs.openstack_ip,
+           'openstack_ip': conn.inputs.openstack_control_ip,
            'endpoint': conn.inputs.endpoint_type,
            'region': conn.inputs.region_name,
            'api_server_ip': cfgm_ip,

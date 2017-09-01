@@ -110,6 +110,7 @@ class Tests (test_v1.BaseTestCase_v1):
    @classmethod
    def setUpClass (cls):
        super(Tests, cls).setUpClass()
+       cls.testmode = 'vnc'
 
    @classmethod
    def tearDownClass (cls):
