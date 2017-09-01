@@ -162,8 +162,11 @@ class SvcInstanceFixture(fixtures.Fixture):
             name = '%s_%s' % (self.si_name, intf)
             prefix = static_rt_dict[intf]
             if prefix:
+                prefixes = prefix if type(prefix) is list else [prefix]
+                self.logger.debug("Creating interface route table "
+                                  "%s with prefixes %s"%(name, prefixes))
                 intf_rt_table = self._vnc.create_interface_route_table(
-                    name, parent_obj=project, prefixes=[prefix])
+                    name, parent_obj=project, prefixes=prefixes)
                 self.logger.debug("Associating static route table %s to %s" % (
                     intf_rt_table.name, self.si_fq_name))
                 self._vnc.assoc_intf_rt_table_to_si(
@@ -175,6 +178,8 @@ class SvcInstanceFixture(fixtures.Fixture):
         self.logger.debug(
             "Disassociating static route table %s from %s" % (irt_uuid, self.si_fq_name))
         self._vnc.disassoc_intf_rt_table_from_si(self.si_fq_name, irt_uuid)
+        self.logger.debug("Deleting interface route table %s"%irt_uuid)
+        self._vnc.delete_interface_route_table(irt_uuid)
 
     def associate_hc(self, hc_uuid, intf_type):
         self.logger.debug("Associating hc(%s) to si (%s)" %
@@ -289,6 +294,9 @@ class SvcInstanceFixture(fixtures.Fixture):
                 self._svm_list.append(vm)
         return self._svm_list
 
+    def get_svms(self):
+        return self.svm_list
+
     @retry(delay=2, tries=10)
     def verify_si(self):
         """check service instance"""
@@ -379,7 +387,11 @@ class SvcInstanceFixture(fixtures.Fixture):
                 for vmi in pt_vmi_refs:
                     vmi = self.api_s_inspect.get_cs_vmi_by_id(vmi['uuid'])
                     vm_refs_vmi = vmi[
-                        'virtual-machine-interface']['virtual_machine_refs']
+                        'virtual-machine-interface'].get('virtual_machine_refs')
+                    if not vm_refs_vmi:
+                        msg = 'VM refs not seen in VMI %s' %(vmi)
+                        self.logger.warn(msg)
+                        return (False, msg)
                     for vm_ref in vm_refs_vmi:
                         vm_refs.append(vm_ref['to'][0])
             self.svm_ids = set(vm_refs)
@@ -397,6 +409,8 @@ class SvcInstanceFixture(fixtures.Fixture):
                 self.logger.warn(errmsg)
                 return (False, errmsg)
 
+        # Populate the SVMs
+        self.get_svms()
         for svm_id in self.svm_ids:
             cs_svm = self.api_s_inspect.get_cs_vm(vm_id=svm_id, refresh=True)
             if not cs_svm:
@@ -726,11 +740,13 @@ class SvcInstanceFixture(fixtures.Fixture):
         ports_list.append(mgmt_vmi_id)
         ports_list.append(left_vmi_id)
         ports_list.append(right_vmi_id)
-        for index in range(0, len(self.if_list)):
+        intf_type = ['management', 'left', 'right']
+        for index in range(0, len(ports_list)):
             port_id = ports_list[index]
             vmi_obj = self.vnc_lib.virtual_machine_interface_read(id=port_id)
-            vmi_props = VirtualMachineInterfacePropertiesType()
-            vmi_props.set_service_interface_type(self.if_list[index][0])
+            vmi_props = vmi_obj.virtual_machine_interface_properties or \
+                            VirtualMachineInterfacePropertiesType()
+            vmi_props.set_service_interface_type(intf_type[index])
             vmi_obj.set_virtual_machine_interface_properties(vmi_props)
             vmi_obj.add_port_tuple(pt_obj)
             self.vnc_lib.virtual_machine_interface_update(vmi_obj)

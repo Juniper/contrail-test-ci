@@ -2,6 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import TimeoutException
 import time
 import random
 import fixtures
@@ -512,8 +513,10 @@ class WebuiTest:
                 self.ui.select_from_dropdown(vn_name)
             if fixture.si_v2:
                 self.ui.click_on_accordian('portTuplesCollection', accor=False)
+                self.ui.wait_till_ajax_done(self.browser)
                 br = self.ui.find_element('port-tuples-collection')
                 self.ui.click_element('editable-grid-add-link', 'class', browser=br)
+                self.ui.wait_till_ajax_done(self.browser)
                 self.ui.click_element('fa-caret-right', 'class', browser=br)
                 for index in range(2):
                     int = self.ui.find_element('s2id_interface_dropdown',
@@ -522,6 +525,7 @@ class WebuiTest:
                     int.click()
                     ele_br = self.ui.find_element(['select2-drop', 'li'],
                                                   ['id', 'tag'], if_elements=[1])
+                    self.ui.wait_till_ajax_done(self.browser)
                     self.ui.click_element('div', 'tag', browser=ele_br[0])
             if not self.ui.click_on_create('Service Instance', 'service_instance', save=True):
                 result = result and False
@@ -609,6 +613,7 @@ class WebuiTest:
                         self.ui.wait_till_ajax_done(self.browser)
                         self.ui.click_element(['tooltip-success', 'i'], ['class', 'tag'])
                         self.ui.click_on_accordian('svcHealthChk', def_type=False)
+                        self.ui.wait_till_ajax_done(self.browser)
                         for index, (intf, shc) in enumerate(int_shc.iteritems()):
                             br = self.ui.find_element('svcHealtchChecks')
                             if attach:
@@ -959,8 +964,9 @@ class WebuiTest:
                 self.logger.info(
                     "Qos %s creation successful" %
                         (fixture.name))
+            br = self.ui.find_element('qos-grid')
             rows_detail = self.ui.click_basic_and_get_row_details(
-                func_suffix, 0)[1]
+                func_suffix, 0, search_ele='qos-grid', browser=br)[1]
             fixture.uuid = self.ui.get_value_of_key(rows_detail, 'UUID')
             fixture.verify_on_setup()
         except WebDriverException:
@@ -1205,6 +1211,7 @@ class WebuiTest:
                         self.ui.wait_till_ajax_done(self.browser)
                         self.ui.click_element(['tooltip-success', 'i'], ['class', 'tag'])
                         self.ui.click_on_accordian('rtPolicy', def_type=False)
+                        self.ui.wait_till_ajax_done(self.browser)
                         for index, (intf, pol) in enumerate(int_rp.iteritems()):
                             br = self.ui.find_element('rtPolicys')
                             if attach:
@@ -1224,6 +1231,7 @@ class WebuiTest:
                                                      elements=True)[0].click()
                         if not attach:
                             self.ui.click_on_accordian('rtPolicy', def_type=False)
+                            self.ui.wait_till_ajax_done(self.browser)
                         if not self.ui.click_on_create('Service Instance', 'service_instance',
                                                        save=True):
                             result = result and False
@@ -1408,7 +1416,7 @@ class WebuiTest:
             if not self.ui.click_monitor_analytics_nodes():
                 result = result and False
             self.ui.wait_till_ajax_done(self.browser, wait=15)
-            rows = self.ui.get_rows()
+            rows = self.ui.get_rows(canvas=True)
             for i in range(len(rows)):
                 match_flag = 0
                 obj_text = self.ui.get_slick_cell_text(rows[i], index=0)
@@ -1599,7 +1607,7 @@ class WebuiTest:
             if not self.ui.click_monitor_config_nodes():
                 result = result and False
             self.ui.wait_till_ajax_done(self.browser, wait=15)
-            rows = self.ui.get_rows()
+            rows = self.ui.get_rows(canvas=True)
             for i in range(len(rows)):
                 match_flag = 0
                 obj_text = self.ui.get_slick_cell_text(rows[i], index=0)
@@ -1784,9 +1792,6 @@ class WebuiTest:
         self.logger.info(
             "Verifying opserver basic data on Monitor->Infra->Virtual routers->Details(basic view)...")
         self.logger.debug(self.dash)
-        if not self.ui.click_monitor_vrouters():
-            result = result and False
-        rows = self.ui.get_rows()
         vrouters_list_ops = self.ui.get_vrouters_list_ops()
         for n in range(len(vrouters_list_ops)):
             ops_vrouter_name = vrouters_list_ops[n]['name']
@@ -1795,7 +1800,8 @@ class WebuiTest:
                 (ops_vrouter_name))
             if not self.ui.click_monitor_vrouters():
                 result = result and False
-            rows = self.ui.get_rows()
+            self.ui.wait_till_ajax_done(self.browser, wait=15)
+            rows = self.ui.get_rows(canvas=True)
             for i in range(len(rows)):
                 match_flag = 0
                 obj_text = self.ui.get_slick_cell_text(rows[i], index=0)
@@ -1848,11 +1854,11 @@ class WebuiTest:
                     'build_info')).get('build-info')[0].get('build-id')
                 version = self.ui.get_version_string(version)
                 xmpp_messages = vrouters_ops_data.get(
-                    'VrouterStatsAgent').get('xmpp_stats_list')
-                for i, item in enumerate(xmpp_messages):
-                    if item['ip'] == ip_address:
-                        xmpp_in_msgs = item['in_msgs']
-                        xmpp_out_msgs = item['out_msgs']
+                        'VrouterControlStats').get('xmpp_stats')
+                for item in xmpp_messages:
+                    if item == ip_address:
+                        xmpp_in_msgs = xmpp_messages.get(item)['in_msgs']
+                        xmpp_out_msgs = xmpp_messages.get(item)['out_msgs']
                         xmpp_msgs_string = str(xmpp_in_msgs) + \
                             ' In, ' + \
                             str(xmpp_out_msgs) + ' Out'
@@ -1972,7 +1978,7 @@ class WebuiTest:
                     'ModuleClientState').get('client_info')
                 if analytics_data['status'] == 'Established':
                     analytics_primary_ip = analytics_data[
-                        'primary'].split(':')[0] + ' (Up)'
+                            'collector_ip'].split(':')[0] + ' (Up)'
                     tx_socket_bytes = analytics_data.get(
                         'tx_socket_stats').get('bytes')
                     tx_socket_size = self.ui.get_memory_string(
@@ -2058,9 +2064,6 @@ class WebuiTest:
         self.logger.info(
             "Verifying vrouter Opserver advance data on Monitor->Infra->Virtual Routers->Details(advance view) page......")
         self.logger.debug(self.dash)
-        if not self.ui.click_monitor_vrouters():
-            result = result and False
-        rows = self.ui.get_rows()
         vrouters_list_ops = self.ui.get_vrouters_list_ops()
         result = True
         for n in range(len(vrouters_list_ops)):
@@ -2070,7 +2073,8 @@ class WebuiTest:
                 (ops_vrouter_name))
             if not self.ui.click_monitor_vrouters():
                 result = result and False
-            rows = self.ui.get_rows()
+            self.ui.wait_till_ajax_done(self.browser, wait=15)
+            rows = self.ui.get_rows(canvas=True)
             for i in range(len(rows)):
                 match_flag = 0
                 obj_text = self.ui.get_slick_cell_text(rows[i], index=0)
@@ -2095,9 +2099,8 @@ class WebuiTest:
                     vrouters_list_ops[n]['href'])
                 new_list = []
                 element_list = [
-                    ('connected_networks', 11), ('interface_list', 10),
-                    ('virtual_machine_list', 8), ('dns_server_list_cfg', 7),
-                    ('vhost_cfg', 6), ('self_ip_list', 5)]
+                    ('dns_server_list_cfg', 8),
+                    ('vhost_cfg', 7), ('self_ip_list', 6)]
                 agent_name = 'VrouterAgent'
                 for element in element_list:
                     key1, val1, flag = self.ui.get_advanced_view_list(
@@ -2166,7 +2169,7 @@ class WebuiTest:
             if not self.ui.click_monitor_control_nodes():
                 result = result and False
             self.ui.wait_till_ajax_done(self.browser, wait=15)
-            rows = self.ui.get_rows()
+            rows = self.ui.get_rows(canvas=True)
             for i in range(len(rows)):
                 match_flag = 0
                 obj_text = self.ui.get_slick_cell_text(rows[i], index=0)
@@ -2370,7 +2373,7 @@ class WebuiTest:
                 "Clicking on Monitor->Control Nodes")
             if not self.ui.click_monitor_control_nodes():
                 result = result and False
-            rows = self.ui.get_rows()
+            rows = self.ui.get_rows(canvas=True)
             for i in range(len(rows)):
                 match_flag = 0
                 obj_text = self.ui.get_slick_cell_text(rows[i], index=0)
@@ -2397,12 +2400,13 @@ class WebuiTest:
                 dom_arry = self.ui.parse_advanced_view()
                 dom_arry_str = self.ui.get_advanced_view_str()
                 dom_arry_num = self.ui.get_advanced_view_num()
+                dom_arry_bool = self.ui.get_advanced_view_bool()
                 dom_arry_num_new = []
                 for item in dom_arry_num:
                     dom_arry_num_new.append(
                         {'key': item['key'].replace('\\', '"').replace(' ', ''), 'value': item['value']})
                 dom_arry_num = dom_arry_num_new
-                merged_arry = dom_arry + dom_arry_str + dom_arry_num
+                merged_arry = dom_arry + dom_arry_str + dom_arry_num + dom_arry_bool
                 if flag:
                     merged_arry.append({'key': key1, 'value': val1})
                 bgp_routers_ops_data = self.ui.get_details(
@@ -2472,7 +2476,7 @@ class WebuiTest:
             if not self.ui.click_monitor_analytics_nodes():
                 result = result and False
             self.ui.wait_till_ajax_done(self.browser, wait=15)
-            rows = self.ui.get_rows()
+            rows = self.ui.get_rows(canvas=True)
             for i in range(len(rows)):
                 match_flag = 0
                 obj_text = self.ui.get_slick_cell_text(rows[i], index=0)
@@ -2591,6 +2595,437 @@ class WebuiTest:
         return result
     # end verify_analytics_nodes_ops_advance_data_in_webui
 
+    def verify_database_nodes_ops_basic_data(self):
+        self.logger.info(
+            "Verifying database node basic data on Monitor -> Infra -> Database Nodes -> Basic view page")
+        self.logger.debug(self.dash)
+        database_nodes_list_ops = self.ui.get_database_nodes_list_ops()
+        result = True
+        for n in range(len(database_nodes_list_ops)):
+            ops_database_node_name = database_nodes_list_ops[n]['name']
+            self.logger.info(
+                "Host name %s exists in opserver, checking if it exists on webui as well" %
+                (ops_database_node_name))
+            if not self.ui.click_monitor_database_nodes():
+                result = result and False
+            self.ui.wait_till_ajax_done(self.browser, wait=15)
+            rows = self.ui.get_rows(canvas=True)
+            for i in range(len(rows)):
+                match_flag = 0
+                obj_text = self.ui.get_slick_cell_text(rows[i], index=0)
+                if obj_text == ops_database_node_name:
+                    self.logger.info(
+                        "Database node name %s found on webui" % (ops_database_node_name))
+                    self.logger.debug(self.dash)
+                    match_index = i
+                    match_flag = 1
+                    break
+            if not match_flag:
+                self.logger.error("Database node name %s not found on webui"
+                                    % (ops_database_node_name))
+                self.logger.debug(self.dash)
+            else:
+                self.logger.info("Verify database node basic view details for %s"
+                                    % (ops_database_node_name))
+                database_nodes_ops_data = self.ui.get_details(
+                        database_nodes_list_ops[n]['href'])
+                self.ui.click_monitor_database_nodes_basic(match_index)
+                ops_basic_data = []
+                host_name = database_nodes_list_ops[n]['name']
+                ip_address = database_nodes_ops_data.get(
+                    'ContrailConfig').get('elements').get(
+                        'database_node_ip_address').strip('"')
+                if not ip_address:
+                    ip_address = '--'
+                process_state_list = database_nodes_ops_data.get(
+                    'NodeStatus').get('process_info')
+                process_down_stop_time_dict = {}
+                process_up_start_time_dict = {}
+                for i, item in enumerate(process_state_list):
+                    if item['process_name'] == 'contrail-database-nodemgr':
+                        db_string = self.ui.get_process_status_string(
+                            item,
+                            process_down_stop_time_dict,
+                            process_up_start_time_dict)
+                    if item['process_name'] == 'kafka':
+                        kafka_string = self.ui.get_process_status_string(
+                            item,
+                            process_down_stop_time_dict,
+                            process_up_start_time_dict)
+                reduced_process_keys_dict = {}
+                for k, v in process_down_stop_time_dict.items():
+                    reduced_process_keys_dict[k] = v
+                if not reduced_process_keys_dict:
+                    recent_time = max(process_up_start_time_dict.values())
+                    overall_node_status_time = self.ui.get_node_status_string(
+                        str(recent_time))
+                    overall_node_status_string = [
+                        'Up since ' +
+                        status for status in overall_node_status_time]
+                else:
+                    overall_node_status_down_time = self.ui.get_node_status_string(
+                        str(max(reduced_process_keys_dict.values())))
+                    process_down_count = len(reduced_process_keys_dict)
+                    overall_node_status_string = str(
+                        process_down_count) + ' Process down'
+                version = database_nodes_ops_data.get('NodeStatus').get('build_info')
+                if not version:
+                    version = '--'
+                else:
+                    version = json.loads(database_nodes_ops_data.get('NodeStatus').get(
+                        'build_info')).get('build-info')[0].get('build-id')
+                    version = self.ui.get_version_string(version)
+                mem_info = database_nodes_ops_data.get(
+                    'DatabaseUsageInfo').get('database_usage')
+                for key, value in mem_info[0].iteritems():
+                    space_val = self.ui.get_memory_string(value, unit='KB')
+                    if key == 'disk_space_available_1k':
+                        avail_space = space_val
+                    if key == 'analytics_db_size_1k':
+                        ana_db_size = space_val
+                    if key == 'disk_space_used_1k':
+                        used_space = space_val
+                percent_space = int(round((database_nodes_ops_data.get('NodeStatus').get(
+                        'disk_usage_info').values()[0].get('percentage_partition_space_used'))))
+                dom_basic_view = self.ui.get_basic_view_infra()
+                node_status = self.browser.find_element_by_id('allItems').find_element_by_tag_name(
+                    'p').get_attribute('innerHTML').replace('\n', '').strip()
+                for i, item in enumerate(dom_basic_view):
+                    if item.get('key') == 'Overall Node Status':
+                        dom_basic_view[i]['value'] = node_status
+                    if item.get('key') == 'Used Space':
+                        dom_var = str(dom_basic_view[i]['value']).split('(')
+                        dom_basic_view[i]['value'] = dom_var[0].strip()
+                        dom_basic_view.append({
+                            'key': 'Percent Space Used',
+                            'value': int(round(float(dom_var[1].split()[0])))})
+                modified_ops_data = []
+                modified_ops_data.extend(
+                    [
+                        {
+                            'key': 'Hostname', 'value': host_name}, {
+                            'key': 'IP Address', 'value': ip_address}, {
+                            'key': 'Version', 'value': version}, {
+                            'key': 'Overall Node Status', 'value': overall_node_status_string}, {
+                            'key': 'Kafka', 'value': kafka_string}, {
+                            'key': 'Analytics DB Size', 'value': ana_db_size}, {
+                            'key': 'Available Space', 'value': avail_space}, {
+                            'key': 'Used Space', 'value': used_space}, {
+                            'key': 'Percent Space Used', 'value': percent_space
+                        }
+                     ]
+                )
+                if self.ui.match_ui_kv(
+                        modified_ops_data,
+                        dom_basic_view):
+                    self.logger.info(
+                        "Database nodes %s basic view details data matched" %
+                        (ops_database_node_name))
+                else:
+                    self.logger.error(
+                        "Database node %s basic view details data match failed" %
+                        (ops_database_node_name))
+                    result = result and False
+                ops_data = []
+                self.logger.info(
+                    "Verifying opserver basic data on Monitor->Infra->Database Nodes main page")
+                ops_data.extend(
+                    [
+                        {
+                            'key': 'Hostname', 'value': host_name}, {
+                            'key': 'IP Address', 'value': ip_address}, {
+                            'key': 'Version', 'value': version}, {
+                            'key': 'Status', 'value': overall_node_status_string}, {
+                            'key': 'Analytics DB Size', 'value': ana_db_size}, {
+                            'key': 'Available Space', 'value': avail_space}, {
+                            'key': 'Used Space', 'value': used_space
+                        }
+                     ]
+                )
+                if self.verify_database_nodes_ops_grid_page_data(
+                        host_name,
+                        ops_data):
+                    self.logger.info(
+                        "Database node %s main page data matched" %
+                        (ops_database_node_name))
+                else:
+                    self.logger.error(
+                        "Database node %s main page data match failed" %
+                        (ops_database_node_name))
+                    result = result and False
+        return result
+        # end verify_database_nodes_ops_basic_data
+
+    def verify_database_nodes_ops_advance_data(self):
+        self.logger.info(
+            "Verifying database nodes opserver data on Monitor->Infra->Database Nodes->Details(advance view) page")
+        self.logger.debug(self.dash)
+        database_nodes_list_ops = self.ui.get_database_nodes_list_ops()
+        result = True
+        for n in range(len(database_nodes_list_ops)):
+            ops_database_node_name = database_nodes_list_ops[n]['name']
+            self.logger.info(
+                "Database node host name %s exists in opserver..checking if exists in webui as well" %
+                (ops_database_node_name))
+            if not self.ui.click_monitor_database_nodes():
+                result = result and False
+            self.ui.wait_till_ajax_done(self.browser, wait=15)
+            rows = self.ui.get_rows(canvas=True)
+            for i in range(len(rows)):
+                match_flag = 0
+                obj_text = self.ui.get_slick_cell_text(rows[i], index=0)
+                if obj_text == ops_database_node_name:
+                    self.logger.info(
+                        "Database node name %s found in webui..Verifying advance view details..." %
+                        (ops_database_node_name))
+                    match_flag = 1
+                    match_index = i
+                    break
+            if not match_flag:
+                self.logger.error(
+                    "Database node name %s not found in webui" %
+                    (ops_database_node_name))
+                self.logger.debug(self.dash)
+            else:
+                self.logger.info(
+                    "Verify database nodes advance view details in webui for database node name %s " %
+                    (ops_database_node_name))
+                self.ui.click_monitor_database_nodes_advance(
+                    match_index)
+                database_nodes_ops_data = self.ui.get_details(
+                    database_nodes_list_ops[n]['href'])
+                self.ui.expand_advance_details()
+                dom_arry = self.ui.parse_advanced_view()
+                dom_arry_str = self.ui.get_advanced_view_str()
+                dom_arry_num = self.ui.get_advanced_view_num()
+                dom_arry_num_new = []
+                for item in dom_arry_num:
+                    dom_arry_num_new.append(
+                        {'key': item['key'].replace('\\', '"').replace(' ', ''), 'value': item['value']})
+                dom_arry_num = dom_arry_num_new
+                merged_arry = dom_arry + dom_arry_str + dom_arry_num
+                if 'DatabaseUsageInfo' in database_nodes_ops_data:
+                    ops_data = database_nodes_ops_data['DatabaseUsageInfo']
+                    modified_ops_data = []
+                    self.ui.extract_keyvalue(
+                        ops_data, modified_ops_data)
+                if 'CassandraStatusData' in database_nodes_ops_data:
+                    cassandra_state_ops_data = database_nodes_ops_data[
+                        'CassandraStatusData']
+                    modified_cassandra_state_ops_data = []
+                    self.ui.extract_keyvalue(
+                        cassandra_state_ops_data,
+                        modified_cassandra_state_ops_data)
+                complete_ops_data = modified_ops_data + modified_cassandra_state_ops_data
+                for k in range(len(complete_ops_data)):
+                    if isinstance(complete_ops_data[k]['value'], list):
+                        for m in range(len(complete_ops_data[k]['value'])):
+                            complete_ops_data[k]['value'][m] = str(
+                                complete_ops_data[k]['value'][m])
+                    elif isinstance(complete_ops_data[k]['value'], unicode):
+                        complete_ops_data[k]['value'] = str(
+                            complete_ops_data[k]['value'])
+                    else:
+                        complete_ops_data[k]['value'] = str(
+                            complete_ops_data[k]['value'])
+                if self.ui.match_ui_kv(
+                        complete_ops_data,
+                        merged_arry):
+                    self.logger.info(
+                        "Database node advance view data matched in webui")
+                else:
+                    self.logger.error(
+                        "Database node advance view data match failed in webui")
+                    result = result and False
+        return result
+    # end verify_database_nodes_ops_advance_data_in_webui
+
+    def verify_control_nodes_ops_peer_data(self):
+        self.logger.info(
+            "Verifying Control Nodes opserver peer data on Monitor->Infra->Control Nodes->Peers...")
+        self.logger.debug(self.dash)
+        bgp_routers_list_ops = self.ui.get_bgp_routers_list_ops()
+        result = True
+        for n in range(len(bgp_routers_list_ops)):
+            ops_bgp_routers_name = bgp_routers_list_ops[n]['name']
+            self.logger.info("Control node host name %s exists in opserver..checking if exists \
+                in webui as well" % (ops_bgp_routers_name))
+            if not self.ui.click_monitor_control_nodes():
+                result = result and False
+            self.ui.wait_till_ajax_done(self.browser, wait=15)
+            rows = self.ui.get_rows(canvas=True)
+            for i in range(len(rows)):
+                match_flag = 0
+                obj_text = self.ui.get_slick_cell_text(rows[i], index=0)
+                if obj_text == ops_bgp_routers_name:
+                    self.logger.info(
+                        "Control node name %s found on webui.." % (ops_bgp_routers_name))
+                    self.logger.debug(self.dash)
+                    match_index = i
+                    match_flag = 1
+                    break
+            if not match_flag:
+                self.logger.error("Control node name %s not found on webui" %
+                                  (ops_bgp_routers_name))
+            else:
+                self.logger.info("Verify peer details of control node name %s " %
+                                 (ops_bgp_routers_name))
+                self.ui.click_monitor_control_nodes_peers(match_index)
+                peer_rows = self.ui.get_rows(canvas=True)
+                xmpp_peer_list_ops = self.ui.get_xmpp_list_ops()
+                bgp_peer_list_ops = self.ui.get_bgp_peers_list_ops()
+                if len(peer_rows) != len(xmpp_peer_list_ops) + len(bgp_peer_list_ops):
+                    self.logger.warning("The number of rows on the Peers page is not consistent with \
+                            the total number of xmpp and bgp peer list on ops")
+                self.logger.info("Validating bgp peers list..")
+                for n in range(len(bgp_peer_list_ops)):
+                    ops_fq_name = bgp_peer_list_ops[n]['name']
+                    for i in range(len(peer_rows)):
+                        match_flag = 0
+                        obj_text = self.ui.get_slick_cell_text(peer_rows[i], index=2)
+                        if obj_text == 'BGP':
+                            caret_ele = ''
+                            try:
+                                caret_ele = self.ui.find_element('fa-caret-right', 'class',
+                                                             browser=peer_rows[i], elements=True)
+                            except TimeoutException:
+                                pass
+                            if caret_ele:
+                                self.ui.click_on_caret_down(browser=peer_rows[i], type='right')
+                            bgp_br = self.ui.find_element('slick-row-detail',
+                                                          'class', elements=True)[i]
+                            key_val = self.ui.find_element('key-value', 'class',
+                                                           browser=bgp_br)
+                            if key_val.text.split()[1] == ops_fq_name:
+                                self.logger.info(
+                                    "Peer fq_name %s matched on webui.. Verifying its details.." %
+                                        (ops_fq_name))
+                                self.logger.debug(self.dash)
+                                match_index = i
+                                match_flag = 1
+                                peer_fq_name = self.ui.get_slick_cell_text(peer_rows[i], 1)
+                                break
+                    if not match_flag:
+                        self.logger.error(
+                            "Peer fq name %s exists in opserver but not found on webui.." %
+                                (ops_fq_name))
+                        self.logger.debug(self.dash)
+                    else:
+                        self.ui.expand_advance_details()
+                        dom_arry = self.ui.parse_advanced_view()
+                        dom_arry_str = self.ui.get_advanced_view_str()
+                        dom_arry_num = self.ui.get_advanced_view_num()
+                        dom_arry_bool = self.ui.get_advanced_view_bool()
+                        dom_arry_num_new = []
+                        for item in dom_arry_num:
+                            dom_arry_num_new.append(
+                                {'key': item['key'].replace('\\', '"').replace(' ', ''), 'value': item['value']})
+                        dom_arry_num = dom_arry_num_new
+                        merged_arry = dom_arry + dom_arry_str + dom_arry_num + dom_arry_bool
+                        bgp_ops_data = self.ui.get_details(bgp_peer_list_ops[n]['href'])
+                        if 'BgpPeerInfoData' in bgp_ops_data:
+                            bgp_info_data = bgp_ops_data['BgpPeerInfoData']
+                            mod_bgp_info_data = []
+                            self.ui.extract_keyvalue(
+                                bgp_info_data, mod_bgp_info_data)
+                        if 'PeerFlapData' in bgp_ops_data:
+                            bgp_flap_data = bgp_ops_data['PeerFlapData']
+                            mod_bgp_flap_data = []
+                            self.ui.extract_keyvalue(
+                                bgp_flap_data, mod_bgp_flap_data)
+                        if 'PeerStatsData' in bgp_ops_data:
+                            bgp_stats_data = bgp_ops_data['PeerStatsData']
+                            mod_bgp_stats_data = []
+                            self.ui.extract_keyvalue(
+                                bgp_stats_data, mod_bgp_stats_data)
+                        complete_ops_data = mod_bgp_info_data + mod_bgp_flap_data + mod_bgp_stats_data
+                        for k in range(len(complete_ops_data)):
+                            if isinstance(complete_ops_data[k]['value'], list):
+                                for m in range(len(complete_ops_data[k]['value'])):
+                                    complete_ops_data[k]['value'][m] = str(
+                                        complete_ops_data[k]['value'][m])
+                            elif isinstance(complete_ops_data[k]['value'], unicode):
+                                complete_ops_data[k]['value'] = str(
+                                    complete_ops_data[k]['value'])
+                            else:
+                                complete_ops_data[k]['value'] = str(
+                                    complete_ops_data[k]['value'])
+                        if self.ui.match_ui_kv(
+                                complete_ops_data,
+                                merged_arry):
+                            self.logger.info(
+                                "Control node bgp peer data matched on webui")
+                        else:
+                            self.logger.error(
+                                "Control node bgp peer data match failed on webui")
+                            result = result and False
+                self.logger.info("Validating xmpp peers list..")
+                for n in range(len(xmpp_peer_list_ops)):
+                    ops_fq_name = xmpp_peer_list_ops[n]['name'].split(':')[1]
+                    for i in range(len(peer_rows)):
+                        match_flag = 0
+                        obj_text = self.ui.get_slick_cell_text(peer_rows[i])
+                        if obj_text == ops_fq_name:
+                            self.logger.info(
+                                "Peer fq_name %s matched on webui.. Verifying its details.." %
+                                    (ops_fq_name))
+                            self.logger.debug(self.dash)
+                            match_index = i
+                            match_flag = 1
+                            peer_fq_name = self.ui.get_slick_cell_text(peer_rows[i], 1)
+                            break
+                    if not match_flag:
+                        self.logger.error(
+                            "Peer fq name exists in opserver but %s not found on webui.." %
+                                (ops_fq_name))
+                        self.logger.debug(self.dash)
+                    else:
+                        self.ui.click_on_caret_down(browser=peer_rows[i], type='right')
+                        self.ui.expand_advance_details()
+                        dom_arry = self.ui.parse_advanced_view()
+                        dom_arry_str = self.ui.get_advanced_view_str()
+                        dom_arry_num = self.ui.get_advanced_view_num()
+                        dom_arry_num_new = []
+                        for item in dom_arry_num:
+                            dom_arry_num_new.append(
+                                {'key': item['key'].replace('\\', '"').replace(' ', ''), 'value': item['value']})
+                        dom_arry_num = dom_arry_num_new
+                        merged_arry = dom_arry + dom_arry_str + dom_arry_num
+                        peer_ops_data = self.ui.get_details(xmpp_peer_list_ops[n]['href'])
+                        if 'PeerStatsData' in peer_ops_data:
+                            peer_stats_data = peer_ops_data['PeerStatsData']
+                            mod_peer_stats_data = []
+                            self.ui.extract_keyvalue(
+                                peer_stats_data, mod_peer_stats_data)
+                        if 'XmppPeerInfoData' in peer_ops_data:
+                            peer_info_data = peer_ops_data['XmppPeerInfoData']
+                            mod_peer_info_data = []
+                            self.ui.extract_keyvalue(
+                                peer_info_data, mod_peer_info_data)
+                        complete_ops_data = mod_peer_stats_data + mod_peer_info_data
+                        for k in range(len(complete_ops_data)):
+                            if isinstance(complete_ops_data[k]['value'], list):
+                                for m in range(len(complete_ops_data[k]['value'])):
+                                    complete_ops_data[k]['value'][m] = str(
+                                        complete_ops_data[k]['value'][m])
+                            elif isinstance(complete_ops_data[k]['value'], unicode):
+                                complete_ops_data[k]['value'] = str(
+                                    complete_ops_data[k]['value'])
+                            else:
+                                complete_ops_data[k]['value'] = str(
+                                    complete_ops_data[k]['value'])
+                        if self.ui.match_ui_kv(
+                                complete_ops_data,
+                                merged_arry):
+                            self.logger.info(
+                                "Control node xmpp peer data matched on webui")
+                        else:
+                            self.logger.error(
+                                "Control node xmpp peer data match failed on webui")
+                            result = result and False
+        return result
+    # end verify_control_nodes_ops_peer_data
+
     def verify_vm_ops_basic_data(self, option='instances'):
         network_name = 'all networks'
         self.logger.info(
@@ -2602,7 +3037,6 @@ class WebuiTest:
             click_func = 'networks'
         if not eval('self.ui.click_monitor_' + click_func)('instances'):
             result = result and False
-        self.project_name_input = 'ctest-WebuiTestSanity-40417827'
         self.ui.select_project(self.project_name_input)
         if option != 'dashboard':
             self.ui.select_network(network_name)
@@ -2678,14 +3112,23 @@ class WebuiTest:
                             value = 'True'
                         else:
                             value = 'False'
+                    if key == 'IP Address':
+                        value = re.search('.*((\d+\.)+\d+)', value)
+                        if value:
+                            value = value.group(0)
+                    if key == 'CPU Utilization (%)':
+                        value = str(float(value))
+                    key = key.replace(' ', '_')
+                    if not value:
+                        continue
                     dom_arry_basic.append({'key': key, 'value': value})
                 intf_dict = {}
-                intf_dict['CPU Utilization (%)'] = vm_ops_data['VirtualMachineStats'][
-                    'cpu_stats'][0]['cpu_one_min_avg']
-                intf_dict['Used Memory'] = self.ui.get_memory_string(
+                intf_dict['CPU_Utilization_(%)'] = str(vm_ops_data['VirtualMachineStats'][
+                    'cpu_stats'][0]['cpu_one_min_avg'])
+                intf_dict['Used_Memory'] = self.ui.get_memory_string(
                     vm_ops_data['VirtualMachineStats']['cpu_stats'][0]['rss'],
                     'KB')
-                intf_dict['Total Memory'] = self.ui.get_memory_string(
+                intf_dict['Total_Memory'] = self.ui.get_memory_string(
                     vm_ops_data['VirtualMachineStats']['cpu_stats'][0]['vm_memory_quota'],
                     'KB')
                 vn_names = None
@@ -2713,17 +3156,17 @@ class WebuiTest:
                             break
                 ops_list = []
                 intf_dict['UUID'] = ops_data['uuid']
-                intf_dict['Label'] = ops_data['vrouter']
+                intf_dict['Virtual_Router'] = ops_data['vrouter']
                 intf_dict['Interfaces'] = len(
                     vm_ops_data['UveVirtualMachineAgent']['interface_list'])
-                intf_dict['IP Address'] = ip_addresses
-                intf_dict['Virtual Networks'] = vn_names
-                intf_dict['Interface Active'] = state
-                intf_dict['MAC Address'] = mac_addr
-                intf_dict['Health Check Active'] = health_check
+                intf_dict['IP_Address'] = ip_addresses
+                intf_dict['Virtual_Networks'] = vn_names
+                intf_dict['Interface_Active'] = state
+                intf_dict['MAC_Address'] = mac_addr
+                intf_dict['Health_Check_Active'] = health_check
                 self.ui.extract_keyvalue(intf_dict, ops_list)
                 self.ui.type_change(ops_list)
-                if self.ui.match_ui_values(
+                if self.ui.match_ui_kv(
                         ops_list, dom_arry_basic):
                     self.logger.info("VM basic view data matched")
                 else:
@@ -2964,7 +3407,7 @@ class WebuiTest:
                                 pol_list_joined = ', '.join(pol_name_list)
                                 complete_ops_data.append({'key': 'attached_policies',
                                     'value': pol_list_joined})
-                if self.ui.match_ui_values(
+                if self.ui.match_ui_kv(
                         complete_ops_data,
                         dom_arry_basic):
                     self.logger.info(
@@ -2993,7 +3436,7 @@ class WebuiTest:
             if not self.ui.click_monitor_config_nodes():
                 result = result and False
             self.ui.wait_till_ajax_done(self.browser, wait=15)
-            rows = self.ui.get_rows()
+            rows = self.ui.get_rows(canvas=True)
             for i in range(len(rows)):
                 match_flag = 0
                 obj_text = self.ui.get_slick_cell_text(rows[i], index=0)
@@ -3169,31 +3612,31 @@ class WebuiTest:
         return result
     # end verify_vn_ops_advance_data_in_webui
 
-    def verify_vm_ops_advance_data(self):
+    def verify_vm_ops_advance_data(self, option='networks'):
         network_name = 'all networks'
         self.logger.info(
             "Verifying instance opsserver advance data on Monitor->Networking->Instances->Instances summary(Advance view) page......")
         self.logger.debug(self.dash)
-        if not self.ui.click_monitor_instances():
-            result = result and False
-        self.ui.select_project(self.project_name_input)
-        self.ui.select_network(network_name)
-        rows = self.ui.get_rows()
         vm_list_ops = self.ui.get_vm_list_ops()
         result = True
         for k in range(len(vm_list_ops)):
             ops_uuid = vm_list_ops[k]['name']
             vm_ops_data = self.ui.get_details(vm_list_ops[k]['href'])
-            if not self.ui.click_monitor_instances():
+            if option == 'dashboard':
+                click_func = 'networking_dashboard'
+            else:
+                click_func = 'networks'
+            if not eval('self.ui.click_monitor_' + click_func)('instances'):
                 result = result and False
-            rows = self.ui.get_rows()
+            self.ui.select_project(self.project_name_input)
+            if option != 'dashboard':
+                self.ui.select_network(network_name)
+            br = self.ui.select_max_records('instances')
+            rows = self.ui.get_rows(br, canvas=True)
             self.logger.info(
                 "Vm %s exists in opserver..checking if exists in webui as well" %
                 (ops_uuid))
             for i in range(len(rows)):
-                if not self.ui.click_monitor_instances():
-                    result = result and False
-                rows = self.ui.get_rows()
                 self.ui.click_element(
                     ('slick-cell', 0), 'class', rows[i], elements=True)
                 ui_list = []
@@ -3208,19 +3651,22 @@ class WebuiTest:
                     match_index = i
                     match_flag = 1
                     break
+                else:
+                    self.ui.click_element(('slick-cell', 0), 'class', rows[i], elements=True)
             if not match_flag:
                 self.logger.error(
                     "VM exists in opserver but uuid %s not found in webui..." %
-                    (ops_vm_name))
+                    (ops_uuid))
                 self.logger.debug(self.dash)
             else:
                 self.ui.click_monitor_instances_advance(
                     match_index,
-                    length=len(vm_list_ops))
+                    length=len(vm_list_ops),
+                    option=option)
                 self.logger.info(
                     "Verify advance view details for uuid %s " % (ops_uuid))
                 plus_objs = self.ui.find_element(
-                    'i.node-2.icon-plus.expander',
+                    'i.node-2.fa-plus.expander',
                     'css',
                     elements=True)
                 self.ui.click(plus_objs)
@@ -3993,6 +4439,8 @@ class WebuiTest:
                                 source_network = api_src_vnet
                             else:
                                 src_vnet_split = api_src_vnet.split(':')
+                                if len(src_vnet_split) < 2:
+                                    continue
                                 if project_name == src_vnet_split[1]:
                                     source_network = src_vnet_split[2]
                                 else:
@@ -5892,7 +6340,6 @@ class WebuiTest:
         self.detach_ipam_from_dns_server()
         self.delete_bgp_aas()
         self.delete_link_local_service()
-        self.delete_svc_appliance_set()
         self.delete_network_route_table()
         self.delete_routing_policy()
         self.delete_route_aggregate()
@@ -5927,6 +6374,7 @@ class WebuiTest:
 
     def delete_svc_appliance(self):
         self.ui.delete_element(element_type='svc_appliance_delete')
+        self.delete_svc_appliance_set()
     # end delete_svc_appliance
 
     def delete_svc_appliance_set(self):
@@ -5996,7 +6444,7 @@ class WebuiTest:
                 for ipam in ipams:
                     self.ui.click_element([
                         's2id_user_created_network_ipams_dropdown', \
-                            'select2-search-choice-close'], ['id', 'class'])
+                            'select2-search-choice-close'], ['id', 'class'], wait=5)
                 if not self.ui.click_on_create(
                         'DNS Server', 'dns_servers', save=True):
                     result = result and False
@@ -6216,7 +6664,7 @@ class WebuiTest:
             self.logger.info(
                 'Creating instance name %s with image name %s using openstack horizon' %
                 (fixture.vm_name, fixture.image_name))
-            if self.os_release == 'mitaka':
+            if self.os_release in ['mitaka', 'newton']:
                 self.ui.send_keys(fixture.vm_name, 'name', 'name',
                                       browser=self.browser_openstack)
                 availability_zone = "//select[@id='availability-zone']/option[text()='nova']"
@@ -6673,7 +7121,7 @@ class WebuiTest:
                 result = result and False
             self.ui.select_project(fixture.project_name)
             self.ui.wait_till_ajax_done(self.browser)
-            rows = self.ui.get_rows()
+            rows = self.ui.get_rows(canvas=True)
             self.logger.info(
                 "Creating floating ip pool %s using contrail-webui" %
                 (pool_name))
@@ -7501,7 +7949,7 @@ class WebuiTest:
         webui_data = []
         self.ui.click_monitor_analytics_nodes()
         self.ui.wait_till_ajax_done(self.browser, wait=15)
-        rows = self.ui.get_rows()
+        rows = self.ui.get_rows(canvas=True)
         for hosts in range(len(rows)):
             base_indx = 0
             if rows[base_indx]:
@@ -7520,9 +7968,9 @@ class WebuiTest:
                     webui_data.append({'key': 'CPU',
                                            'value': (row_div_list[base_indx + 4].text) + ' %'})
                     webui_data.append(
-                        {'key': 'Memory', 'value': row_div_list[base_indx + 5].text})
+                        {'key': 'Memory', 'value': row_div_list[base_indx + 6].text})
                     webui_data.append({'key': 'Generators',
-                                           'value': row_div_list[base_indx + 6].text})
+                                           'value': row_div_list[base_indx + 7].text})
                     if self.ui.match_ui_kv(ops_data, webui_data):
                         return True
                     else:
@@ -7532,67 +7980,105 @@ class WebuiTest:
     def verify_vrouter_ops_grid_page_data(self, host_name, ops_data):
         webui_data = []
         self.ui.click_monitor_vrouters()
-        rows = self.ui.get_rows()
+        self.ui.wait_till_ajax_done(self.browser, wait=15)
+        rows = self.ui.get_rows(canvas=True)
         base_indx = 0
         for hosts in range(len(rows)):
-            if self.ui.get_slick_cell_text(
-                    rows[hosts],
-                    base_indx) == host_name:
-                webui_data.append(
-                    {'key': 'Hostname', 'value': self.ui.get_slick_cell_text(rows[hosts], base_indx)})
-                webui_data.append({'key': 'IP Address', 'value': self.ui.get_slick_cell_text(
-                    rows[hosts], base_indx + 1)})
-                webui_data.append(
-                    {'key': 'Version', 'value': self.ui.get_slick_cell_text(rows[hosts], base_indx + 2)})
-                webui_data.append(
-                    {'key': 'Status', 'value': self.ui.get_slick_cell_text(rows[hosts], base_indx + 3)})
-                webui_data.append({'key': 'CPU', 'value': self.ui.get_slick_cell_text(
-                    rows[hosts], base_indx + 4) + ' %'})
-                webui_data.append(
-                    {'key': 'Memory', 'value': self.ui.get_slick_cell_text(rows[hosts], base_indx + 5)})
-                webui_data.append({'key': 'Networks', 'value': self.ui.get_slick_cell_text(
-                    rows[hosts], base_indx + 6)})
-                webui_data.append({'key': 'Instances', 'value': self.ui.get_slick_cell_text(
-                    rows[hosts], base_indx + 7)})
-                webui_data.append({'key': 'Interfaces', 'value': self.ui.get_slick_cell_text(
-                    rows[hosts], base_indx + 8)})
-                if self.ui.match_ui_kv(ops_data, webui_data):
-                    return True
-                else:
-                    return False
+            if rows[base_indx]:
+                row_div_list = self.ui.find_element('div', 'tag',
+                                        browser=rows[base_indx], elements=True,
+                                        if_elements=[1])
+                if row_div_list[base_indx].text == host_name:
+                    webui_data.append(
+                        {'key': 'Hostname', 'value': row_div_list[base_indx].text})
+                    webui_data.append({'key': 'IP Address',
+                                        'value': row_div_list[base_indx + 1].text})
+                    webui_data.append({'key': 'Version',
+                                        'value': row_div_list[base_indx + 2].text})
+                    webui_data.append({'key': 'Status',
+                                        'value': row_div_list[base_indx + 3].text})
+                    webui_data.append({'key': 'CPU',
+                                        'value': (row_div_list[base_indx + 4].text) + ' %'})
+                    webui_data.append(
+                        {'key': 'Memory', 'value': row_div_list[base_indx + 5].text})
+                    webui_data.append({'key': 'Networks',
+                                        'value': row_div_list[base_indx + 6].text})
+                    webui_data.append({'key': 'Instances',
+                                        'value': row_div_list[base_indx + 7].text})
+                    webui_data.append({'key': 'Interfaces',
+                                        'value': row_div_list[base_indx + 8].text})
+        if self.ui.match_ui_kv(ops_data, webui_data):
+            return True
+        else:
+            return False
     # end verify_vrouter_ops_grid_page_data
 
     def verify_bgp_routers_ops_grid_page_data(self, host_name, ops_data):
         webui_data = []
         self.ui.click_monitor_control_nodes()
-        rows = self.ui.get_rows()
+        self.ui.wait_till_ajax_done(self.browser, wait=15)
+        rows = self.ui.get_rows(canvas=True)
         base_indx = 0
         for hosts in range(len(rows)):
-            if rows[hosts].text:
-                if self.ui.get_slick_cell_text(
-                        rows[hosts],
-                        base_indx) == host_name:
+            if rows[base_indx]:
+                row_div_list = self.ui.find_element('div', 'tag',
+                        browser=rows[base_indx], elements=True, if_elements=[1])
+                if row_div_list[base_indx].text == host_name:
                     webui_data.append(
-                        {'key': 'Hostname', 'value': self.ui.get_slick_cell_text(rows[hosts], base_indx)})
-                    webui_data.append({'key': 'IP Address', 'value': self.ui.get_slick_cell_text(
-                        rows[hosts], base_indx + 1)})
+                        {'key': 'Hostname', 'value': row_div_list[base_indx].text})
                     webui_data.append(
-                        {'key': 'Version', 'value': self.ui.get_slick_cell_text(rows[hosts], base_indx + 2)})
+                        {'key': 'IP Address', 'value': row_div_list[base_indx + 1].text})
                     webui_data.append(
-                        {'key': 'Status', 'value': self.ui.get_slick_cell_text(rows[hosts], base_indx + 3)})
-                    webui_data.append({'key': 'CPU', 'value': self.ui.get_slick_cell_text(
-                        rows[hosts], base_indx + 4) + ' %'})
+                        {'key': 'Version', 'value': row_div_list[base_indx + 2].text})
                     webui_data.append(
-                        {'key': 'Memory', 'value': self.ui.get_slick_cell_text(rows[hosts], base_indx + 5)})
+                        {'key': 'Overall Node Status', 'value': row_div_list[base_indx + 3].text})
+                    webui_data.append({'key': 'CPU', 'value': (
+                            row_div_list[base_indx + 4].text) + ' %'})
                     webui_data.append(
-                        {'key': 'Peers', 'value': self.ui.get_slick_cell_text(rows[hosts], base_indx + 6)})
-                    webui_data.append({'key': 'vRouters', 'value': self.ui.get_slick_cell_text(
-                        rows[hosts], base_indx + 7)})
+                        {'key': 'Memory', 'value': row_div_list[base_indx + 6].text})
+                    webui_data.append(
+                        {'key': 'Peers', 'value': row_div_list[base_indx + 7].text})
+                    webui_data.append({'key': 'vRouters', 'value': row_div_list[
+                            base_indx + 8].text})
         if self.ui.match_ui_kv(ops_data, webui_data):
             return True
         else:
             return False
     # end verify_bgp_routers_ops_grid_page_data
+
+    def verify_database_nodes_ops_grid_page_data(self, host_name, ops_data):
+        webui_data = []
+        self.ui.click_monitor_database_nodes()
+        self.ui.wait_till_ajax_done(self.browser, wait=15)
+        rows = self.ui.find_element('grid-canvas', 'class')
+        base_indx = 0
+        rows = self.ui.get_rows(rows)
+        for hosts in range(len(rows)):
+            if rows[base_indx]:
+                row_div_list = self.ui.find_element('div', 'tag',
+                                                        browser=rows[base_indx], elements=True,
+                                                        if_elements=[1])
+                if row_div_list[base_indx].text == host_name:
+                    webui_data.append(
+                        {'key': 'Hostname', 'value': row_div_list[base_indx].text})
+                    webui_data.append({'key': 'IP Address',
+                                           'value': row_div_list[base_indx + 1].text})
+                    webui_data.append(
+                        {'key': 'Version', 'value': row_div_list[base_indx + 2].text})
+                    webui_data.append(
+                        {'key': 'Status', 'value': row_div_list[base_indx + 3].text})
+                    webui_data.append(
+                        {'key': 'Analytics DB Size',
+                                           'value': row_div_list[base_indx + 4].text})
+                    webui_data.append(
+                        {'key': 'Available Space', 'value': row_div_list[base_indx + 5].text})
+                    webui_data.append(
+                        {'key': 'Used Space', 'value': row_div_list[base_indx + 6].text})
+                if self.ui.match_ui_kv(ops_data, webui_data):
+                    return True
+                else:
+                    return False
+    # end verify_database_nodes_ops_grid_page_data
 
     def check_alerts(self):
         self.logger.info("Capturing screenshot for alerts...")
@@ -7857,6 +8343,8 @@ class WebuiTest:
             vn_list_ops_config = vn_list_ops.get('ContrailConfig')
             if vn_list_ops_config:
                 vn_list_ops_element = vn_list_ops_config.get('elements')
+                if type(vn_list_ops_element) is list:
+                    vn_list_ops_element = vn_list_ops_element[0][0]
                 if vn_list_ops_element:
                     if option == 'UUID':
                         ops_uuid = vn_list_ops_element.get('uuid')
@@ -7890,6 +8378,8 @@ class WebuiTest:
                              self.logger.error("Policy is not there under contrail config in OPS")
                     elif re.search('Subnet', option):
                         ops_subnet = vn_list_ops_element.get('network_ipam_refs')
+                        if type(ops_subnet) is list:
+                            ops_subnet = ops_subnet[0]
                         ops_sub_out = re.search(var_list[0] + ".*uuid", str(ops_subnet))
                         if ops_sub_out:
                             reg_mask = re.search(var_list[0], ops_sub_out.group())
@@ -10192,8 +10682,10 @@ class WebuiTest:
         for svc_appl in range(len(svc_appl_sets_list_api['service-appliance-sets'])):
             api_fq_name = svc_appl_sets_list_api[
                 'service-appliance-sets'][svc_appl]['fq_name'][1]
+            if api_fq_name in ['opencontrail', 'native']:
+                continue
             self.ui.click_configure_svc_appliance_set()
-            rows = self.ui.get_rows()
+            rows = self.ui.get_rows(canvas=True)
             for row in range(len(rows)):
                 dom_arry_basic = []
                 match_flag = 0
@@ -10213,7 +10705,7 @@ class WebuiTest:
                 self.logger.debug(self.dash)
             else:
                 rows_detail = self.ui.click_basic_and_get_row_details(
-                                'svc_appliance_set', match_index)[1]
+                                'svc_appliance_set', match_index, canvas=True)[1]
                 for detail in range(len(rows_detail)):
                     key_value = rows_detail[detail].text.split('\n')
                     key = str(key_value.pop(0))
@@ -10462,3 +10954,185 @@ class WebuiTest:
                     return result
         return result
     # end verify_routers_api_data
+
+    def verify_vmi_ops_basic_data(self, option='interfaces'):
+        network_name = 'all networks'
+        self.logger.info("Verifying interfaces opserver data on Monitor->Networking->Interfaces \
+                        summary(basic view) page ..")
+        self.logger.debug(self.dash)
+        vmi_list_ops = self.ui.get_vmi_list_ops()
+        result = True
+        for ind in range(len(vmi_list_ops)):
+            vmi_name = vmi_list_ops[ind]['name']
+            vmi_ops_data_value = self.ui.get_details(vmi_list_ops[ind]['href'])
+            if option == 'dashboard':
+                click_func = 'networking_dashboard'
+            else:
+                click_func = 'networks'
+            if not eval('self.ui.click_monitor_' + click_func)('interfaces'):
+                result = result and False
+            self.ui.select_project(self.project_name_input)
+            if option != 'dashboard':
+                self.ui.select_network(network_name)
+            br = self.ui.select_max_records('interfaces')
+            rows = self.ui.get_rows(br, canvas=True)
+            self.logger.info(
+                "Vmi uuid %s exists in opserver..checking if exists in webui as well" %
+                (vmi_name))
+            for ind1 in range(len(rows)):
+                match_flag = 0
+                ui_vmi_name = self.ui.get_slick_cell_text(rows[ind1])
+                if ui_vmi_name == vmi_name:
+                    self.logger.info(
+                        "Vmi name %s matched in webui..Verifying basic view details..." %
+                        (ui_vmi_name))
+                    self.logger.debug(self.dash)
+                    match_index = ind1
+                    match_flag = 1
+                    break
+            if not match_flag:
+                self.logger.error(
+                    "Vmi exists in opserver but vm %s not found in webui..." %
+                    (vmi_name))
+                self.logger.debug(self.dash)
+            else:
+                rows_detail = self.ui.click_basic_and_get_row_details(click_func, match_index,
+                              canvas=True, search_ele='project-interfaces', browser=br,
+                              project='interfaces', click_tab='monitor')[1]
+                self.logger.info(
+                    "Verify interfaces basic view details %s " % (ui_vmi_name))
+                dom_arry_basic = []
+                for detail in range(len(rows_detail)):
+                    key_value = rows_detail[detail].text.split('\n')
+                    key = str(key_value.pop(0))
+                    if len(key_value) > 1 :
+                        value = key_value
+                    elif len(key_value) ==  1:
+                        value = key_value[0]
+                    else:
+                        value = None
+                    if key in ['Active', 'Health Check Active']:
+                        value = value.strip()
+                    dom_arry_basic.append({'key': key, 'value': value})
+                ops_data_list = []
+                vmi_ops_data = vmi_ops_data_value['ContrailConfig']
+                fq_name_list = vmi_ops_data['elements']['fq_name'].strip('\[').strip('\]').split(',')
+                name = ''
+                for index, fq_name in enumerate(fq_name_list):
+                    name += fq_name_list[index].strip(" \"")
+                    if index != len(fq_name_list) - 1:
+                        name += ':'
+                ops_data_list.append({'key': 'Name', 'value': name})
+                key_list = ['IP Address', 'MAC Address', 'Gateway', 'Virtual Network',
+                            'Virtual Machine Name', 'Active', 'Health Check Active', 'Floating IPs']
+                value_list = ['ip6_address', 'mac_address', 'gateway', 'virtual_network', 'vm_name',
+                            'active', 'is_health_check_active', 'floating_ips']
+                if 'UveVMInterfaceAgent' in vmi_ops_data_value:
+                    vmi_ops_data = vmi_ops_data_value['UveVMInterfaceAgent']
+                    for index, value in enumerate(value_list):
+                        if value in vmi_ops_data:
+                            if value == 'ip6_address':
+                                if not re.search('(\:\:)', vmi_ops_data[value]):
+                                    value = vmi_ops_data[value]
+                                elif 'ip_address' in vmi_ops_data:
+                                    value = vmi_ops_data['ip_address']
+                            elif value in ['active', 'is_health_check_active']:
+                                value = 'true'
+                            else:
+                                value = vmi_ops_data[value]
+                        ops_data_list.append({'key': key_list[index], 'value': value})
+                if self.ui.match_ui_kv(ops_data_list, dom_arry_basic):
+                    self.logger.info("Interface basic view data matched")
+                else:
+                    self.logger.error("Interface basic data match failed")
+                    result = result and False
+        return result
+    # end verify_vmi_ops_basic_data
+
+    def verify_project_api_basic_data(self):
+        self.logger.info("Verifying project data on Monitor->Networking->Projects \
+                        (basic view) page ..")
+        self.logger.debug(self.dash)
+        project_list_api = self.ui.get_project_list_api()
+        project_list = project_list_api.get('projects')
+        result = True
+        for index, project in enumerate(project_list_api['projects']):
+            prj_name = project.get('fq_name')[1]
+            if prj_name in ['default-project', 'services', 'admin']:
+                continue
+            if not eval('self.ui.click_monitor_networks')('projects'):
+                result = result and False
+            br = self.ui.select_max_records(grid_name='projects')
+            rows = self.ui.get_rows(br, canvas=True)
+            self.logger.info(
+                "Project %s exists in opserver..checking if exists in webui as well" %
+                (prj_name))
+            for ind1 in range(len(rows)):
+                match_flag = 0
+                ui_prj_name = self.ui.get_slick_cell_text(rows[ind1])
+                if prj_name in ui_prj_name:
+                    self.logger.info(
+                        "Project name %s matched in webui..Verifying basic view details..." %
+                        (ui_prj_name))
+                    self.logger.debug(self.dash)
+                    match_index = ind1
+                    match_flag = 1
+                    break
+            if not match_flag:
+                self.logger.error(
+                    "Project exists in opserver but %s not found in webui..." %
+                    (ui_prj_name))
+                self.logger.debug(self.dash)
+            else:
+                rows_detail = self.ui.click_basic_and_get_row_details('networks', match_index,
+                              canvas=True, project='projects', click_tab='monitor')[1]
+                self.logger.info(
+                    "Verify interfaces basic view details %s " % (ui_prj_name))
+                dom_arry_basic = []
+                for detail in range(len(rows_detail)):
+                    key_value = rows_detail[detail].text.split('\n')
+                    key = str(key_value.pop(0))
+                    if len(key_value) > 1 :
+                        value = key_value
+                    elif len(key_value) ==  1:
+                        value = key_value[0]
+                    else:
+                        value = None
+                    dom_arry_basic.append({'key': key, 'value': value})
+                api_data_list = []
+                prj_api_data = self.ui.get_details(project['href'])['project']
+                fq_name = prj_api_data['fq_name'][0] + ':' + prj_api_data['fq_name'][1]
+                api_data_list.append({'key': 'Name', 'value': fq_name})
+                if 'virtual_networks' in prj_api_data:
+                    virt_net = prj_api_data['virtual_networks']
+                    virt_net_count = 0
+                    if len(virt_net) > 3:
+                        virt_net_count = len(virt_net) - 3
+                    api_data_list.append({'key':'Virtual Networks', 'value': str(virt_net_count)})
+                vms_data_api = self.ui.get_vm_list_api()
+                if vms_data_api:
+                    vms_data = vms_data_api.get('virtual-machines')
+                    vm_count = 0
+                    for vm in vms_data:
+                        vm_data = self.ui.get_details(vm['href'])
+                        if 'virtual-machine' in vm_data:
+                            if 'virtual_machine_interface_back_refs' in vm_data['virtual-machine']:
+                                project_name = vm_data['virtual-machine'][
+                                               'virtual_machine_interface_back_refs'][0]['to'][1]
+                                if project_name == prj_name:
+                                    vm_count += 1
+                    api_data_list.append({'key': 'Instances', 'value': str(vm_count)})
+                if not eval('self.ui.click_monitor_networking_dashboard')('interfaces'):
+                    result = result and False
+                self.ui.select_project(prj_name)
+                self.ui.wait_till_ajax_done(self.browser)
+                br = self.ui.select_max_records(option='interfaces')
+                rows = self.ui.get_rows(br, canvas=True)
+                api_data_list.append({'key': 'Interfaces', 'value': str(len(rows))})
+                if self.ui.match_ui_kv(api_data_list, dom_arry_basic):
+                    self.logger.info("Project basic view data matched")
+                else:
+                    self.logger.error("Project basic data match failed")
+                    result = result and False
+        return result
+    # end verify_projects_api_basic_data

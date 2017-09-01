@@ -4,50 +4,49 @@ from common import vcenter_libs
 from tcutils.timeout import timeout, TimeoutError
 
 try:
-   from novaclient import exceptions as novaException
+    from novaclient import exceptions as novaException
 
-   class OsVmMixin:
+    class OsVmMixin:
 
-       ''' Mixin class implements CRUD methods for virtual machine
-       '''
+        ''' Mixin class implements CRUD methods for virtual machine
+        '''
 
-       def create_virtual_machine (self, **kwargs):
-           assert kwargs['type'] == 'openstack', "Unsupport argument type"
-           #args = copy.deepcopy(kwargs)
-           args = kwargs
-           del args['type']
-           lst = []
-           for nic in args['networks']:
-               if nic.keys()[0] == 'port':
-                   lst.append({'port-id': nic.values()[0]})
-               else:
-                   lst.append({'net-id': nic.values()[0]})
-           args['nics'] = lst
-           del args['networks']
-           obj = self._nh.servers.create(**args)
-           return obj.id
+        def create_virtual_machine (self, **kwargs):
+            assert kwargs['type'] == 'openstack', "Unsupport argument type"
+            #args = copy.deepcopy(kwargs)
+            del args['type']
+            lst = []
+            for nic in args['networks']:
+                if nic.keys()[0] == 'port':
+                    lst.append({'port-id': nic.values()[0]})
+                else:
+                    lst.append({'net-id': nic.values()[0]})
+            args['nics'] = lst
+            del args['networks']
+            obj = self._nh.servers.create(**args)
+            return obj.id
 
-       def get_virtual_machine (self, uuid):
-           ret = self._nh.servers.list(search_opts={'uuid':uuid})
-           if ret:
-               vm_details = VmDetails(ret[0], self._nh)
-               return vm_details
-           return None
+        def get_virtual_machine (self, uuid):
+            ret = self._nh.servers.list(search_opts={'uuid':uuid})
+            if ret:
+                vm_details = VmDetails(ret[0], self._nh)
+                return vm_details
+            return None
 
-       def delete_virtual_machine (self, obj=None, uuid=None):
-           uuid = uuid or obj.id
-           self._nh.servers.delete(uuid)
+        def delete_virtual_machine (self, obj=None, uuid=None):
+            uuid = uuid or obj.id
+            self._nh.servers.delete(uuid)
 
-       def update_virtual_machine (self, obj=None, uuid=None, **kwargs):
-           assert args['type'] == 'openstack', "Unsupport argument type"
-           args = copy.deepcopy(kwargs)
-           del args['type']
-           pass #TODO
+        def update_virtual_machine (self, obj=None, uuid=None, **kwargs):
+            assert args['type'] == 'openstack', "Unsupport argument type"
+            args = copy.deepcopy(kwargs)
+            del args['type']
+            pass #TODO
 
 except ImportError:
-   class OsVmMixin:
-       pass
-
+    class OsVmMixin:
+        pass
+      
 class VmDetails():
     '''
     Class to get VM details from nova
@@ -173,3 +172,4 @@ class VmDetails():
                     self.logger.error('VM %s has failed to come up' %vm_obj.name)
                 self.logger.error('Nova failed to get host of the VM') '''
     # end get_host_of_vm
+

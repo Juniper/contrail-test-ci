@@ -9,7 +9,7 @@ class ContrailVncApi(object):
 
     def __init__(self, vnc, _log=None):
         self._vnc = vnc
-        self._log = _log or logging.get_log(__name__)
+        self._log = _log or logging.getLogger(__name__)
 
     def __getattr__(self, name):
         # Call self._vnc method if no matching method exists
@@ -1131,3 +1131,29 @@ class ContrailVncApi(object):
 
     def get_vn_obj_from_id(self, uuid):
         return self._vnc.virtual_network_read(id=uuid)
+
+    def create_router(self, name, project_obj):
+
+        obj = LogicalRouter(name=name, parent_obj=project_obj, display_name=name)
+
+        self._vnc.logical_router_create(obj)
+
+        return obj
+
+    def delete_router(self, router_obj):
+
+        self._vnc.logical_router_delete(id=router_obj.uuid)
+
+    def connect_gateway_with_router(self, router_obj, public_network_obj):
+
+        # Add public network to router as external_gateway
+        if type(public_network_obj).__name__ is 'VirtualNetwork':
+            router_obj.add_virtual_network(public_network_obj)
+        else:
+            router_obj.add_virtual_network(self.get_vn_obj_from_id(public_network_obj['network']['id']))
+
+        # Update logical router object
+        self._vnc.logical_router_update(router_obj)
+        return router_obj
+
+

@@ -9,6 +9,7 @@ from common.servicechain.verify import VerifySvcChain
 from common.ecmp.ecmp_verify import ECMPVerify
 from common.floatingip.config import CreateAssociateFip
 from random import randint
+from tcutils.tcpdump_utils import *
 
 class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
 
@@ -37,9 +38,6 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         svm = self.get_svms_in_si(si_fixture)
 
         sessions = self.tcpdump_on_all_analyzer(si_fixture)
-        # Install traffic package in VM
-        #self.vm1_fixture.install_pkg("Traffic")
-        #self.vm2_fixture.install_pkg("Traffic")
 
         svm = self.get_svms_in_si(si_fixture)
         for svm_name, (session, pcap) in sessions.items():
@@ -47,10 +45,10 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                 count = 5
                 if replies:
                     count += 5
-                errmsg = "Ping to right VM ip %s from left VM failed" % (
-                    dest_ip)
-                assert left_vm_fixture.ping_to_ip(
-                    dest_ip), errmsg
+                errmsg = "Ping to right VM ip %s from left VM %s" % (
+                    dest_ip, 'failed' if replies else 'passed')
+                result = left_vm_fixture.ping_to_ip(dest_ip)
+                assert result if replies else not result, errmsg
             elif proto == 'udp':
                 sport = 8001
                 dport = 9001
@@ -61,7 +59,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                 assert sent and recv == sent, errmsg
                 count = sent
             # end if
-            if si_fixture.service_mode == 'transparent' and \
+            if replies and si_fixture.service_mode == 'transparent' and \
                 left_vm_fixture.vm_node_ip != right_vm_fixture.vm_node_ip:
                 count = count * 2
             if proto == 'icmp':
@@ -71,7 +69,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         return
     # end verify_proto_based_mirror
 
-    def verify_svc_mirroring_with_floating_ip(self):
+    def verify_svc_mirroring_with_floating_ip(self, *args, **kwargs):
         """Validate the service mirrroring with flaoting IP
            Test steps:
            1. Create the SI/ST in svc_mode specified.
@@ -85,8 +83,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
            single node : Pkts mirrored to the analyzer should be equal to 'count'
            multinode :Pkts mirrored to the analyzer should be equal to '2xcount'
         """
-
-        ret_dict = self.config_svc_mirroring()
+        ret_dict = self.config_svc_mirroring(*args, **kwargs)
         left_vn_fixture = ret_dict['left_vn_fixture']
         right_vn_fixture = ret_dict['right_vn_fixture']
         left_vm_fixture = ret_dict['left_vm_fixture']
@@ -149,6 +146,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         """
         ret_dict = self.config_svc_mirroring()
         left_vn_fixture = ret_dict['left_vn_fixture']
+        left_vm_fixture = ret_dict['left_vm_fixture']
         right_vn_fixture = ret_dict['right_vn_fixture']
         right_vm_fixture = ret_dict['right_vm_fixture']
         si_fixture = ret_dict['si_fixture']
@@ -293,9 +291,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                 self.logger.warning('No mirroring action seen')
         return result
 
-
     @retry(delay=2, tries=6)
-    def verify_port_mirroring(self, src_vm, dst_vm, mirr_vm):
+    def verify_port_mirroring(self, src_vm, dst_vm, mirr_vm, vlan=None):
         result = True
         svm = mirr_vm.vm_obj
         if svm.status == 'ACTIVE':
@@ -303,27 +300,42 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             host = self.get_svm_compute(svm_name)
             tapintf = self.get_svm_tapintf(svm_name)
         session = ssh(host['host_ip'], host['username'], host['password'])
-        pcap = self.start_tcpdump(session, tapintf)
-        assert src_vm.ping_with_certainty(dst_vm.vm_ip, count=5, size='1400')
+        pcap = self.start_tcpdump(session, tapintf, vlan=vlan)
+        src_ip = src_vm.vm_ip
+        dst_ip = dst_vm.vm_ip
+        if vlan:
+            sub_intf = 'eth0.' + str(vlan)
+            cmds = "/sbin/ifconfig " + sub_intf + " | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'"
+            src_ip = src_vm.run_cmd_on_vm(cmds=[cmds]).values()[0]
+            dst_ip = dst_vm.run_cmd_on_vm(cmds=[cmds]).values()[0]
+        assert src_vm.ping_with_certainty(dst_ip, count=5, size='1400')
         self.logger.info('Ping from %s to %s executed with c=5, expected mirrored packets 5 Ingress,5 Egress count = 10'
-            % (src_vm.vm_ip, dst_vm.vm_ip))
+            % (src_ip, dst_ip))
         exp_count = 10
-        filt = '| grep \"length [1-9][4-9][0-9][0-9][0-9]*\"'
-        mirror_pkt_count = self.stop_tcpdump(session, pcap, filt)
-        sleep(10)
+        filters = '| grep \"length [1-9][4-9][0-9][0-9][0-9]*\"'
+        if self.inputs.pcap_on_vm:
+            output, mirror_pkt_count = stop_tcpdump_for_vm_intf(
+                None, None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, filters=filters)
+            mirror_pkt_count = int(mirror_pkt_count[0])
+        else:
+            mirror_pkt_count = self.stop_tcpdump(session, pcap, filters)
         errmsg = "%s ICMP Packets mirrored to the analyzer VM %s,"\
                  "Expected %s packets" % (
                      mirror_pkt_count, svm_name, exp_count)
         if mirror_pkt_count < exp_count:
             self.logger.error(errmsg)
             assert False, errmsg
+
         self.logger.info("%s ICMP packets are mirrored to the analyzer "
                          "service VM '%s'", mirror_pkt_count, svm_name)
         return result
+    # end verify_port_mirroring
 
     def verify_policy_delete_add(self, svc_chain_info):
         left_vn_policy_fix = svc_chain_info['left_vn_policy_fix']
         right_vn_policy_fix = svc_chain_info['right_vn_policy_fix']
+        left_vn_fixture = svc_chain_info['left_vn_fixture']
+        right_vn_fixture = svc_chain_info['right_vn_fixture']
         policy_fixture = svc_chain_info['policy_fixture']
         left_vm_fixture = svc_chain_info['left_vm_fixture']
         right_vm_fixture = svc_chain_info['right_vm_fixture']
@@ -332,11 +344,11 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         self.detach_policy(left_vn_policy_fix)
         self.detach_policy(right_vn_policy_fix)
         self.unconfig_policy(policy_fixture)
+        sessions = self.tcpdump_on_all_analyzer(si_fixture)
         # Ping from left VM to right VM; expected to fail
         errmsg = "Ping to right VM ip %s from left VM passed; expected to fail" % right_vm_fixture.vm_ip
         assert not left_vm_fixture.ping_to_ip(
             right_vm_fixture.vm_ip), errmsg
-        sessions = self.tcpdump_on_all_analyzer(si_fixture)
         for svm_name, (session, pcap) in sessions.items():
             count = 0
             self.verify_icmp_mirror(svm_name, session, pcap, count)
@@ -350,7 +362,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
 
         # Verify ICMP traffic mirror
         sessions = self.tcpdump_on_all_analyzer(si_fixture)
-        errmsg = "Ping to right VM ip %s from left VM failed" % self.vm2_fixture.vm_ip
+        errmsg = "Ping to right VM ip %s from left VM failed" % right_vm_fixture.vm_ip
         assert left_vm_fixture.ping_to_ip(
             right_vm_fixture.vm_ip), errmsg
         #TODO
@@ -413,8 +425,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                                'action_list': {'simple_action': 'pass',
                                                'mirror_to': {'analyzer_name': mirror_fq_name}}
                                }]
-        new_rules = policy_fixture.input_rules_list.extend(rules)
-        policy_fixture.update_policy_api(new_rules)
+        policy_fixture.input_rules_list.extend(rules)
+        policy_fixture.update_policy_api(policy_fixture.input_rules_list)
 
         # Create new policy with rule to allow traffic from new VN's
         self.attach_policy_to_vn(policy_fixture, new_left_vn_fix)
@@ -469,6 +481,15 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
                        'simple_action': 'pass',
                        'action_list': {'simple_action': 'pass',
                                        'mirror_to': {'analyzer_name': si_fq_name}}
+                       },
+                       {'direction': '<>',
+                       'protocol': 'any',
+                       'source_network': 'any',
+                       'src_ports': [0, 65535],
+                       'dest_network': 'any',
+                       'dst_ports': [0, 65535],
+                       'simple_action': 'deny',
+                       'action_list': {'simple_action': 'deny'}
                        }
                       ]
         policy_fixture.update_policy_api(rules)
@@ -511,6 +532,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         """validate attaching a policy with analyzer and detaching again removes all the routes and does not impact other policies"""
         ret_dict = self.config_svc_mirroring()
         left_vn_fixture = ret_dict['left_vn_fixture']
+        left_vm_fixture = ret_dict['left_vm_fixture']
         right_vn_fixture = ret_dict['right_vn_fixture']
         right_vm_fixture = ret_dict['right_vm_fixture']
         si_fixture = ret_dict['si_fixture']
@@ -582,7 +604,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         vn2_policy_fix = self.attach_policy_to_vn(
             pol_analyzer_fixture, right_vn_fixture)
         # Verify ICMP traffic b/w VN1 and VN2
-        errmsg = "Ping b/w VN1 and VN2 success in step4"
+        errmsg = "Ping b/w VN1 and VN2 passed in step4"
         assert left_vm_fixture.ping_with_certainty(
             right_vm_fixture.vm_ip, expectation=False), errmsg
         assert right_vm_fixture.ping_with_certainty(
@@ -599,7 +621,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         vn2_policy_fix = self.attach_policy_to_vn(
             pol1_fixture, right_vn_fixture)
         # Verify no ICMP traffic b/w VN1 and VN2
-        errmsg = "Ping b/w VN1 and VN2 success in step6"
+        errmsg = "Ping b/w VN1 and VN2 failed in step6"
         assert left_vm_fixture.ping_with_certainty(
             right_vm_fixture.vm_ip, expectation=False), errmsg
         assert right_vm_fixture.ping_with_certainty(
@@ -696,6 +718,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
     def verify_policy_order_change(self):
         ret_dict = self.config_svc_mirroring(service_mode='in-network')
         left_vn_fixture = ret_dict['left_vn_fixture']
+        left_vm_fixture = ret_dict['left_vm_fixture']
         right_vn_fixture = ret_dict['right_vn_fixture']
         right_vm_fixture = ret_dict['right_vm_fixture']
         si_fixture = ret_dict['si_fixture']
@@ -737,7 +760,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             policy_name2, rules2)
         vn1_policy_fix = self.attach_policy_to_vn(
             pol_analyzer_fixture, left_vn_fixture)
-        self.vn2_policy_fix = self.attach_policy_to_vn(
+        vn2_policy_fix = self.attach_policy_to_vn(
             pol_analyzer_fixture, right_vn_fixture)
 
         # Verify ICMP traffic b/w VN1 and VN2 and mirror
@@ -850,12 +873,15 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
     def cleanUp(self):
         super(VerifySvcMirror, self).cleanUp()
 
-    def start_tcpdump(self, session, tap_intf):
+    def start_tcpdump(self, session, tap_intf, vlan=None):
         pcap = '/tmp/mirror-%s.pcap' % tap_intf
         cmd = 'rm -f %s' % pcap
         execute_cmd(session, cmd, self.logger)
-        cmd = "tcpdump -ni %s udp port 8099 -w %s" % (tap_intf, pcap)
-        self.logger.info("Staring tcpdump to capture the mirrored packets.")
+        filt_str = ''
+        if not vlan:
+            filt_str = 'udp port 8099'
+        cmd = "tcpdump -ni %s %s -w %s" % (tap_intf, filt_str, pcap)
+        self.logger.info("Starting tcpdump to capture the mirrored packets.")
         execute_cmd(session, cmd, self.logger)
         return pcap
 
@@ -868,7 +894,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
 
         cmd = 'tcpdump -n -r %s %s ' % (pcap, filt)
         out, err = execute_cmd_out(session, cmd, self.logger)
-        self.logger.debug('Stopped tcpdump, out : %s, err : %s' % (out, err))
+        self.logger.info('Stopped tcpdump, out : \n %s, \n err : %s' % (out, err))
 
         cmd = 'tcpdump -n -r %s %s | wc -l' % (pcap, filt)
         out, err = execute_cmd_out(session, cmd, self.logger)
@@ -878,16 +904,3 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         # Temporary for debugging
 #        execute_cmd(session, cmd, self.logger)
         return count
-
-    def tcpdump_on_all_analyzer(self, si_fixture):
-        sessions = {}
-        svms = self.get_svms_in_si(si_fixture)
-        for svm in svms:
-            svm_name = svm.name
-            host = self.get_svm_compute(svm_name)
-            tapintf = self.get_svm_tapintf(svm_name)
-            session = ssh(host['host_ip'], host['username'], host['password'])
-            pcap = self.start_tcpdump(session, tapintf)
-            sessions.update({svm_name: (session, pcap)})
-
-        return sessions
