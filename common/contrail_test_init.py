@@ -42,7 +42,7 @@ DEFAULT_CERT = '/etc/contrail/ssl/certs/server.pem'
 DEFAULT_PRIV_KEY = '/etc/contrail/ssl/private/server-privkey.pem'
 DEFAULT_CA = '/etc/contrail/ssl/certs/ca-cert.pem'
 
-DEFAULT_CI_IMAGE = 'cirros'
+DEFAULT_CI_IMAGE = os.getenv('DEFAULT_CI_IMAGE', 'cirros')
 CI_IMAGES = [DEFAULT_CI_IMAGE]
 
 # monkey patch subprocess.check_output cos its not supported in 2.6
