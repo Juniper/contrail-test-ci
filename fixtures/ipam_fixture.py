@@ -3,17 +3,19 @@ from contrail_fixtures import ContrailFixture
 from tcutils.util import retry
 from vnc_api.vnc_api import NetworkIpam
 
-class IPAMFixture (ContrailFixture):
+class IPAMFixture_v2 (ContrailFixture):
 
    vnc_class = NetworkIpam
 
    def __init__ (self, connections, uuid=None, params=None, fixs=None):
-       super(IPAMFixture, self).__init__(
+       super(IPAMFixture_v2, self).__init__(
            uuid=uuid,
            connections=connections,
            params=params,
            fixs=fixs)
        self.cn_inspect = connections.cn_inspect
+       self.api_s_inspect = connections.api_server_inspect
+       self.agent_inspect = connections.agent_inspect
 
    def get_attr (self, lst):
        if lst == ['fq_name']:
@@ -69,14 +71,16 @@ class IPAMFixture (ContrailFixture):
 
    def _verify_in_api_server (self):
        if not self._read_vnc_obj()[0]:
-           return False, '%s not found in api-server' % self
+           msg= '%s not found in api-server' % self
+           self.logger.error(msg)
+           return False, msg
        return True, None
 
    @retry(delay=5, tries=6)
    def _verify_not_in_api_server (self):
        if self._vnc.get_network_ipam(self.uuid):
            msg = '%s not removed from api-server' % self
-           self.logger.debug(msg)
+           self.logger.error(msg)
            return False, msg
        self.logger.debug('%s removed from api-server' % self)
        return True, None
@@ -87,31 +91,100 @@ class IPAMFixture (ContrailFixture):
        fqname = self.fq_name_str
        for cn in self.inputs.bgp_ips:
            obj = self.cn_inspect[cn].get_cn_config_ipam(
-                ipam=ipam, project=project_name)
+                ipam=ipam, project=project)
            if not obj:
                msg = 'Control-node %s does not have IPAM %s' % (cn, ipam)
-               self.logger.warn(msg)
+               self.logger.error(msg)
                return False, msg
            if fqname not in obj['node_name']:
                msg = 'IFMAP View of Control-node does not have IPAM %s' % fqname
-               self.logger.warn(msg)
+               self.logger.error(msg)
                return False, msg
+       self.logger.debug('%s fonud in control node' % self)
        return True, None
 
    @retry(delay=5, tries=10)
-   def verify_ipam_not_in_control_nodes(self):
+   def _verify_not_in_control_nodes(self):
        fqname = self.fq_name_str
        project, ipam = self.fq_name[1:]
        ri_name = fqname + ':' + self.name
        for cn in self.inputs.bgp_ips:
            if self.cn_inspect[cn].get_cn_routing_instance(ri_name=ri_name):
                msg = "RI for IPAM %s is still found in Control-node %s" % (self.name, cn)
-               self.logger.warn(msg)
+               self.logger.error(msg)
                return False, msg
            if self.cn_inspect[cn].get_cn_config_ipam(ipam=ipam, project=project):
                msg = "Control-node config DB still has IPAM %s" % ipam
-               self.logger.warn(msg)
+               self.logger.error(msg)
                return False, msg
 
        self.logger.debug("IPAM:%s is not found in control node" % ipam)
        return True, None
+
+
+from tcutils.util import get_random_name
+from vnc_api.vnc_api import IpamType
+                            
+class IPAMFixture (IPAMFixture_v2):
+
+   ''' Fixture for backward compatiblity '''
+
+   @property
+   def ipam_fq_name (self):
+       return self.fq_name_str
+
+   @property
+   def ipam_name (self):
+       return self.name
+
+   #TODO:
+   def __init__ (self, name, connections,
+                 **kwargs):
+       domain = connections.domain_name
+       prj = kwargs.get('project_name') or connections.project_name
+       prj_fqn = domain + ':' + prj
+       name = kwargs.get('name')
+       self._api = kwargs.get('option', 'contrail')
+       self.inputs = connections.inputs
+       
+       if name:
+           uid = self._check_if_present(connections, name, [domain, prj])
+           if uid:
+               super(IPAMFixture, self).__init__(connections=connections,
+                                               uuid=uid)
+               return
+       else:
+           name = get_random_name(prj)
+       self._construct_contrail_params(name, prj_fqn, kwargs)
+       super(IPAMFixture, self).__init__(connections=connections,
+                                       params=self._params)
+
+   def _check_if_present (self, conn, name, prj_fqn):
+       uid = prj_fqn + [name]
+       obj = conn.get_orch_ctrl().get_api('vnc').get_network_ipam(uid)
+       if not obj:
+           return None
+       return uid
+
+   def setUp (self):
+       super(IPAMFixture, self).setUp()
+
+   def cleanUp (self):
+       super(IPAMFixture, self).cleanUp()
+
+   def _construct_contrail_params (self, name, prj_fqn, kwargs):
+       self._params = {
+           'type': 'OS::ContrailV2::NetworkIpam',
+           'name' : name,
+           'project': prj_fqn,
+       }
+       self._params['network_ipam_mgmt'] = {}
+       
+       network_ipam_mgmt = kwargs.get('ipamtype') or IpamType("dhcp")
+       self._params['network_ipam_mgmt']['ipam_method'] = network_ipam_mgmt.ipam_method
+       
+       vdns_obj = kwargs.get(vdns_obj)
+       if vdns_obj:
+           self._params['network_ipam_mgmt']['ipam_dns_method'] = 'virtual-dns-server'
+           self._params['network_ipam_mgmt']['ipam_dns_server']['virtual_dns_server_name'] = \
+                                                    vdns_obj.vdns_fq_name
