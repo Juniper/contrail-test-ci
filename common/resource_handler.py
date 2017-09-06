@@ -5,6 +5,8 @@ from api_drivers.heat import parser
 from vn_fixture import VNFixture_v2
 from subnet_fixture import SubnetFixture
 from policy_fixture import PolicyFixture_v2
+from ipam_fixture import IPAMFixture_v2
+from vdns_fixture_new import VdnsFixture_v2, VdnsRecordFixture_v2
 #from svc_template_fixture_new import SvcTemplateFixture_v2
 #from svc_instance_fixture_new import SvcInstanceFixture_v2
 #from port_tuple_fixture import PortTupleFixture
@@ -20,11 +22,14 @@ from policy_fixture import PolicyFixture_v2
 
 # Map: heat resource type -> fixture
 _HEAT_2_FIXTURE = {
-    'OS::ContrailV2::VirtualNetwork': VNFixture_v2,
-    'OS::ContrailV2::NetworkPolicy': PolicyFixture_v2,
-    'OS::Neutron::Subnet': SubnetFixture,
-    'OS::Neutron::Net': VNFixture_v2,
-    'OS::Neutron::Policy': PolicyFixture_v2,
+   'OS::ContrailV2::VirtualNetwork': VNFixture_v2,
+   'OS::ContrailV2::NetworkPolicy': PolicyFixture_v2,
+   'OS::ContrailV2::NetworkIpam': IPAMFixture_v2,
+   'OS::ContrailV2::VirtualDns': VdnsFixture_v2,
+   'OS::ContrailV2::VirtualDnsRecord': VdnsRecordFixture_v2,
+   'OS::Neutron::Subnet': SubnetFixture,
+   'OS::Neutron::Net': VNFixture_v2,
+   'OS::Neutron::Policy': PolicyFixture_v2,
 }
 
 def verify_on_setup (objs):
