@@ -11,8 +11,9 @@ from common import isolated_creds
 from tcutils.util import get_random_name, copy_file_to_server, fab_put_file_to_vm
 import os
 from tcutils.topo.sdn_topo_setup import *
+from common.servicechain.verify import VerifySvcChain
 
-class BaseSGTest(test_v1.BaseTestCase_v1):
+class BaseSGTest(test_v1.BaseTestCase_v1, VerifySvcChain):
 
     @classmethod
     def setUpClass(cls):
@@ -62,6 +63,9 @@ class BaseSGTest(test_v1.BaseTestCase_v1):
 
         self.logger.info("Configure security groups required for test.")
         self.config_sec_groups()
+
+        self.logger.debug("Verify the configured VN's.")
+        assert self.multi_vn_fixture.verify_on_setup()
 
         self.multi_vm_fixture = self.useFixture(MultipleVMFixture(
             project_name=self.inputs.project_name, connections=self.connections,
@@ -154,8 +158,6 @@ class BaseSGTest(test_v1.BaseTestCase_v1):
 
     def verify_sg_test_resources(self):
         """verfiy common resources."""
-        self.logger.debug("Verify the configured VN's.")
-        assert self.multi_vn_fixture.verify_on_setup()
 
         self.logger.debug("Verify the configured VM's.")
         assert self.multi_vm_fixture.verify_on_setup()

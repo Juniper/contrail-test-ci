@@ -76,7 +76,7 @@ PBB_RESOURCES_SINGLE_ISID = {
 
         # Traffic
         'traffic': {
-                   'stream1': {'src':'vm1','dst':'vm2','count':10,
+                   'stream1': {'src':'vm1','dst':'vm2','count':5,
                                 'src_cmac': get_random_mac(),
                                 'dst_cmac': get_random_mac(),
                                 'bd': 'bd1', 'src_vmi': 'vmi3',
@@ -128,12 +128,12 @@ PBB_RESOURCES_TWO_ISID = {
 
         # Traffic
         'traffic': {
-                   'stream1': {'src':'vm1','dst':'vm2','count':10,
+                   'stream1': {'src':'vm1','dst':'vm2','count':5,
                                 'src_cmac': get_random_mac(),
                                 'dst_cmac': get_random_mac(),
                                 'bd': 'bd1', 'src_vmi': 'vmi3',
                                 'dst_vmi': 'vmi4'},
-                   'stream2': {'src':'vm3','dst':'vm4','count':10,
+                   'stream2': {'src':'vm3','dst':'vm4','count':5,
                                 'src_cmac': get_random_mac(),
                                 'dst_cmac': get_random_mac(),
                                 'bd': 'bd2', 'src_vmi': 'vmi7',
@@ -158,6 +158,41 @@ class PbbEvpnTestBase(BaseVrouterTest):
         super(PbbEvpnTestBase, cls).setUpClass()
         cls.vnc_lib_fixture = cls.connections.vnc_lib_fixture
         cls.vnc_h = cls.vnc_lib_fixture.vnc_h
+
+    def config_encap_priority(self, encap='udp'):
+        '''pbb evpn is supported only for MPLSoUDP and MPLSoGRE encap.
+           vxlan is not supported
+           Configuring encap priority and restoring the prev encap priority
+           at cleanup
+        '''
+
+        # Other than MPLSoGRE, MPLSoUDP encapuslations are not supported
+        if encap != 'udp' and encap != 'gre':
+            result = False
+            assert result,'Invalid Encapsulation'
+
+        self.logger.debug("Read the existing encap priority")
+        existing_encap = self.connections.read_vrouter_config_encap()
+
+        if encap == 'gre':
+            config_id = self.connections.update_vrouter_config_encap(
+                'MPLSoGRE', 'MPLSoUDP', 'VXLAN')
+            self.logger.info(
+                'Created.UUID is %s. MPLSoGRE is the highest priority encap' %
+                (config_id))
+            configured_encap_list = [
+                unicode('MPLSoGRE'), unicode('MPLSoUDP'), unicode('VXLAN')]
+        elif encap == 'udp':
+            pbb_encap = self.connections.update_vrouter_config_encap(
+                    'MPLSoUDP', 'MPLSoGRE', 'VXLAN')
+            self.logger.info(
+                'Created.UUID is %s. MPLSoUDP is the highest priority encap' %
+                (pbb_encap))
+            configured_encap_list = [
+                unicode('MPLSoUDP'), unicode('MPLSoGRE'), unicode('VXLAN')]
+        if existing_encap != configured_encap_list :
+            self.addCleanup(self.connections.update_vrouter_config_encap, existing_encap[0], existing_encap[1], existing_encap[2])
+
 
     def update_vms_for_pbb(self, vm_fixtures):
         '''update /etc/hosts with local hostname to avoid DNS resolution
@@ -440,6 +475,10 @@ class PbbEvpnTestBase(BaseVrouterTest):
                                                      mac_move_limit_action=mac_move_limit_action,
                                                      mac_move_time_window=mac_move_time_window)
 
+        # Configuring the encapsulation priority. Supported enacps are:
+        # MPLSoUDP and MPLSoGRE. VXLAN is not supported.
+        self.config_encap_priority('udp')
+
         # VNs creation
         vn_fixtures = self.setup_vns(vn)
 
@@ -455,6 +494,12 @@ class PbbEvpnTestBase(BaseVrouterTest):
 
         # VMs creation
         vm_fixtures = self.setup_vms(vn_fixtures, vmi_fixtures, vm)
+
+        # Compute nodes, where vms have launched, pbb verification
+        # needs to be checked on these compute nodes
+        pbb_compute_node_ips = []
+        for vm_fixture in vm_fixtures:
+            pbb_compute_node_ips.append(vm_fixtures[vm_fixture]._vm_node_ip)
 
         # PBB EVPN VN configuration
         for vn_fixture in vn_fixtures.values():
@@ -480,6 +525,7 @@ class PbbEvpnTestBase(BaseVrouterTest):
             'vmi_fixtures':vmi_fixtures,
             'vn_fixtures':vn_fixtures,
             'vm_fixtures':vm_fixtures,
+            'pbb_compute_node_ips':pbb_compute_node_ips,
         }
         return ret_dict
 
@@ -549,8 +595,9 @@ class PbbEvpnTestBase(BaseVrouterTest):
         scapy_obj.start()
         return scapy_obj
 
-    def verify_mac_learning(self, vmi_fixture, bd_fixture, cmac=None,
-            expectation=True):
+    def verify_mac_learning(self, vmi_fixture, bd_fixture,
+                            pbb_compute_node_ips, cmac=None,
+                            expectation=True):
         '''
         Verify if c-mac learned in agents:
             1. in local agent, nh type should be interface
@@ -565,7 +612,7 @@ class PbbEvpnTestBase(BaseVrouterTest):
         mpls_label = self.get_vrf_mpls_label(vrf)
         result = True
 
-        for ip in self.inputs.compute_ips:
+        for ip in pbb_compute_node_ips:
             if ip == vmi_host_ip:
                 nh_type = 'interface' #Local cmac
             else:
@@ -578,7 +625,7 @@ class PbbEvpnTestBase(BaseVrouterTest):
             l2_route_in_agent = self.get_vna_layer2_route(ip, vrf_id, mac=cmac,
                 expectation=expectation)
             if not expectation:
-                result = True if l2_route_in_agent else False 
+                result = True if l2_route_in_agent else False
                 if result:
                     continue
                 else:
@@ -651,7 +698,7 @@ class PbbEvpnTestBase(BaseVrouterTest):
                 self.logger.debug("L2 routes in agent %s not found for vrf id %s" % (
                     compute_ip, vrf_id))
                 return (True, None)
-                
+
     def validate_pbb_l2_route(self, l2_route_in_agent, cmac, bmac, nh_type,
             mpls_label=None, isid=0):
 

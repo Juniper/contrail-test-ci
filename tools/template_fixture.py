@@ -65,19 +65,16 @@ $__orch_read_fn__
 $__orch_read_call__
 
    def _create (self):
-       self.logger.info('Creating %s' % self)
        with self._api_ctx:
            self.uuid = self._ctrl.create_$__object_type__(
                **self._args)
 
    def _delete (self):
-       self.logger.info('Deleting %s' % self)
        with self._api_ctx:
            self._ctrl.delete_$__object_type__(
                obj=self._obj, uuid=self.uuid)
 
    def _update (self):
-       self.logger.info('Updating %s' % self)
        with self._api_ctx:
            self._ctrl.update_$__object_type__(
                obj=self._obj, uuid=self.uuid, **self.args)

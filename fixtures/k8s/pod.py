@@ -16,8 +16,8 @@ class PodFixture(fixtures.Fixture):
                  connections,
                  name=None,
                  namespace='default',
-                 metadata={},
-                 spec={},
+                 metadata=None,
+                 spec=None,
                  shell=None):
         self.logger = connections.logger or contrail_logging.getLogger(
             __name__)
@@ -25,8 +25,8 @@ class PodFixture(fixtures.Fixture):
         self.name = name or metadata.get('name') or get_random_name('pod')
         self.namespace = namespace
         self.k8s_client = connections.k8s_client
-        self.metadata = metadata
-        self.spec = spec
+        self.metadata = {} if metadata is None else metadata
+        self.spec = {} if spec is None else spec
         self.already_exists = None
         self.shell = shell or '/bin/sh'
         self._shell_arg = '%s -l -c' % (self.shell)
@@ -214,11 +214,13 @@ class PodFixture(fixtures.Fixture):
             api_vmi_refs = self.api_vm_obj.get_virtual_machine_interface_back_refs()
             self.vmi_objs = []
             self.vmi_uuids = []
+            self.vn_names = []
             for vmi_ref in api_vmi_refs:
                 x = self.vnc_lib.virtual_machine_interface_read(
                     id=vmi_ref['uuid'])
                 self.vmi_objs.append(x)
                 self.vmi_uuids.append(vmi_ref['uuid'])
+                self.vn_names.append(x.routing_instance_refs[0][u'to'][2])
                 self.logger.debug('Pod %s has vmi %s' % (self.name, x.uuid))
         except NoIdError:
             self.logger.debug('VM uuid %s not in api-server' % (self.uuid))

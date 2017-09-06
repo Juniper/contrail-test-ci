@@ -102,6 +102,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         if self.inputs.get_af() == 'v6':
             template = self.get_template('vn_dual')
             env['parameters']['subnet2'],env['parameters']['prefix2'] = get_random_cidr(af='v4').split('/')
+        stack_name = get_random_name(stack_name)
         vn_hs_obj = self.config_heat_obj(stack_name, template, env)
         stack = vn_hs_obj.heat_client_obj
         vn_fix = self.verify_vn(stack, env, stack_name)
@@ -142,7 +143,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         return fip_hs_obj
 
     def config_intf_rt_table(self, prefix, si_fqdn, si_intf_type):
-        stack_name = 'intf_rt_table'
+        stack_name = get_random_name('intf_rt_table')
         template = self.get_template('intf_rt_table')
         env = self.get_env('intf_rt_table')
         env['parameters']['intf_rt_table_name'] = get_random_name(
@@ -154,7 +155,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         return intf_rt_table_hs_obj
 
     def config_vm(self, vn):
-        stack_name = 'single_vm'
+        stack_name = get_random_name('single_vm')
         template = self.get_template('single_vm')
         env = self.get_env('single_vm')
         env['parameters']['vm_name'] = get_random_name(
@@ -168,24 +169,27 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         return vm_hs_obj, vm_fix
 
     def config_vms(self, vn_list):
-        stack_name = 'vms'
-        template = self.get_template('vms')
-        env = self.get_env('vms')
-        env['parameters']['right_vm_name'] = get_random_name(env['parameters']['right_vm_name'])
-        env['parameters']['left_vm_name'] = get_random_name(env['parameters']['left_vm_name'])
-        env['parameters']['right_net_id'] = vn_list[1].uuid
-        env['parameters']['left_net_id'] = vn_list[0].uuid
-        if os.environ.has_key('ci_image'):
-            env['parameters']['image'] = os.environ['ci_image']
-        if self.inputs.availability_zone:
-            env['parameters']['availability_zone'] = self.inputs.availability_zone
-        env['parameters']['flavor'] = self.nova_h.get_default_image_flavor(env['parameters']['image'])
-        self.nova_h.get_image(env['parameters']['image'])
-        self.nova_h.get_flavor(env['parameters']['flavor'])
-        vms_hs_obj = self.config_heat_obj(stack_name, template, env)
-        stack = vms_hs_obj.heat_client_obj
-        vm_fix = self.verify_vms(stack, vn_list, env, stack_name)
-        return vm_fix
+        fixs = []
+        for vn_fix, prf in zip(vn_list, ['left', 'right']):
+            stack_name = get_random_name('%s_vm' % prf)
+            template = self.get_template('single_vm')
+            env = self.get_env('single_vm')
+            env['parameters']['vm_name'] = stack_name
+            env['parameters']['net_id'] = vn_fix.vn_id
+            if os.environ.has_key('ci_image'):
+                env['parameters']['image'] = os.environ['ci_image']
+            if self.inputs.availability_zone:
+                env['parameters']['availability_zone'] = (
+                        self.inputs.availability_zone)
+            env['parameters']['flavor'] = self.nova_h.get_default_image_flavor(
+                                            env['parameters']['image'])
+            self.nova_h.get_image(env['parameters']['image'])
+            self.nova_h.get_flavor(env['parameters']['flavor'])
+            vms_hs_obj = self.config_heat_obj(stack_name, template, env)
+            stack = vms_hs_obj.heat_client_obj
+            vm_fix = self.verify_vms(stack, vn_fix, env, stack_name)
+            fixs.append(vm_fix)
+        return fixs
 
     def get_stack_output(self, hs_obj, op_key):
         for op in hs_obj.heat_client_obj.stacks.get(hs_obj.stack_name).outputs:
@@ -193,32 +197,27 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
                 return op['output_value']
                 break
 
-    def verify_vms(self, stack, vn_list, env, stack_name):
+    def verify_vms(self, stack, vn_fix, env, stack_name):
         op = stack.stacks.get(stack_name).outputs
         time.sleep(5)
-        vm1_name= str(env['parameters']['left_vm_name'])
-        vm2_name= str(env['parameters']['right_vm_name'])
-        vm1_fix = self.useFixture(VMFixture(project_name=self.inputs.project_name,
-                                            vn_obj=vn_list[0].obj, vm_name=vm1_name, connections=self.connections))
-        vm2_fix = self.useFixture(VMFixture(project_name=self.inputs.project_name,
-                                            vn_obj=vn_list[1].obj, vm_name=vm2_name, connections=self.connections))
+        vm_name= str(env['parameters']['vm_name'])
+        vm_fix = self.useFixture(VMFixture(
+                    project_name=self.inputs.project_name,
+                    vn_obj=vn_fix.obj, vm_name=vm_name,
+                    connections=self.connections))
         # ToDo: Do we need to wait here or should we check before accessing
-        assert vm1_fix.wait_till_vm_is_up()
-        assert vm2_fix.wait_till_vm_is_up()
+        assert vm_fix.wait_till_vm_is_up()
         for output in op:
-            if output['output_value'] == vm1_fix.vm_ip:
+            if output['output_value'] == vm_fix.vm_ip:
                 self.logger.info(
-                    'VM %s launched successfully' % vm1_fix.vm_name)
-            elif output['output_value'] == vm2_fix.vm_ip:
-                self.logger.info(
-                     'VM %s launched successfully' % vm2_fix.vm_name)
-        vms_list = [vm1_fix, vm2_fix]
-        return vms_list
+                    'VM %s launched successfully' % vm_fix.vm_name)
+        return vm_fix
     # end verify_vms
 
     def config_svc_template(self, stack_name=None, scaling=False, mode='in-network-nat'):
         ver = 1
         res_name = 'svc_tmpl'
+        stack_name = get_random_name(stack_name)
         if self.pt_based_svc:
             res_name += '_pt'
         if self.heat_api_version == 2:
@@ -290,6 +289,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         env['parameters']['mgmt_net_id'] = vn_list[0].vn_fq_name
         env['parameters'][
             'service_instance_name'] = get_random_name('svc_inst')
+        stack_name = get_random_name(stack_name)
         pt_si_hs_obj = self.config_heat_obj(stack_name, template, env)
         return pt_si_hs_obj
     # end config_pt_si
@@ -362,6 +362,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
         else:
             env['parameters']['right_net_id'] = vn_list[2].vn_fq_name
             env['parameters']['left_net_id'] = vn_list[1].vn_fq_name
+        stack_name = get_random_name(stack_name)
         si_hs_obj = self.config_heat_obj(stack_name, template, env)
         si_name = env['parameters']['service_instance_name']
         si_fix = self.verify_si(si_hs_obj.heat_client_obj, stack_name, si_name, st_fix, max_inst, st_fix.service_mode, st_fix.image_name)
@@ -428,6 +429,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
              env['parameters']['src_vn_id'] = vn_list[1].uuid
              env['parameters']['dst_vn_id'] = vn_list[2].uuid
              template['resources']['private_policy']['properties']['entries']['policy_rule'].extend(rules)
+        stack_name = get_random_name(stack_name)
         svc_hs_obj = self.config_heat_obj(stack_name, template, env)
         if self.heat_api_version != 2:
             return
@@ -451,6 +453,7 @@ class BaseHeatTest(test_v1.BaseTestCase_v1):
     # end config_svc_chain
 
     def config_v2_svc_chain(self, stack_name):
+        stack_name = get_random_name(stack_name)
         svc_pt_hs = self.config_heat_obj(stack_name)
         stack = svc_pt_hs.heat_client_obj
         op = stack.stacks.get(stack_name).outputs

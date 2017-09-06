@@ -14,6 +14,8 @@ from fabric.contrib.files import exists
 from cfgm_common import utils
 from tcutils.util import istrue
 
+is_container_env = False
+
 def detect_ostype():
     return platform.dist()[0].lower()
 
@@ -23,6 +25,16 @@ def get_address_family():
     if os.getenv('GUESTVM_IMAGE', None):
         address_family = 'v4'
     return address_family
+
+def get_container_name(containers, host, role):
+    if containers and host in containers:
+        return containers[host].get(role)
+    return None
+
+def get_value_of_key(dct, key, default=None):
+    if dct and key:
+        return dct.get(key, default)
+    return default
 
 def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contrail-test'):
     """
@@ -60,7 +72,6 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
             return ""
 
     cfgm_host = env.roledefs['cfgm'][0]
-
     auth_protocol = get_authserver_protocol()
     try:
         auth_server_ip = get_authserver_ip()
@@ -118,6 +129,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         'tor':[],
         'sriov':[],
         'dpdk':[],
+        'ns_agilio_vrouter':[],
     }
 
     sample_ini_file = test_dir + '/' + 'sanity_params.ini.sample'
@@ -125,10 +137,22 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
        contents_sample_ini = fd_sample_ini.read()
     sanity_ini_templ = string.Template(contents_sample_ini)
 
+    if not getattr(env, 'test', None):
+        env.test={}
+
+    containers = env.test.get('containers')
+    traffic_data = env.test.get('traffic_data')
+    ixia_linux_host_ip = get_value_of_key(traffic_data, 'ixia_linux_host_ip')
+    ixia_host_ip = get_value_of_key(traffic_data, 'ixia_host_ip')
+    spirent_linux_host_ip = get_value_of_key(traffic_data, 'spirent_linux_host_ip')
+    ixia_linux_username = get_value_of_key(traffic_data, 'ixia_linux_username')
+    ixia_linux_password = get_value_of_key(traffic_data, 'ixia_linux_password')
+    spirent_linux_username = get_value_of_key(traffic_data, 'spirent_linux_username')
+    spirent_linux_password = get_value_of_key(traffic_data, 'spirent_linux_password')
+
     if env.get('orchestrator', 'openstack') == 'openstack':
         with settings(host_string = env.roledefs['openstack'][0]), hide('everything'):
             openstack_host_name = run("hostname")
-
 
     with settings(host_string = env.roledefs['cfgm'][0]), hide('everything'):
         cfgm_host_name = run("hostname")
@@ -194,25 +218,29 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
 
         if host_string in env.roledefs['openstack']:
             role_dict = {'type': 'openstack', 'params': {'cfgm': cfgm_host_name}}
+            role_dict['container'] = get_container_name(containers, host_string, 'openstack')
             host_dict['roles'].append(role_dict)
 
         if host_string in env.roledefs['cfgm']:
             role_dict = {'type': 'cfgm', 'params': {'collector': host_name, 'cassandra': ' '.join(cassandra_host_names)}}
-
+            role_dict['container'] = get_container_name(containers, host_string, 'controller')
             if env.get('orchestrator', 'openstack') == 'openstack':
                 role_dict['openstack'] = openstack_host_name
             host_dict['roles'].append(role_dict)
 
         if host_string in env.roledefs['control']:
             role_dict = {'type': 'bgp', 'params': {'collector': cfgm_host_name, 'cfgm': cfgm_host_name}}
+            role_dict['container'] = get_container_name(containers, host_string, 'controller')
             host_dict['roles'].append(role_dict)
 
         if 'database' in env.roledefs.keys() and host_string in env.roledefs['database']:
             role_dict = { 'type': 'database', 'params': {'cassandra': ' '.join(cassandra_host_names)} }
+            role_dict['container'] = get_container_name(containers, host_string, 'analyticsdb')
             host_dict['roles'].append(role_dict)
 
         if host_string in env.roledefs['compute']:
             role_dict = {'type': 'compute', 'params': {'collector': cfgm_host_name, 'cfgm': cfgm_host_name}}
+            role_dict['container'] = get_container_name(containers, host_string, 'agent')
             role_dict['params']['bgp'] = []
             if len(env.roledefs['control']) == 1:
                 role_dict['params']['bgp'] = control_host_names
@@ -224,10 +252,12 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
 
         if 'collector' in env.roledefs.keys() and host_string in env.roledefs['collector']:
             role_dict = { 'type': 'collector', 'params': {'cassandra': ' '.join(cassandra_host_names)} }
+            role_dict['container'] = get_container_name(containers, host_string, 'analytics')
             host_dict['roles'].append(role_dict)
 
         if 'webui' in env.roledefs.keys() and host_string in env.roledefs['webui']:
             role_dict = { 'type': 'webui', 'params': {'cfgm': cfgm_host_name} }
+            role_dict['container'] = get_container_name(containers, host_string, 'controller')
             host_dict['roles'].append(role_dict)
 
         sanity_testbed_dict['hosts'].append(host_dict)
@@ -244,6 +274,10 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     #get k8s info
     sanity_testbed_dict['kubernetes'] = env.get('kubernetes', {})
  
+   #get ns_agilio_vrouter info
+    if env.has_key('ns_agilio_vrouter'):
+        sanity_testbed_dict['ns_agilio_vrouter'].append(env.ns_agilio_vrouter)
+
     # Read ToR config
     sanity_tor_dict = {}
     if env.has_key('tor_agent'):
@@ -283,21 +317,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     vcenter_servers = env.get('vcenter_servers')
     if vcenter_servers:
         for vcenter in vcenter_servers:
-            host_dict = {}
-            host_dict['server'] = vcenter_servers[vcenter]['server']
-            host_dict['port'] = vcenter_servers[vcenter]['port']
-            host_dict['username'] = vcenter_servers[vcenter]['username']
-            host_dict['password'] = vcenter_servers[vcenter]['password']
-            host_dict['datacenter'] = vcenter_servers[vcenter]['datacenter']
-            host_dict['auth'] = vcenter_servers[vcenter]['auth']
-            host_dict['cluster'] = vcenter_servers[vcenter]['cluster']
-            host_dict['dv_switch'] = vcenter_servers[vcenter]['dv_switch']['dv_switch_name']
-            #Mostly we do not use the below info for vcenter sanity tests.
-            #Its used for vcenter only mode provosioning for contrail-vm
-            #Its not needed for vcenter_gateway mode, hence might not be there in testbed.py
-            if 'dv_port_group' in vcenter_servers[vcenter]:
-                host_dict['dv_port_group'] = vcenter_servers[vcenter]['dv_port_group']['dv_portgroup_name']
-            sanity_testbed_dict['vcenter_servers'].append(host_dict)
+            sanity_testbed_dict['vcenter_servers'].append(vcenter_servers[vcenter])
 
     orch = getattr(env, 'orchestrator', 'openstack')
     #get other orchestrators (vcenter etc) info if any 
@@ -316,9 +336,6 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     if env.has_key('kubernetes'):
         if  sanity_testbed_dict['kubernetes']['mode'] == 'nested':
             slave_orch = 'kubernetes'
-
-    if not getattr(env, 'test', None):
-        env.test={}
 
     # generate json file and copy to cfgm
     sanity_testbed_json = json.dumps(sanity_testbed_dict)
@@ -408,7 +425,6 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
                              os.getenv('CI_FLAVOR') or None)
     kube_config_file = env.test.get('kube_config_file',
                                      '/etc/kubernetes/admin.conf')
-
     use_devicemanager_for_md5 = getattr(testbed, 'use_devicemanager_for_md5', False)
     router_asn = getattr(testbed, 'router_asn', '')
     public_vn_rtgt = getattr(testbed, 'public_vn_rtgt', '')
@@ -445,8 +461,9 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
 
     if env.has_key('vcenter_servers'):
             if env.vcenter_servers:
-                for k in env.vcenter_servers:
-                    vcenter_dc = env.vcenter_servers[k]['datacenter']
+                for vc in env.vcenter_servers:
+                    for dc in env.vcenter_servers[vc]['datacenters']:    
+                        vcenter_dc = dc
 
     #global controller
     gc_host_mgmt = getattr(testbed, 'gc_host_mgmt', '')
@@ -555,6 +572,13 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
          '__gc_user_pwd__'         : gc_user_pwd,
          '__keystone_password__'   : keystone_password,
          '__slave_orch__'          : slave_orch,
+	 '__ixia_linux_host_ip__'  : ixia_linux_host_ip,
+	 '__ixia_host_ip__'        : ixia_host_ip,
+	 '__spirent_linux_host_ip__': spirent_linux_host_ip,
+	 '__ixia_linux_username__' : ixia_linux_username,
+	 '__ixia_linux_password__' : ixia_linux_password,
+	 '__spirent_linux_username__': spirent_linux_username,
+	 '__spirent_linux_password__': spirent_linux_password,
 
         })
 
@@ -644,11 +668,8 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         update_config_option('openstack', '/etc/keystone/keystone.conf',
                              'token', 'expiration',
                              '86400','keystone')
-        container = None
-        if 'contrail-controller' in env.roledefs:
-            container = 'webui'
         update_js_config('openstack', '/etc/contrail/config.global.js',
-                         'contrail-webui', container=container)
+                         'contrail-webui', container=is_container_env)
 
 open_delimiters = ['(', '[', '{']
 close_delimiters = [')', ']', '}']
@@ -695,6 +716,8 @@ def testbed_format_conversion(path='/opt/contrail/utils'):
     start, end = get_section(tb, 'env.roledefs')
     if not start:
         return True
+    global is_container_env
+    is_container_env = True
     block = tb[start:end]
     # Find contrail-controller section
     match = re.search('contrail-controller.*?].*?,', block, re.M|re.S)
