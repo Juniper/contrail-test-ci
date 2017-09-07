@@ -5,8 +5,10 @@ from api_drivers.heat import parser
 from vn_fixture import VNFixture_v2
 from subnet_fixture import SubnetFixture
 from policy_fixture import PolicyFixture_v2
+from vm_fixture import VMFixture_v2
 from ipam_fixture import IPAMFixture_v2
 from vdns_fixture_new import VdnsFixture_v2, VdnsRecordFixture_v2
+
 #from svc_template_fixture_new import SvcTemplateFixture_v2
 #from svc_instance_fixture_new import SvcInstanceFixture_v2
 #from port_tuple_fixture import PortTupleFixture
@@ -30,6 +32,7 @@ _HEAT_2_FIXTURE = {
    'OS::Neutron::Subnet': SubnetFixture,
    'OS::Neutron::Net': VNFixture_v2,
    'OS::Neutron::Policy': PolicyFixture_v2,
+   'OS::Nova::Server': VMFixture_v2  
 }
 
 def verify_on_setup (objs):
@@ -43,6 +46,7 @@ def verify_on_cleanup (objs):
 def _add_to_objs (objs, res_name, obj, args=None):
     objs['fixtures'][res_name] = obj
     objs['id-map'][obj.uuid] = obj
+    objs['name-map'][obj.name] = obj
     if args:
         objs['args'][res_name] = args
     if obj.fq_name_str:
@@ -75,7 +79,8 @@ def _create_via_heat (test, tmpl, params):
     st = wrap.stack_create(get_random_name(), tmpl_first, params)
     objs = {'heat_wrap': wrap, 'stack': st,
             'fixture_cleanup': test.connections.inputs.fixture_cleanup,
-            'fixtures': {}, 'id-map': {}, 'fqn-map': {}, 'args': {}}
+            'fixtures': {}, 'id-map': {}, 'fqn-map': {}, 'args': {},
+            'name-map': {}}
     test.addCleanup(_delete_via_heat, objs)
     for out in st.outputs:
         key = out['output_key']
@@ -159,10 +164,10 @@ def _create_via_fixture (test, tmpl, params):
         - Create resources using fixtures, in order given by dependency table
         - Update references with fixtures' update method
     '''
-
+    
     parser.check_cyclic_dependency(tmpl)
     test.logger.debug("Creating resources via fixtures")
-    objs = {'fixtures': {}, 'args': {}, 'id-map': {}, 'fqn-map': {}}
+    objs = {'fixtures': {}, 'args': {}, 'id-map': {}, 'fqn-map': {}, 'name-map': {}}
     tmpl_first = copy.deepcopy(tmpl)
     dep_tbl, res_tbl = parser.build_dependency_tables(tmpl)
     lvls = dep_tbl.keys()

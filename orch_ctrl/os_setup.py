@@ -9,10 +9,8 @@ from api_drivers.vnc.driver import supported_types as vnc_arg_types
 #TODO: logging
 
 class OpenstackControl (object):
-
     ''' Single openstack-contrail cluster setup
     '''
-
     def __init__ (self, username, password,
                   project_name, project_id, domain_name, 
                   auth_ip, auth_url, authn_url,
@@ -66,11 +64,12 @@ class OpenstackControl (object):
         zones = self._osapi.get_zones()
         self.zones = {}
         self.hosts = {}
+        self.hypervisors = self._osapi.get_hypervisor()
         for z in zones:
             self.zones[z.zoneName] = {'hosts': list(z.hosts.keys())}
-        for h in z.hosts:
-            self.hosts[h] = self._osapi.get_hypervisor(hypervisor_hostname=h)
-
+        for hypervisor in self.hypervisors:                                     
+            self.hosts[hypervisor.hypervisor_hostname.split('.')[0]] = hypervisor
+        
     def __getattr__ (self, fn):
 
         ''' Procedure to route api calls

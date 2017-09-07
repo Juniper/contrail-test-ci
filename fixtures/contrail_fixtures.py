@@ -103,6 +103,12 @@ class ContrailFixture (fixtures.Fixture):
        self._args.update(params) #TODO: delete all entries set to None/[]/{}
 
    @property
+   def obj(self):
+       if not self._obj:
+           self._read()
+       return self._obj
+
+   @property
    def vnc_obj (self):
        if not self._vnc_obj:
            self._read()

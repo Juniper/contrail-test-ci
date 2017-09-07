@@ -92,7 +92,7 @@ try:
                 except novaException.NotFound:
                     return None
             else:
-                return self._nh.hypervisor.list()
+                return self._nh.hypervisors.list()
 
         def get_flavor (self, name):
             try:
@@ -130,6 +130,7 @@ try:
         #TODO get/create/delete/update lbaas_pool
         #TODO get/create/delete/update lbaas_member
         #TODO get/create/delete/update lbaas_healthmonitor
+
 
 except ImportError:
     pass
