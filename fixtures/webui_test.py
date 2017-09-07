@@ -6689,6 +6689,13 @@ class WebuiTest:
                 image_tab = "//select[@id='boot-source-type']/option[text()='Image']"
                 self.ui.click_element(
                     image_tab, 'xpath', browser = self.browser_openstack)
+                if self.os_release == 'newton':
+                    volumes = self.ui.find_element('vol-create', elements=True,
+                                  browser=self.browser_openstack)
+                    for volume in volumes:
+                        if volume.text == 'No':
+                            volume.click()
+                            break
                 options_list = ['image', 'flavor', 'network']
                 for index, option in enumerate(options_list):
                     flag = False
