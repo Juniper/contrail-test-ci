@@ -2838,6 +2838,8 @@ class AnalyticsVerification(fixtures.Fixture):
             time.sleep(soak_timer)
         MAX_RETRY_COUNT = 20
         SLEEP_DURATION = .5
+        if role == 'database-node' and service == 'kafka':
+            SLEEP_DURATION = 5
         retry = 0
         role_alarms = None
         all_alarms = None
