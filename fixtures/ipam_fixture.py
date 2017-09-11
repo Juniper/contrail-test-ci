@@ -129,21 +129,13 @@ class IPAMFixture (IPAMFixture_v2):
 
    ''' Fixture for backward compatiblity '''
 
-   @property
-   def ipam_fq_name (self):
-       return self.fq_name_str
-
-   @property
-   def ipam_name (self):
-       return self.name
-
    #TODO:
-   def __init__ (self, name, connections,
+   def __init__ (self, connections,
                  **kwargs):
        domain = connections.domain_name
        prj = kwargs.get('project_name') or connections.project_name
        prj_fqn = domain + ':' + prj
-       name = kwargs.get('name')
+       name = kwargs.get('ipam_name')
        self._api = kwargs.get('option', 'contrail')
        self.inputs = connections.inputs
        
@@ -181,10 +173,11 @@ class IPAMFixture (IPAMFixture_v2):
        self._params['network_ipam_mgmt'] = {}
        
        network_ipam_mgmt = kwargs.get('ipamtype') or IpamType("dhcp")
-       self._params['network_ipam_mgmt']['ipam_method'] = network_ipam_mgmt.ipam_method
-       
-       vdns_obj = kwargs.get(vdns_obj)
-       if vdns_obj:
-           self._params['network_ipam_mgmt']['ipam_dns_method'] = 'virtual-dns-server'
-           self._params['network_ipam_mgmt']['ipam_dns_server']['virtual_dns_server_name'] = \
-                                                    vdns_obj.vdns_fq_name
+       self._params['network_ipam_mgmt']['ipam_method'] = network_ipam_mgmt.ipam_method 
+       self._params['network_ipam_mgmt']['ipam_dns_method'] = network_ipam_mgmt.ipam_dns_method
+
+       if self._params['network_ipam_mgmt']['ipam_dns_method'] == 'virtual-dns-server':
+           self._params['network_ipam_mgmt']['ipam_dns_server']= {'virtual_dns_server_name' : \
+                                        network_ipam_mgmt.ipam_dns_server.virtual_dns_server_name}
+           self._params['virtual_DNS_refs'] = [network_ipam_mgmt.ipam_dns_server.virtual_dns_server_name]
+            

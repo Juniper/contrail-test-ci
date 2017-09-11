@@ -3,8 +3,6 @@ from contrail_fixtures import ContrailFixture
 from tcutils.util import retry
 from vnc_api.vnc_api import VirtualDns, VirtualDnsType, VirtualDnsRecord
 
-from vnc_api.gen.resource_test import VirtualDnsRecordTestFixtureGen
-
 class VdnsFixture_v2(ContrailFixture):
     
     vnc_class = VirtualDns
@@ -74,41 +72,40 @@ class VdnsFixture_v2(ContrailFixture):
     def _verify_in_control_nodes(self):
         ''' verify VDNS data in control node'''
         for cn in self.inputs.bgp_ips:
-            try:
-                cn_s_dns = self.cn_inspect[cn].get_cn_vdns( vdns=str(self.name))
-                if self.fq_name_str not in cn_s_dns['node_name']:
-                    msg = 'vdns name info not matching with control name data'
-                    self.logger.error(msg)
-                    return False, msg
-                act_cn_vdns_data = cn_s_dns['obj_info']['data']['virtual-DNS-data']
-                if not self._obj:
-                    self._read()
-                exp_vdns_data = self._obj.get_virtual_DNS_data()
-                if act_cn_vdns_data:
-                    if exp_vdns_data.__dict__['domain_name'] != \
-                            act_cn_vdns_data['domain-name']:
-                        msg = 'vdns domain name is not matching with control node data'
-                        self.logger.error(msg)
-                        return False, msg
-                    if str(exp_vdns_data.__dict__['default_ttl_seconds']) != \
-                            act_cn_vdns_data['default-ttl-seconds']:
-                        msg = 'vdns ttl value is not matching with control node data'
-                        self.logger.error(msg)
-                        return False, msg
-                    if exp_vdns_data.__dict__['record_order'] != \
-                            act_cn_vdns_data['record-order']:
-                        msg = 'vdns record order value is not matching with control node data'
-                        self.logger.error(msg)
-                        return False, msg
-                    if exp_vdns_data.__dict__['next_virtual_DNS'] != \
-                            act_cn_vdns_data['next-virtual-DNS']:
-                        msg = 'vdns next virtual DNS data is not matching with control node data'
-                        self.logger.error(msg)
-                        return False, msg
-            except Exception as e:
-                # Return false if we get an key error and for retry
-                msg = "Exception happened"
+            cn_s_dns = self.cn_inspect[cn].get_cn_vdns( vdns=str(self.name))
+            if cn_s_dns == None:
+                msg = "VDNS Server not found in Control node"
+                self.logger.debug(msg)
+                return False,msg
+            if self.fq_name_str not in cn_s_dns['node_name']:
+                msg = 'vdns name info not matching with control name data'
+                self.logger.error(msg)
                 return False, msg
+            act_cn_vdns_data = cn_s_dns['obj_info']['data']['virtual-DNS-data']
+            if not self._obj:
+                self._read()
+            exp_vdns_data = self._obj.get_virtual_DNS_data()
+            if act_cn_vdns_data:
+                if exp_vdns_data.__dict__['domain_name'] != \
+                        act_cn_vdns_data['domain-name']:
+                    msg = 'vdns domain name is not matching with control node data'
+                    self.logger.error(msg)
+                    raise NameError(msg)
+                if str(exp_vdns_data.__dict__['default_ttl_seconds']) != \
+                        act_cn_vdns_data['default-ttl-seconds']:
+                    msg = 'vdns ttl value is not matching with control node data'
+                    self.logger.error(msg)
+                    raise NameError(msg)
+                if exp_vdns_data.__dict__['record_order'] != \
+                        act_cn_vdns_data['record-order']:
+                    msg = 'vdns record order value is not matching with control node data'
+                    self.logger.error(msg)
+                    raise NameError(msg)
+                if exp_vdns_data.__dict__['next_virtual_DNS'] != \
+                        act_cn_vdns_data['next-virtual-DNS']:
+                    msg = 'vdns next virtual DNS data is not matching with control node data'
+                    self.logger.error(msg)
+                    raise NameError(msg)
         msg = "Vdns server entry found in Control node"
         self.logger.debug(msg)
         return True, None
@@ -120,28 +117,27 @@ class VdnsFixture_v2(ContrailFixture):
         domain , name = self.fq_name
         api_s_dns = self.api_s_inspect.get_cs_dns(
             vdns_name=str(self.name), refresh=True)
-        try:
-            if self.fq_name != api_s_dns['virtual-DNS']['fq_name']:
-                msg = ' fq name data is not matching with api server data'
+        if api_s_dns == None:
+            msg = "VDNS Server info not foundin API server"
+            self.logger.debug(msg)
+            return False, msg
+        if self.fq_name != api_s_dns['virtual-DNS']['fq_name']:
+            msg = ' fq name data is not matching with api server data'
+            self.logger.error(msg)
+            return False, msg
+        if self.uuid != api_s_dns['virtual-DNS']['uuid']:
+            msg = ' UUID is is not matching with api server data'
+            self.logger.error(msg)
+            return False, msg
+        api_vdns_data = api_s_dns['virtual-DNS']['virtual_DNS_data']
+        if not self._obj:
+            self._read()
+        exp_vdns_data = self._obj.get_virtual_DNS_data()
+        for data in api_vdns_data:
+            if str(exp_vdns_data.__dict__[data]) != str(api_vdns_data.get(data)):
+                msg = 'vdns ' + data + ' is not matching with api server data'
                 self.logger.error(msg)
-                return False, msg
-            if self.uuid != api_s_dns['virtual-DNS']['uuid']:
-                msg = ' UUID is is not matching with api server data'
-                self.logger.error(msg)
-                return False, msg
-            api_vdns_data = api_s_dns['virtual-DNS']['virtual_DNS_data']
-            if not self._obj:
-                    self._read()
-            exp_vdns_data = self._obj.get_virtual_DNS_data()
-            for data in api_vdns_data:
-                if str(exp_vdns_data.__dict__[data]) != str(api_vdns_data.get(data)):
-                    msg = 'vdns ' + data + ' is not matching with api server data'
-                    self.logger.error(msg)
-                    return False, msg
-        except Exception as e:
-            # Return false if we get an key error and for retry
-            msg = "Exception happened"
-            return False
+                raise NameError(msg)
         msg = "Vdns server entry found in API server"
         self.logger.debug(msg)
         return True, msg
@@ -182,21 +178,14 @@ class VdnsFixture (VdnsFixture_v2):
 
    ''' Fixture for backward compatiblity '''
    
-   @property
-   def vdns_fq_name (self):
-       return self.fq_name_str
-
-   @property
-   def vdns_name (self):
-       return self.name
-
    #TODO:
-   def __init__ (self, connections,
-                 **kwargs):
+   def __init__ (self, connections, 
+                  **kwargs):
        domain = connections.domain_name
        name = kwargs.get('vdns_name')
        self._api = kwargs.get('option', 'contrail')
        self.inputs = connections.inputs
+       
        if name:
            uid = self._check_if_present(connections, name, [domain])
            if uid:
@@ -223,24 +212,36 @@ class VdnsFixture (VdnsFixture_v2):
        super(VdnsFixture, self).cleanUp()
 
    def _construct_contrail_params (self, name, domain, kwargs):
-       self._params = {
-           'type': 'OS::ContrailV2::VirtualDNS',
-           'name' : name,
-           'domain': domain,
-       }
-       dns_domain_name = kwargs.get('dns_domain_name', 'juniper.net')
-       ttl = kwargs.get('ttl',100)
-       record_order = kwargs.get('record_order', 'random')
-       dynamic_records_from_client = kwargs.get('dynamic_records_from_client', True)
+        self._params = {
+            'type': 'OS::ContrailV2::VirtualDNS',
+            'name' : name,
+            'domain': domain
+        }
+        dns_data = kwargs.get('dns_data', None)
+        if dns_data: 
+            domain_name = dns_data.domain_name or 'juniper.net'
+            default_ttl_seconds = dns_data.default_ttl_seconds or 100
+            dynamic_records_from_client = dns_data.dynamic_records_from_client or True
+            record_order = dns_data.record_order or 'random'
+            next_virtual_DNS = dns_data.next_virtual_DNS or None
+            floating_ip_record = dns_data.floating_ip_record or None
+            external_visible = dns_data.external_visible or False
+            reverse_resolution = dns_data.reverse_resolution or True
        
-       self._params['virtual_dns_data'] = {}
-       self._params['virtual_dns_data']['domain_name'] = dns_domain_name
-       self._params['virtual_dns_data']['record_order'] = record_order
-       self._params['virtual_dns_data']['default_ttl_seconds'] = ttl
-       self._params['virtual_dns_data']['dynamic_records_from_client'] = \
-                    dynamic_records_from_client
-
-
+        self._params['virtual_DNS_data'] = {}
+        self._params['virtual_DNS_data']['domain_name'] = domain_name
+        self._params['virtual_DNS_data']['record_order'] = record_order
+        self._params['virtual_DNS_data']['default_ttl_seconds'] = default_ttl_seconds
+        self._params['virtual_DNS_data']['dynamic_records_from_client'] = \
+                                                dynamic_records_from_client
+        self._params['virtual_DNS_data']['external_visible'] = \
+                                                external_visible
+        self._params['virtual_DNS_data']['reverse_resolution'] = \
+                                                reverse_resolution
+        self._params['virtual_DNS_data']['floating_ip_record'] = \
+                                                floating_ip_record
+        self._params['virtual_DNS_data']['next_virtual_DNS'] = \
+                                                next_virtual_DNS
 class VdnsRecordFixture_v2(ContrailFixture):
 
     vnc_class = VirtualDnsRecord
@@ -315,36 +316,39 @@ class VdnsRecordFixture_v2(ContrailFixture):
                 cn_s_dns = self.cn_inspect[cn].get_cn_vdns_rec(
                     vdns=self._args['virtual_DNS'].split(":")[-1],
                     rec_name=self.name)
-                if self.fq_name_str not in cn_s_dns['node_name']:
-                    msg = 'vdns name info not matching with control name data'
-                    self.logger.error(msg)
-                    return False, msg
-                act_cn_vdns_rec_data = cn_s_dns['obj_info'][
-                    'data']['virtual-DNS-record-data']
-                if not self._obj:
-                    self._read()
-                exp_vdns_rec_data = self._obj.get_virtual_DNS_record_data()
-                if act_cn_vdns_rec_data:
-                    if exp_vdns_rec_data.__dict__['record_name'] != act_cn_vdns_rec_data['record-name']:
-                        msg = 'vdns record name is not matching with control node data'
-                        self.logger.error(msg)
-                        return False, msg
-                    if str(exp_vdns_rec_data.__dict__['record_ttl_seconds']) != act_cn_vdns_rec_data['record-ttl-seconds']:
-                        msg = 'vdns record ttl value is not matching with control node data'
-                        self.logger.error(msg)
-                        return False, msg
-                    if exp_vdns_rec_data.__dict__['record_type'] != act_cn_vdns_rec_data['record-type']:
-                        msg = 'vdns record type value is not matching with control node data'
-                        self.logger.error(msg)
-                        return False, msg
-                    if exp_vdns_rec_data.__dict__['record_data'] != act_cn_vdns_rec_data['record-data']:
-                        msg = 'vdns record data is not matching with control node data'
-                        self.logger.error(msg)
-                        return False, msg
-            except Exception as e:
-                msg = "Exception happened"
+            except TypeError:
+                msg = "No record found inside the specified VDNS server"
                 return False, msg
-        msg = "VDNS record info is not matching with control node data"
+            if cn_s_dns == None:
+                msg = "No record entry found in API server"
+                return False, msg
+            if self.fq_name_str not in cn_s_dns['node_name']:
+                msg = 'vdns name info not matching with control name data'
+                self.logger.error(msg)
+                return False, msg
+            act_cn_vdns_rec_data = cn_s_dns['obj_info'][
+                    'data']['virtual-DNS-record-data']
+            if not self._obj:
+                self._read()
+            exp_vdns_rec_data = self._obj.get_virtual_DNS_record_data()
+            if act_cn_vdns_rec_data:
+                if exp_vdns_rec_data.__dict__['record_name'] != act_cn_vdns_rec_data['record-name']:
+                    msg = 'vdns record name is not matching with control node data'
+                    self.logger.error(msg)
+                    raise NameError(msg)
+                if str(exp_vdns_rec_data.__dict__['record_ttl_seconds']) != act_cn_vdns_rec_data['record-ttl-seconds']:
+                    msg = 'vdns record ttl value is not matching with control node data'
+                    self.logger.error(msg)
+                    raise NameError(msg)
+                if exp_vdns_rec_data.__dict__['record_type'] != act_cn_vdns_rec_data['record-type']:
+                    msg = 'vdns record type value is not matching with control node data'
+                    self.logger.error(msg)
+                    raise NameError(msg)
+                if exp_vdns_rec_data.__dict__['record_data'] != act_cn_vdns_rec_data['record-data']:
+                    msg = 'vdns record data is not matching with control node data'
+                    self.logger.error(msg)
+                    raise NameError(msg)
+        msg = "VDNS record info is matching with control node data"
         self.logger.debug(msg)
         return True, None
     # end of  _verify_in_control_nodes
@@ -353,31 +357,34 @@ class VdnsRecordFixture_v2(ContrailFixture):
     def _verify_in_api_server(self):
         ''' verify VDNS record data in API server '''
         result = True
-        api_s_dns_rec = self.api_s_inspect.get_cs_dns_rec( rec_name=self.name, 
-            vdns_name=self._args['virtual_DNS'].split(":")[-1], refresh=True)
-        try:
-            if self.fq_name != api_s_dns_rec['virtual-DNS-record']['fq_name']:
-                msg = ' fq name data is not matching with DNS record data'
-                self.logger.error(msg)
-                return False, msg
-            if self.uuid != api_s_dns_rec['virtual-DNS-record']['uuid']:
-                msg = ' UUID is is not matching with DNS record data'
-                self.logger.error(msg)
-                return False, msg
-            api_vdns_rec_data = api_s_dns_rec[
-                'virtual-DNS-record']['virtual_DNS_record_data']
-            if not self._obj:
-                self._read()
-            exp_vdns_rec_data = self._obj.get_virtual_DNS_record_data()
-            for data in api_vdns_rec_data:
-                if str(exp_vdns_rec_data.__dict__[data]) != str(api_vdns_rec_data.get(data)):
-                    msg = 'vdns ' + data + ' is not matching with api server DNS record data'
-                    self.logger.error(msg)
-                    return False, msg
-        except Exception as e:
-            msg = "Exception happened"
+        try: 
+            api_s_dns_rec = self.api_s_inspect.get_cs_dns_rec( rec_name=self.name, 
+                vdns_name=self._args['virtual_DNS'].split(":")[-1], refresh=True)
+        except TypeError:
+            msg = "No record found inside the specified VDNS server"
             return False, msg
-        msg = "VDNS record info is not matching with API Server data"
+        if api_s_dns_rec == None:
+            msg = "No record entry found in API server"
+            return False, msg
+        if self.fq_name != api_s_dns_rec['virtual-DNS-record']['fq_name']:
+            msg = ' fq name data is not matching with DNS record data'
+            self.logger.error(msg)
+            return False, msg
+        if self.uuid != api_s_dns_rec['virtual-DNS-record']['uuid']:
+            msg = ' UUID is is not matching with DNS record data'
+            self.logger.error(msg)
+            return False, msg
+        api_vdns_rec_data = api_s_dns_rec[
+                'virtual-DNS-record']['virtual_DNS_record_data']
+        if not self._obj:
+            self._read()
+        exp_vdns_rec_data = self._obj.get_virtual_DNS_record_data()
+        for data in api_vdns_rec_data:
+            if str(exp_vdns_rec_data.__dict__[data]) != str(api_vdns_rec_data.get(data)):
+                msg = 'vdns ' + data + ' is not matching with api server DNS record data'
+                self.logger.error(msg)
+                raise NameError(msg)
+        msg = "VDNS record info is matching with API Server data"
         self.logger.debug(msg)
         return True, None
     # end of _verify_in_api_server
@@ -420,20 +427,14 @@ class VdnsRecordFixture(VdnsRecordFixture_v2):
 
     ''' Fixture for backward compatiblity '''
    
-    @property
-    def vdns_record_fq_name (self):
-       return self.fq_name_str
-
-    @property
-    def vdns_record_name (self):
-       return self.name
-
    #TODO:
-    def __init__ (self, connections, name, vdns_fqname, 
+    def __init__ (self, connections, 
+                  vdns_fq_name,
+                  virtual_DNS_record_data,
                  **kwargs):
-        vdns_name = kwargs.get('vdns_name')
-        domain = vdns_fqname
-        name = kwargs.get('vdns_record_name')
+        dns_record_data = virtual_DNS_record_data
+        name = kwargs.get('virtual_DNS_record_name', None)
+        domain = vdns_fq_name
         self._api = kwargs.get('option', 'contrail')
         self.inputs = connections.inputs
         if name:
@@ -444,7 +445,7 @@ class VdnsRecordFixture(VdnsRecordFixture_v2):
                 return
         else:
             name = get_random_name("vdnsRecord")
-        self._construct_contrail_params(name, domain, kwargs)
+        self._construct_contrail_params(name, domain, dns_record_data, kwargs)
         super(VdnsRecordFixture, self).__init__(connections=connections,
                                        params=self._params)
 
@@ -461,18 +462,20 @@ class VdnsRecordFixture(VdnsRecordFixture_v2):
     def cleanUp (self):
         super(VdnsRecordFixture, self).cleanUp()
 
-    def _construct_contrail_params (self, name, domain, kwargs):
+    def _construct_contrail_params (self, name, domain, dns_record_data, kwargs):
         self._params = {
             'type': 'OS::ContrailV2::VirtualDnsRecord',
             'name' : name,
-            'domain': domain,
+            'virtual_DNS': domain
         }
-        record_name = kwargs.get('dns_record_name', 'TestRecord')
-        record_type = kwargs.get('dns_record_type','A')
-        record_class = kwargs.get('dns_record_class', 'IN')
-        record_data = kwargs.get('dns_record_data', '127.0.0.1')
-        record_ttl_seconds = kwargs.get('dns_record_ttl_seconds', 86400)
-       
+        
+        
+        record_name = dns_record_data.record_name 
+        record_type = dns_record_data.record_type 
+        record_class = dns_record_data.record_class 
+        record_data = dns_record_data.record_data 
+        record_ttl_seconds = dns_record_data.record_ttl_seconds 
+
         self._params['virtual_DNS_record_data'] = {}
         self._params['virtual_DNS_record_data']['record_name'] = record_name
         self._params['virtual_DNS_record_data']['record_type'] = record_type

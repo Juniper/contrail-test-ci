@@ -4,8 +4,8 @@ from tcutils.util import get_random_name, get_random_cidr, get_random_cidrs
 from common import resource_handler
 from common.base import GenericTestBase
 
-from vnc_api.vnc_api import VirtualDnsType, IpamDnsAddressType, IpamType, VirtualDnsRecordType
-from vdns_fixture_new import VdnsFixture, VdnsRecordFixture
+from vnc_api.vnc_api import IpamDnsAddressType, IpamType, VirtualDnsType
+from vdns_fixture_new import VdnsFixture
 from ipam_fixture import IPAMFixture
 
 
@@ -30,13 +30,6 @@ tmpl = {
        'ttl': {'type': 'number'},
        'externally_visible': {'type': 'boolean'},
        'reverse_resolution': {'type': 'boolean'},
-       'vdns_record_name': {'type': 'string'},
-       'vdns_record_type': {'type': 'string'},
-       'vdns_record_class': {'type': 'string'},
-       'vdns_record_data': {'type': 'string'},  # IP address or string depending on type
-       'vdns_record_ttl': {'type': 'number'},
-       'record_name': {'type': 'string'},
-       'parent_virtual_dns_name': {'type': 'string'}
    },
     'resources' : {
         'ipam_test': {
@@ -69,22 +62,6 @@ tmpl = {
                 'name' : { 'get_param': 'vdns_name' },
                 'domain': 'default-domain'
             }
-        },
-        'vdns_record_test': {
-            'type': 'OS::ContrailV2::VirtualDnsRecord',
-            'depends_on': ['vdns_test'],
-            'properties': { 
-                'virtual_DNS_record_data':
-                    {
-                        'virtual_DNS_record_data_record_name': { 'get_param': 'vdns_record_name' },
-                        'virtual_DNS_record_data_record_type': { 'get_param': 'vdns_record_type' },
-                        'virtual_DNS_record_data_record_class': { 'get_param': 'vdns_record_class' },
-                        'virtual_DNS_record_data_record_data': { 'get_param': 'vdns_record_data' },
-                        'virtual_DNS_record_data_record_ttl_seconds': { 'get_param': 'vdns_record_ttl' },
-                    },
-                'name' : { 'get_param': 'record_name' },
-                'virtual_DNS' : { 'get_param': 'parent_virtual_dns_name' }
-            }
         }
     }
 }
@@ -104,13 +81,6 @@ env = {
        'ttl': 100,
        'externally_visible': False,
        'reverse_resolution': False,
-       'vdns_record_name': "VMtest1",
-       'vdns_record_type': "A",
-       'vdns_record_class': "IN",
-       'vdns_record_data': "1.2.3.4",  # IP address or string depending on type
-       'vdns_record_ttl': 100,
-       'record_name': "VdnsRecordTest",
-       'parent_virtual_dns_name': "default-domain:VDNSTest"
    }
 }
 
@@ -184,12 +154,4 @@ class TestOldStyle (GenericTestBase):
                                                 ipam_name = ipam_name,
                                                 ipamtype=ipam_mgmt_obj))
         #result, msg = ipam_fixt1.verify_on_setup()
-        #self.assertTrue(result, msg)
-        
-        vdns_rec_data = VirtualDnsRecordType(
-            cname_rec, 'CNAME', 'IN', "TempRecord", ttl)
-        vdns_rec_fix = self.useFixture(VdnsRecordFixture(self.connections,
-                                                        vdns_fixt1.fq_name_str,
-                                                        vdns_rec_data))
-        #result, msg = vdns_rec_fix.fq_name_str
         #self.assertTrue(result, msg)
