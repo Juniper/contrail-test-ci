@@ -1,3 +1,4 @@
+#TODO delete this module
 import time
 from tcutils.util import *
 from common import log_orig as contrail_logging

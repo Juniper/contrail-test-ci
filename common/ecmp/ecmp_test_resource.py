@@ -92,7 +92,7 @@ class ECMPSolnSetup():
         self.vn2_vrf_name = self.vn2.vrf_name
         self.vn3_vrf_name = self.vn3.vrf_name
 
-        self.fvn_id = self.fvn.vn_id
+        self.fvn_id = self.fvn.uuid
         self.vm1_id = self.vm1.vm_id
         self.vm2_id = self.vm2.vm_id
         self.vm3_id = self.vm3.vm_id

@@ -63,7 +63,7 @@ class TestRoutersBasic(BaseNeutronTest):
         router_dict = self.create_router(router_name)
         router_rsp = self.quantum_h.router_gateway_set(
                 router_dict['id'],
-                ext_vn_fixture.vn_id)
+                ext_vn_fixture.uuid)
         self.add_vn_to_router(router_dict['id'], vn1_fixture)
         assert vm1_fixture.ping_with_certainty(
          vm2_fixture.vm_ip), 'Ping from vm_left to vm_right through snat failed'

@@ -54,8 +54,8 @@ class trafficTestFixture(fixtures.Fixture):
         self.total_single_instance_streams = total_single_instance_streams
         self.tx_vm_fixture = tx_vm_fixture
         self.rx_vm_fixture = rx_vm_fixture
-        tx_vn_fq_name = tx_vn_fixture.get_vn_fq_name() if tx_vn_fixture else None
-        rx_vn_fq_name = rx_vn_fixture.get_vn_fq_name() if rx_vn_fixture else None
+        tx_vn_fq_name = tx_vn_fixture.fq_name_str if tx_vn_fixture else None
+        rx_vn_fq_name = rx_vn_fixture.fq_name_str if rx_vn_fixture else None
         af = af if af is not None else self.inputs.get_af()
         self.stream_proto = stream_proto
         self.vm_fip_info = vm_fip_info

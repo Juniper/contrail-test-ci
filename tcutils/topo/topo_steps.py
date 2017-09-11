@@ -572,7 +572,7 @@ def createPublicVN(self):
                 inputs=self.project_inputs,
                 connections=self.project_connections,
                 pool_name=fip_pool_name,
-                vn_id=self.fvn_fixture.vn_id,
+                vn_id=self.fvn_fixture.uuid,
                 vn_name=fvn_name))
         assert self.fip_fixture.verify_on_setup()
         self.logger.info('created FIP Pool:%s under Project:%s' %
@@ -641,11 +641,11 @@ def allocateNassociateFIP(self, config_topo):
         for vmfixt in config_topo[project]['vm']:
             if self.inputs.is_gui_based_config():
                 self.fip_fixture.create_and_assoc_fip_webui(
-                    self.fvn_fixture.vn_id,
+                    self.fvn_fixture.uuid,
                     config_topo[project]['vm'][vmfixt].vm_id)
             else:
                 fip_id = self.fip_fixture.create_and_assoc_fip(
-                    self.fvn_fixture.vn_id,
+                    self.fvn_fixture.uuid,
                     config_topo[project]['vm'][vmfixt].vm_id)
             assert self.fip_fixture.verify_fip(
                 fip_id, config_topo[project]['vm'][vmfixt], self.fvn_fixture)
@@ -902,7 +902,7 @@ def allocNassocFIP(self, config_topo=None, assoc=True):
                         (vn_name, vn_proj, vm_list[index], vm_proj))
                     if self.inputs.is_gui_based_config():
                         self.fip_fixture_dict[vn_name].alloc_and_assoc_fip_webui(
-                            self.vn_fixture[vn_name].vn_id,
+                            self.vn_fixture[vn_name].uuid,
                             self.vm_fixture[self.topo.fvn_vm_map_dict[vn_name][index]].vm_id,
                             self.vm_fixture[self.topo.fvn_vm_map_dict[vn_name][index]].vm_ip,
                             self.topo.fvn_vm_map_dict[vn_name], assoc)
@@ -915,7 +915,7 @@ def allocNassocFIP(self, config_topo=None, assoc=True):
                         assigned_fip = vm_fixture.chk_vmi_for_fip(
                             vn_fq_name=self.vn_fixture[vn_name].vn_fq_name)
                         fip_id = self.fip_fixture_dict[vn_name].create_and_assoc_fip(
-                            self.vn_fixture[vn_name].vn_id,
+                            self.vn_fixture[vn_name].uuid,
                             vm_fixture.vm_id)
                         if fip_id:
                             assert self.fip_fixture_dict[vn_name].verify_fip(
@@ -955,7 +955,7 @@ def createAllocateAssociateVnFIPPools(self, config_topo=None, alloc=True):
                         inputs=self.inputs,
                         connections=self.connections,
                         pool_name=fip_pool_name,
-                        vn_id=self.vn_fixture[vn_name].vn_id,
+                        vn_id=self.vn_fixture[vn_name].uuid,
                         vn_name=vn_name))
                 assert self.fip_fixture_dict[vn_name].verify_on_setup()
                 self.logger.info(

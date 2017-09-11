@@ -102,7 +102,7 @@ class FloatingipBasicTestSanity(base.FloatingIpBaseTest):
                 inputs=self.inputs,
                 connections=self.connections,
                 pool_name=fip_pool_name,
-                vn_id=fvn_fixture.vn_id))
+                vn_id=fvn_fixture.uuid))
         assert fip_fixture.verify_on_setup()
         assert vn1_vm1_fixture.wait_till_vm_is_up()
         fip_id = fip_fixture.create_and_assoc_fip(

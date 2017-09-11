@@ -145,14 +145,18 @@ class CsProjectResult (Result):
         return self.xpath('project', 'network_policys')
 
     def policy(self, policy):
-        return filter(lambda x: x['to'][-1] == policy, self.policy_list())
+        policys = self.policy_list()
+        if policys:
+            return filter(lambda x: x['to'][-1] == policy, policys)
+        return []
 
     def vn_list(self):
         return self.xpath('project', 'virtual_networks')
 
     def vn(self, vn):
-        if self.vn_list():
-            return filter(lambda x: x['to'][-1] == vn, self.vn_list())
+        vns = self.vn_list()
+        if vns:
+            return filter(lambda x: x['to'][-1] == vn, vns)
         return []
 
     def fip_list(self):
