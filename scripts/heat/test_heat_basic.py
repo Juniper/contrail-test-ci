@@ -28,12 +28,14 @@ class TestBasicHeat(BaseHeatTest, ECMPTraffic, ECMPVerify):
     @classmethod
     def setUpClass(cls):
         super(TestBasicHeat, cls).setUpClass()
+        cls.heat_api_version = 2
+        cls.pt_based_svc = True
 
     @classmethod
     def tearDownClass(cls):
         super(TestBasicHeat, cls).tearDownClass()
 
-    @test.attr(type=['sanity'])
+    @test.attr(type=['sanity', 'suite1'])
     @preposttest_wrapper
     def test_svc_creation_with_heat(self):
         '''
@@ -63,29 +65,10 @@ class TestBasicHeat(BaseHeatTest, ECMPTraffic, ECMPVerify):
     # end test_svc_creation_with_heat
 # end TestHeat
 
-class TestBasicHeatv2(TestBasicHeat):
-    @classmethod
-    def setUpClass(cls):
-        super(TestBasicHeatv2, cls).setUpClass()
-        cls.heat_api_version = 2
-        cls.pt_based_svc = True
-
-    @test.attr(type=['sanity', 'suite1'])
-    @preposttest_wrapper
-    def test_svc_creation_with_heat(self):
-        super(TestBasicHeatv2, self).test_svc_creation_with_heat()
-
 class TestBasicHeatIPv6(TestBasicHeat):
     @classmethod
     def setUpClass(cls):
         super(TestBasicHeatIPv6, cls).setUpClass()
-        cls.inputs.set_af('v6')
-
-class TestBasicHeatv2IPv6(TestBasicHeatv2):
-    @classmethod
-    def setUpClass(cls):
-        super(TestBasicHeatv2IPv6, cls).setUpClass()
-        cls.inputs.set_af('v6')
 
     def is_test_applicable(self):
         if not self.connections.orch.is_feature_supported('ipv6'):
