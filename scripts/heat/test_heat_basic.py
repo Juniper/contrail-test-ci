@@ -78,4 +78,4 @@ class TestBasicHeatIPv6(TestBasicHeat):
     @test.attr(type=['sanity'])
     @preposttest_wrapper
     def test_svc_creation_with_heat(self):
-        super(TestBasicHeatv2, self).test_svc_creation_with_heat()
+        super(TestBasicHeatIPv6, self).test_svc_creation_with_heat()
