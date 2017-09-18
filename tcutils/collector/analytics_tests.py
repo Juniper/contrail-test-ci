@@ -1313,7 +1313,7 @@ class AnalyticsVerification(fixtures.Fixture):
         finally:
             return res
 
-    @retry_for_value(delay=2, tries=4)
+    @retry_for_value(delay=2, tries=6)
     def get_bandwidth_usage(self,collector,vn_fq_name,direction = 'out'):
     
         res = None
