@@ -605,6 +605,7 @@ class WebuiTest:
             self.ui.select_project(self.project_name_input)
             self.logger.info("%s health check %s using contrail-webui" %
                              (attach_var, int_shc))
+            self.ui.wait_till_ajax_done(self.browser, wait=3)
             rows = self.ui.get_rows()
             for sint in rows:
                 if sint.text:
@@ -1203,6 +1204,7 @@ class WebuiTest:
             self.ui.select_project(self.project_name_input)
             self.logger.info("%s routing policy %s using contrail-webui" %
                              (attach_var, int_rp))
+            self.ui.wait_till_ajax_done(self.browser, wait=3)
             rows = self.ui.get_rows()
             for sint in rows:
                 if sint.text:
@@ -1267,6 +1269,7 @@ class WebuiTest:
             self.ui.select_project(self.project_name_input)
             self.logger.info("%s route aggregate %s using contrail-webui" %
                              (attach_var, int_ra))
+            self.ui.wait_till_ajax_done(self.browser, wait=3)
             rows = self.ui.get_rows()
             for sint in rows:
                 if sint.text:
