@@ -754,8 +754,7 @@ class VerifySvcFirewall(VerifySvcChain):
         assert vm1_fixture.ping_with_certainty(vm2_fixture.vm_ip), errmsg
 
         # Verify ICMP mirror
-        sessions = self.tcpdump_on_all_analyzer(mirror_si_fixture,
-                                                mirror_si_prefix)
+        sessions = self.tcpdump_on_all_analyzer(mirror_si_fixture)
         errmsg = "Ping to right VM ip %s from left VM failed" % vm2_fixture.vm_ip
         assert vm1_fixture.ping_to_ip(vm2_fixture.vm_ip), errmsg
         for svm_name, (session, pcap) in sessions.items():
