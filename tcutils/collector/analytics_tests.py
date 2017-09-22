@@ -2233,10 +2233,15 @@ class AnalyticsVerification(fixtures.Fixture):
             analytics_processes.extend(['contrail-snmp-collector', 'contrail-topology'])
         control_processes = ['contrail-control',
             'contrail-control-nodemgr', 'contrail-dns', 'contrail-named']
-        if self.inputs.get_build_sku() not in ['kilo', 'liberty', 'mitaka']:
+        try:
+            #WA for #1718856 vcenter sanity: Broken by other commits
+            if self.inputs.get_build_sku() not in ['kilo', 'liberty', 'mitaka']:
+                vrouter_processes = ['contrail-vrouter-agent']
+            else:
+                vrouter_processes = ['supervisor-vrouter', 'contrail-vrouter-agent']
+        except Exception as e:
             vrouter_processes = ['contrail-vrouter-agent']
-        else:
-            vrouter_processes = ['supervisor-vrouter', 'contrail-vrouter-agent']
+             
         self.new_ip_addr = '10.1.1.1'
 
         if role == 'config-node':
@@ -3198,9 +3203,13 @@ class AnalyticsVerification(fixtures.Fixture):
     def get_cfgm_process_details(self, opserver, cfgm_name, process=None, instanceid='0'):
 
         res = None
-
-        if process == 'contrail-api' and self.inputs.get_build_sku() in ['kilo', 'liberty', 'mitaka']:
+        try:
+            #WA for #1718856 vcenter sanity: Broken by other commits
+            if process == 'contrail-api' and self.inputs.get_build_sku() in ['kilo', 'liberty', 'mitaka']:
+                process = '%s:%s' % (process, instanceid)
+        except Exception as e:
             process = '%s:%s' % (process, instanceid)
+        
 
         try:
             obj = self.ops_inspect[opserver].get_ops_config(config=cfgm_name)
