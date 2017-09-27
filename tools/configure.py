@@ -743,4 +743,4 @@ def main(argv=sys.argv):
     configure_test_env(args.contrail_fab_path, args.contrail_test_directory)
 
 if __name__ == "__main__":
-    sys.exit(not main(sys.argv))
+    sys.exit(main(sys.argv))
