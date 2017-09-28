@@ -118,7 +118,7 @@ def verify_tcpdump_count(obj, session, pcap, exp_count=None, mac=None,
     if mac:
         cmd = 'tcpdump -nnr %s ether host %s | grep -c %s' % (pcap, mac, grep_string)
     else:
-        cmd = 'tcpdump -nnr %s | grep -c %s' % (pcap, grep_string)
+        cmd = 'tcpdump -nnr %s -vvv | grep -c %s' % (pcap, grep_string)
     if not vm_fix_pcap_pid_files:
         out, err = execute_cmd_out(session, cmd, obj.logger)
         count = int(out.strip('\n'))
