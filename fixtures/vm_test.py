@@ -826,6 +826,13 @@ class VMFixture(fixtures.Fixture):
                         break
         return getattr(self, '_local_ip', '')
 
+    def get_local_ip_vm_intf_name(self, vm_intf_name):
+        for (vn_fq_name, local_ip) in self.get_local_ips().iteritems():
+            mac_addr = self.mac_addr[vn_fq_name]
+            if vm_intf_name == self.get_vm_interface_name(mac_addr):
+                return local_ip
+        return None
+
     def clear_local_ips(self):
         self._local_ip = None
         self.local_ips = {}
@@ -2135,7 +2142,7 @@ class VMFixture(fixtures.Fixture):
     # end set_config_via_netconf
 
     def run_cmd_on_vm(self, cmds=[], as_sudo=False, timeout=30,
-                      as_daemon=False, raw=False, warn_only=True, pidfile=None):
+                      as_daemon=False, raw=False, warn_only=True, pidfile=None, local_ip=None):
         '''run cmds on VM
 
         '''
@@ -2147,8 +2154,12 @@ class VMFixture(fixtures.Fixture):
         try:
             fab_connections.clear()
 
-            vm_host_string = '%s@%s' % (
-                self.vm_username, self.local_ip)
+            if not local_ip:
+                vm_host_string = '%s@%s' % (
+                    self.vm_username, self.local_ip)
+            else:
+                vm_host_string = '%s@%s' % (
+                    self.vm_username, local_ip)
             for cmd in cmdList:
                 output = remote_cmd(
                     vm_host_string, cmd, gateway_password=host['password'],
