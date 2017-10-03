@@ -292,15 +292,24 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         return result
 
     @retry(delay=2, tries=6)
-    def verify_port_mirroring(self, src_vm, dst_vm, mirr_vm, vlan=None):
+    def verify_port_mirroring(self, src_vm, dst_vm, mirr_vm, vlan=None, parent=False):
         result = True
         svm = mirr_vm.vm_obj
         if svm.status == 'ACTIVE':
             svm_name = svm.name
             host = self.get_svm_compute(svm_name)
             tapintf = self.get_svm_tapintf(svm_name)
-        session = ssh(host['host_ip'], host['username'], host['password'])
-        pcap = self.start_tcpdump(session, tapintf, vlan=vlan)
+        # Intf mirroring enabled on either sub intf or parent port
+        exp_count = 10
+        if parent:
+            # Intf mirroring enabled on both sub intf and parent port
+            exp_count = 20
+        if self.inputs.pcap_on_vm:
+            vm_fix_pcap_pid_files = start_tcpdump_for_vm_intf(
+                None, [mirr_vm], None, filters='udp port 8099', pcap_on_vm=True)
+        else:
+            session = ssh(host['host_ip'], host['username'], host['password'])
+            pcap = self.start_tcpdump(session, tapintf, vlan=vlan)
         src_ip = src_vm.vm_ip
         dst_ip = dst_vm.vm_ip
         if vlan:
