@@ -399,6 +399,8 @@ class TestInputs(object):
 
         self.prov_file = self.prov_file or self._create_prov_file()
         self.prov_data = self.read_prov_file()
+        self.cfgm_vip = self.contrail_external_vip or self.cfgm_ips[0]
+        self.collector_ip = self.contrail_external_vip or self.collector_ips[0]
         #vcenter server
         self.vcenter_dc = read_config_option(
            self.config, 'vcenter', 'vcenter_dc', None)
