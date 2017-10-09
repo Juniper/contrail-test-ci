@@ -34,12 +34,13 @@ class ConfigSvcMirror(ConfigSvcChain):
 
     def stop_tcpdump(self, session, pcap, filt='', vm_fix_pcap_pid_files=[], pcap_on_vm=False):
         self.logger.info("Waiting for the tcpdump write to complete.")
-        sleep(30)
+        sleep(3)
         if not pcap_on_vm:
             cmd = 'kill $(pidof tcpdump)'
             execute_cmd(session, cmd, self.logger)
             execute_cmd(session, 'sync', self.logger)
-            cmd = 'tcpdump -r %s %s | wc -l' % (pcap, filt)
+            sleep(3)
+            cmd = 'tcpdump -nr %s %s | wc -l' % (pcap, filt)
             out, err = execute_cmd_out(session, cmd, self.logger)
             count = int(out.strip('\n'))
             cmd = 'rm -f %s' % pcap
@@ -53,6 +54,7 @@ class ConfigSvcMirror(ConfigSvcChain):
                 cmd_to_kill = 'cat %s | xargs kill ' % (pidfile)
                 count = cmd_to_output + '| wc -l'
                 vm_fix.run_cmd_on_vm(cmds=[cmd_to_kill], as_sudo=True)
+                sleep(2)
                 vm_fix.run_cmd_on_vm(cmds=[cmd_to_output], as_sudo=True)
                 output.append(vm_fix.return_output_cmd_dict[cmd_to_output])
                 vm_fix.run_cmd_on_vm(cmds=[count], as_sudo=True)
