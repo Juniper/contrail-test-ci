@@ -190,14 +190,14 @@ class WebuiTest:
                     router_name,
                     prj_name=self.project_name_input):
                 result = result and False
-            self.ui.send_keys(router_name, 'name', 'name')
+            self.ui.send_keys(router_name, 'display_name', 'name')
             self.ui.click_on_select2_arrow('s2id_enable_dropdown')
             self.ui.select_from_dropdown(state)
             if gateway:
                 self.ui.click_on_select2_arrow('s2id_extNetworkUUID_dropdown')
                 self.ui.select_from_dropdown(gateway)
             if not snat:
-                self.ui.click_element('checkSNAT')    
+                self.ui.click_element('checkSNAT')
             if networks:
                 if not self.ui.click_select_multiple('s2id_connectedNetwork_dropdown', networks):
                     self.ui.click_on_cancel_if_failure('cancelBtn')
