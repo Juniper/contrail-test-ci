@@ -1021,15 +1021,8 @@ class TestInputs(object):
                 username = self.host_data[server_ip]['username']
             if not password:
                 password = self.host_data[server_ip]['password']
-        if container:
-            cntr = self.host_data[server_ip].get('containers', {}).get(container)
-            # If the container does not exist on this host, log it and 
-            # run the cmd on the host itself 
-            # This helps backward compatibility
-            if not cntr:
-                self.logger.debug('Container %s not in host %s, running on '
-                    ' host itself' % (container, server_ip))
-            container = cntr
+        if not container:
+            container=None
         output = run_cmd_on_server(issue_cmd,
                           server_ip,
                           username,
