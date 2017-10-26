@@ -1525,6 +1525,62 @@ class ContrailTestInit(object):
             return DEFAULT_CI_IMAGE
     # end get_ci_image
 
+    def verify_contrail_intn_ansible_status(self):
+        result = True
+        for host_ip in self.host_ips:
+            containers = self.host_data[host_ip]['containers'].keys()
+            self.logger.info('Contrail-internal-ansible status for containers on host %s'%host_ip)
+            for container in containers:
+                status = self.verify_container_ansible_state(host_ip,container=container)
+                if not status:
+                    self.logger.warn('contrail-internal-ansible status for %s container is in failed state'%container)
+                result = result and status
+
+        return result
+
+    def verify_container_ansible_state(self, host_ip, container=None):
+        #os_version = self.get_os_version(host_ip)
+        #os_release = self.get_os_release(host_ip)
+        in_container=False
+        os_version, os_release, extras = self.get_linux_distro(host_ip, container)
+        if os_version == 'centos' or os_release == '16.04':
+            in_container = True
+            cmd = 'journalctl -u contrail-ansible | grep failed='
+        else:
+             cmd = 'docker logs %s 2>/dev/null | grep "failed='%container
+        username = self.host_data[host_ip]['username']
+        password = self.host_data[host_ip]['password']
+        if in_container:
+            state = self.run_cmd_on_server(host_ip,
+                        cmd, username, password,container=container)
+        else:
+            state = self.run_cmd_on_server(host_ip,
+                        cmd, username, password)
+        match = None
+        for line in state:
+            match = re.search('failed=[^0]',line)
+            if match:
+                break
+        if match:
+            self.logger.info('Contrail-internal-ansible status shows failed for %s %s'%(container,state))
+            return False
+
+        self.logger.info('Contrail-internal-ansible status for %s %s '%(container,state))
+        return True
+
+    def get_linux_distro(self, host_ip, container=None):
+        '''
+        Figure out the os type on each node in the cluster
+        '''
+        output = None
+        username = self.host_data[host_ip]['username']
+        password = self.host_data[host_ip]['password']
+        cmd = 'python -c "from platform import linux_distribution; print linux_distribution()" '
+        output = self.run_cmd_on_server(host_ip,
+                        cmd, username, password, container)
+        return eval(output)
+
+
 def _parse_args( args_str):
     parser = argparse.ArgumentParser()
     args, remaining_argv = parser.parse_known_args(args_str.split())
