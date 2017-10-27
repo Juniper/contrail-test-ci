@@ -4,7 +4,7 @@ from tcutils.wrappers import preposttest_wrapper
 
 class TestRbacBasic(BaseRbac):
 
-    @test.attr(type=['sanity', 'suite1'])
+    @test.attr(type=['sanity', 'suite1', 'vcenter_compute'])
     @preposttest_wrapper
     def test_rbac_acl_different_roles(self):
         '''
@@ -101,7 +101,7 @@ class TestRbacBasic(BaseRbac):
         assert self.read_st(connections=user1_conn, uuid=st.uuid)
         return True
 
-    @test.attr(type=['sanity', 'suite1'])
+    @test.attr(type=['sanity', 'suite1', 'vcenter_compute'])
     @preposttest_wrapper
     def test_rbac_create_delete_vm(self):
         '''
@@ -177,7 +177,7 @@ class TestRbacBasic(BaseRbac):
         vm = self.create_vm(connections=user1_conn, vn_fixture=vn)
         assert vm, 'VM creation failed'
 
-    @test.attr(type=['sanity', 'suite1'])
+    @test.attr(type=['sanity', 'suite1', 'vcenter_compute'])
     @preposttest_wrapper
     def test_perms2_owner(self):
         '''
