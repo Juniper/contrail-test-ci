@@ -35,7 +35,7 @@ class TestBasicVMVN(BaseVnVmTest):
     #end runTes
 
     @skip_because(orchestrator = 'vcenter', hypervisor='docker',msg='Bug 1455944:VM image with cloud-init package needed')
-    @test.attr(type=['cb_sanity', 'sanity', 'ci_sanity', 'suite1'])
+    @test.attr(type=['cb_sanity', 'sanity', 'ci_sanity', 'suite1', 'vcenter_compute'])
     @preposttest_wrapper
     @skip_because(orchestrator = 'vcenter')
     def test_metadata_service(self):
@@ -146,7 +146,7 @@ echo "Hello World.  The time is now $(date -R)!" | tee /tmp/output.txt
         return True
 
 
-    @test.attr(type=['sanity', 'suite1', 'ci_sanity'])
+    @test.attr(type=['sanity', 'suite1', 'ci_sanity', 'vcenter_compute'])
     @preposttest_wrapper
     @skip_because(orchestrator = 'vcenter',address_family = 'v6',
         hypervisor='docker',msg='Bug 1461423:Need privileged access')
@@ -312,7 +312,7 @@ echo "Hello World.  The time is now $(date -R)!" | tee /tmp/output.txt
         return True
     # end test_ping_within_vn
 
-    @test.attr(type=['cb_sanity', 'sanity', 'ci_sanity', 'vcenter', 'suite1'])
+    @test.attr(type=['cb_sanity', 'sanity', 'ci_sanity', 'vcenter', 'suite1', 'vcenter_compute'])
     @preposttest_wrapper
     @skip_because(orchestrator = 'vcenter',address_family = 'v6')
     def test_generic_link_local_service(self):
