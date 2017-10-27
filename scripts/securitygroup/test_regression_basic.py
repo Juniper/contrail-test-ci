@@ -129,7 +129,13 @@ class SecurityGroupBasicRegressionTests1(BaseSGTest, VerifySecGroup, ConfigPolic
 
         assert vm2_fixture.verify_on_setup()
         assert vm2_fixture.wait_till_vm_is_up()
-
+        #Delete the default security group if attached for vcenter scenario
+        try:
+            secgroup = self.vnc_lib.security_group_read(
+                fq_name=["default-domain","vCenter","default"])
+            self.orch.remove_security_group(vm2_fixture.vm_id,secgroup.uuid) 
+        except exception as e:
+            pass
         #Ping test, should fail
         assert vm1_fixture.ping_with_certainty(ip=vm2_fixture.vm_ip,
             expectation=False)
