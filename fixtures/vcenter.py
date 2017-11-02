@@ -26,8 +26,9 @@ def _vim_obj(typestr, **kwargs):
     return _vimtype_dict[typestr](**kwargs)
 
 def _wait_for_task (task):
-    while (task.info.state == vim.TaskInfo.State.running or
-           task.info.state == vim.TaskInfo.State.queued):
+    time.sleep(2)
+    while (task.info.state == vim.TaskInfo.State.queued or
+           task.info.state == vim.TaskInfo.State.running):
         time.sleep(2)
     if task.info.state != vim.TaskInfo.State.success:
         if task.info.state == vim.TaskInfo.State.error:
