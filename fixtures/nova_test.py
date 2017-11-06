@@ -691,6 +691,15 @@ class NovaHelper(object):
 
     # end get_vm_list
 
+    def get_host_name(self, host_name):
+        for host in self.inputs.compute_names:
+            if host_name == host:
+                return host_name
+            if host in host_name.split('.'):
+                return host
+        else:
+            return host_name
+
     def get_nova_host_of_vm(self, vm_obj):
         if 'OS-EXT-SRV-ATTR:hypervisor_hostname' not in vm_obj.__dict__:
             vm_obj = self.admin_obj.get_vm_by_id(vm_obj.id)
@@ -701,7 +710,7 @@ class NovaHelper(object):
                     if hypervisor.hypervisor_type == 'QEMU' or \
                         hypervisor.hypervisor_type == 'docker':
                         host_name = vm_obj.__dict__['OS-EXT-SRV-ATTR:host']
-                        return host_name
+                        return self.get_host_name(host_name)
                     if 'VMware' in hypervisor.hypervisor_type:
                         host_name = vcenter_libs.get_contrail_vm_by_vm_uuid(self.inputs,vm_obj.id)
                         return host_name
