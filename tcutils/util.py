@@ -33,7 +33,7 @@ import testtools
 from fabfile import *
 from fabutils import *
 
-sku_dict = {'2014.1': 'icehouse', '2014.2': 'juno', '2015.1': 'kilo', '12.0': 'liberty', '13.0': 'mitaka'}
+sku_dict = {'2014.1': 'icehouse', '2014.2': 'juno', '2015.1': 'kilo', '12.0': 'liberty', '13.0': 'mitaka', '14.0': 'newton'}
 
 
 # Code borrowed from http://wiki.python.org/moin/PythonDecoratorLibrary#Retry
