@@ -8,6 +8,7 @@ xtrace_status() {
   return $?
 }
 
+
 if xtrace_status; then		# Debug/verbose mode
     wget="wget"
     apt_get="apt-get --assume-yes"
