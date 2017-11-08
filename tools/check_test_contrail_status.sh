@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+python tools/configure.py -p /opt/contrail/utils/ ./
+
 echo "Validating if all the contrail services are up and running"
 echo ""
 
