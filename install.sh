@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 DOCKER_BUILD_DEBUG=${DOCKER_BUILD_DEBUG:-}
 [[ -n $DOCKER_BUILD_DEBUG ]] && set -x
 
