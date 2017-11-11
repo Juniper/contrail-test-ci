@@ -35,7 +35,7 @@ class TestBasicHeat(BaseHeatTest, ECMPTraffic, ECMPVerify):
     def tearDownClass(cls):
         super(TestBasicHeat, cls).tearDownClass()
 
-    @test.attr(type=['sanity', 'suite1'])
+    @test.attr(type=['sanity', 'suite1', 'vcenter_compute'])
     @preposttest_wrapper
     def test_svc_creation_with_heat(self):
         '''
