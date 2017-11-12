@@ -506,15 +506,15 @@ class VerifyIntfMirror(VerifySvcMirror):
 
         if vn1_vmi_ref:
             result, msg = self.validate_vn(
-                vn1_name, project_name=self.inputs.project_name)
+                vn_fq_name=vn1_fq_name)
             assert result, msg
         if vn2_vmi_ref:
             result, msg = self.validate_vn(
-                vn2_name, project_name=self.inputs.project_name)
+                vn_fq_name=vn2_fq_name)
             assert result, msg
         if vn3_vmi_ref:
             result, msg = self.validate_vn(
-                vn3_name, project_name=self.inputs.project_name)
+                vn_fq_name=vn1_fq_name)
             assert result, msg
 
         if sub_intf:
@@ -571,12 +571,17 @@ class VerifyIntfMirror(VerifySvcMirror):
             tap_intf_obj = src_port
             vlan = self.vlan
 
+        if parent_intf:
+            parent_tap_intf_uuid = src_vm_fixture.get_tap_intf_of_vm()[0]['uuid']
+            parent_tap_intf_obj = vnc.virtual_machine_interface_read(id=parent_tap_intf_uuid)
+
         if not nic_mirror:
             self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance)
+            if parent_intf:
+                self.logger.info("Intf mirroring enabled on both sub intf port and parent port")
+                self.enable_intf_mirroring(vnc, parent_tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance)
+            return vnc, tap_intf_obj, parent_tap_intf_obj, vlan
 
-            if not self.verify_port_mirroring(src_vm_fixture, dst_vm_fixture, mirror_vm_fixture, vlan=vlan):
-                result = result and False
-                self.logger.error("Intf not mirrored")
         else:
             self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address= None, analyzer_name = analyzer_name, \
                 routing_instance= None, udp_port=None, nic_assisted_mirroring = True, nic_assisted_mirroring_vlan = 100)
@@ -593,15 +598,6 @@ class VerifyIntfMirror(VerifySvcMirror):
                 result = result and False 
             else:
                 self.logger.info("Nic mirroring works correctly")
-        if parent_intf:
-            parent_tap_intf_uuid = src_vm_fixture.get_tap_intf_of_vm()[0]['uuid']
-            parent_tap_intf_obj = vnc.virtual_machine_interface_read(id=parent_tap_intf_uuid)
-
-        self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance)
-        if parent_intf:
-            self.logger.info("Intf mirroring enabled on both sub intf port and parent port")
-            self.enable_intf_mirroring(vnc, parent_tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance)
-        return vnc, tap_intf_obj, parent_tap_intf_obj, vlan
     # end config_intf_mirroring
 
     def _verify_intf_mirroring(self, src_vm_fixture, dst_vm_fixture, mirror_vm_fixture, src_vn_fq, dst_vn_fq, mirr_vn_fq,\
