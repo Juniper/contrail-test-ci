@@ -1,7 +1,7 @@
 import test_v1
 from svc_hc_fixture import HealthCheckFixture
 from tcutils.util import get_random_name
-
+#test
 class BaseHC(test_v1.BaseTestCase_v1):
 
     @classmethod
