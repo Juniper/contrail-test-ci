@@ -443,8 +443,8 @@ class TestInputs(object):
             'openstack-cinder-api', 'openstack-cinder-scheduler',
             'openstack-cinder-scheduler', 'openstack-glance-api',
             'openstack-glance-registry', 'openstack-keystone',
-            'openstack-nova-api', 'openstack-nova-scheduler',
-            'openstack-nova-cert']
+            'openstack-nova-api', 'openstack-nova-scheduler', 'openstack-nova-conductor',
+            'heat-api', 'heat-api-cfn', 'heat-engine', 'rabbitmq-server']
         self.collector_services = [
             'contrail-collector', 'contrail-analytics-api', 'contrail-alarm-gen',
             'contrail-query-engine', 'contrail-analytics-nodemgr',
@@ -1187,6 +1187,27 @@ class ContrailTestInit(object):
         return result
     # end verify_state
 
+    def verify_openstack_state(self):
+        result = True
+        failed_services = []
+
+        for host in self.host_ips:
+            if host in self.openstack_ips:
+                self.logger.info("Executing 'openstack-status' on host %s\n" %(host))
+                res, failed = self.verify_service_state(
+                        host,
+                        container=None, openstack=True
+                        )
+                if failed:
+                    failed_services.extend(failed)
+                    result = result and False
+            else:
+                self.logger.info("Openstack not running on host %s\n" %(host))
+            self.logger.info("\n")
+        if failed_services:
+            self.logger.info("Failed services are : \n %s\n" % ('\n '.join(map(str, failed_services))))
+        return result
+
     def get_service_status(self, m, service):
         Service = namedtuple('Service', 'name state')
         for keys, values in m.items():
@@ -1197,12 +1218,17 @@ class ContrailTestInit(object):
                 return cls
         return None
 
-    def verify_service_state(self, host, service=None, role=None, container=None):
+    def verify_service_state(self, host, service=None, role=None, container=None, openstack=False):
         result = True
         failed_services = []
         services = self.get_contrail_services(service_name=service, role=role)
+        os_services = self.openstack_services
         try:
-            m = self.get_contrail_status(host, container=container)
+            if openstack:
+                m = self.get_openstack_status(host, container=container)
+                services = os_services
+            else:
+                m = self.get_contrail_status(host, container=container)
             for service in services:
                 cls = self.get_service_status(m, service)
                 if (cls.state not in self.correct_states):
@@ -1341,12 +1367,18 @@ class ContrailTestInit(object):
         self._action_on_service(service_name, 'start', host_ips, container)
     # end start_service
 
-    def get_contrail_status(self, server_ip, container=None):
-        cache = self.run_cmd_on_server(server_ip, 'contrail-status',
+    def get_contrail_status(self, server_ip, container=None, openstack=False):
+        cmd = 'contrail-status'
+        if openstack:
+            cmd = 'openstack-status'
+        cache = self.run_cmd_on_server(server_ip, cmd,
                                        container=container)
         m = dict([(n, tuple(l.split(';')))
                   for n, l in enumerate(cache.split('\n'))])
         return m
+
+    def get_openstack_status(self, server_ip, container=None):
+        return self.get_contrail_status(server_ip, container, openstack=True)
 
     def run_provision_control(
             self,
