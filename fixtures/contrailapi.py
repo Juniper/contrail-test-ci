@@ -82,6 +82,11 @@ class ContrailVncApi(object):
         vmi.set_virtual_machine_interface_allowed_address_pairs(aaps)
         self._vnc.virtual_machine_interface_update(vmi)
 
+    def get_allowed_address_pair(self, vmi_id):
+        vmi = self._vnc.virtual_machine_interface_read(id=vmi_id)
+        return vmi.get_virtual_machine_interface_allowed_address_pairs()
+
+
     def add_security_group(self, vm_id, sg_id, **kwargs):
         sg = self.get_security_group(sg_id)
         vnc_vm = self._vnc.virtual_machine_read(id=vm_id)
@@ -1165,5 +1170,74 @@ class ContrailVncApi(object):
         # Update logical router object
         self._vnc.logical_router_update(router_obj)
         return router_obj
+
+    def provision_bgp_peer(self, bgp=None):
+        '''Provision Gateway BGP peer
+
+            Input bgp looks like:
+            bgp = {'count': 1,
+                   'bgp1':{'router_name': 'sw166',
+                           'router_ip': '10.204.217.254',
+                           'router_asn': 64512,
+                           'address_families': ["inet"]
+                           },
+                    }
+        '''
+
+        bgp_routers_obj = {} # Hash to store VN fixtures
+
+        bgp_count = bgp.get('count',1)
+        for i in range(0,bgp_count):
+            bgp_id = 'bgp'+str(i+1)
+            if bgp_id in bgp:
+                router_name = bgp[bgp_id].get('router_name',None)
+                router_ip = bgp[bgp_id].get('router_ip',None)
+                router_type = bgp[bgp_id].get('router_type','router')
+                vendor = bgp[bgp_id].get('vendor','mx')
+                router_asn = bgp[bgp_id].get('router_asn',None)
+                address_families = bgp[bgp_id].get('address_families',None)
+
+                rt_inst_obj = self._vnc.routing_instance_read(
+                    fq_name=['default-domain', 'default-project',
+                            'ip-fabric', '__default__'])
+                bgp_router = BgpRouter(router_name, rt_inst_obj)
+                params = BgpRouterParams()
+                params.address = router_ip
+                params.router_type = router_type
+                params.vendor = vendor
+                params.address_families = AddressFamilies(
+                    address_families)
+                params.autonomous_system = router_asn
+                params.identifier = router_ip
+                bgp_router.set_bgp_router_parameters(params)
+
+                try:
+                    bgp_router_id = self._vnc.bgp_router_create(bgp_router)
+                    bgp_router_obj = self._vnc.bgp_router_read(
+                        id=bgp_router_id)
+                    self._log.info('Created BGP router %s with ID %s' % (
+                    bgp_router_obj.fq_name, bgp_router_obj.uuid))
+                    self.sleep(10)
+                    bgp_routers_obj[bgp_id] = bgp_router_obj
+                    return bgp_routers_obj
+
+                except RefsExistError:
+                    self._log.info("%s BGP router is already present, "\
+                                     "continuing the test" %(router_name))
+                    bgp_fq_name=['default-domain', 'default-project',
+                                 'ip-fabric', '__default__']
+                    bgp_fq_name.append(router_name)
+                    bgp_router_obj = self._vnc.bgp_router_read(fq_name=
+                                                                bgp_fq_name)
+                    bgp_routers_obj[bgp_id] = bgp_router_obj
+                    return bgp_routers_obj
+                except:
+                    self._log.error("%s Error in configuring BGP router " %(
+                        router_name))
+                    return False
+
+
+    # end provision_bgp_peer
+
 
 
