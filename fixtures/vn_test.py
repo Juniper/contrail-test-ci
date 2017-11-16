@@ -1757,6 +1757,58 @@ class VNFixture(fixtures.Fixture):
     def free_ips(self, ip_list):
         return self.vnc_lib_h.virtual_network_ip_free(self.api_vn_obj, ip_list)
 
+    def set_ip_fabric_provider_nw(self, ip_fab_vn_obj=None, verify=True):
+        ''' Configure IP Fabric network as provider network
+        '''
+        self.logger.debug('Configuring IP Fabric network %s on VN %s' % (
+            ip_fab_vn_obj, self.vn_fq_name))
+        vn_obj = self.vnc_lib_h.virtual_network_read(id = self.uuid)
+        vn_obj.set_virtual_network(ip_fab_vn_obj)
+        self.vnc_lib_h.virtual_network_update(vn_obj)
+
+        if verify:
+            vn_in_api = self.api_s_inspect.get_cs_vn_by_id(vn_id=self.uuid, refresh=True)
+
+        return True
+    # end set_ip_fabric_provider_nw
+
+    def del_ip_fabric_provider_nw(self, ip_fab_vn_obj=None, verify=True):
+        ''' Delete IP Fabric network as provider network
+        '''
+        self.logger.debug('Deleting IP Fabric network %s on VN %s' % (
+            ip_fab_vn_obj, self.vn_fq_name))
+        vn_obj = self.vnc_lib_h.virtual_network_read(id = self.uuid)
+        vn_obj.del_virtual_network(ip_fab_vn_obj)
+        self.vnc_lib_h.virtual_network_update(vn_obj)
+
+        if verify:
+            vn_in_api = self.api_s_inspect.get_cs_vn_by_id(vn_id=self.uuid, refresh=True)
+
+        return True
+    # end del_ip_fabric_provider_nw
+
+    def is_ip_fabric_provider_nw_present(self):
+        ''' Verify whether IP Fabric network is configured or not
+        '''
+        vn_obj = self.vnc_lib_h.virtual_network_read(id = self.uuid)
+        vn_refs = vn_obj.get_virtual_network_refs()
+        if vn_refs:
+            ip_fab_fq_name = ":".join(vn_refs[0]['to'])
+            ip_fab_vn_fq_name_str = "default-domain:default-project:ip-fabric"
+            if ip_fab_fq_name == ip_fab_vn_fq_name_str:
+                self.logger.debug('IP Fabric provider network is preseent on VN %s' % (
+                    self.vn_fq_name))
+                return True
+            else:
+                self.logger.debug('IP Fabric provider network is NOT preseent on VN %s' % (
+                    self.vn_fq_name))
+                return False
+        else:
+            return False
+
+    # end is_ip_fabric_provider_nw_present
+
+
 
 # end VNFixture
 
