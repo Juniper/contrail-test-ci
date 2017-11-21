@@ -3041,6 +3041,12 @@ class VMFixture(fixtures.Fixture):
             vmi_obj.set_virtual_machine_interface_disable_policy(bool(value))
             self.vnc_lib_h.virtual_machine_interface_update(vmi_obj)
     # end set_interface_policy
+    
+    def get_vmi_fq_name(self, vn_fq_name):
+        vmi_uuid = self.get_vmi_id(vn_fq_name)
+        return ':'.join([self.domain_name, self.project_name,
+                         vmi_uuid])
+    # end get_vmi_fq_name
 
 # end VMFixture
 
