@@ -327,7 +327,7 @@ class OpServerUtils(object):
     def get_query_dict(table, start_time=None, end_time=None,
                        select_fields=None,
                        where_clause="",
-                       sort_fields=None, sort=None, limit=None, filter=None, dir=None):
+                       sort_fields=None, sort=None, limit=None, filter=None, dir=None, session_type=None):
 #    @staticmethod
 #    def get_query_dict(table, start_time = None, end_time = None,
 #            select_fields = None,
@@ -348,6 +348,7 @@ class OpServerUtils(object):
         :param where_clause: list of match conditions for the query
         :type where_clause: list of match, which is a pair of str ANDed
         :dir:int
+        :session_type: needs to be set to  client or server when querying session tables
         :returns: str -- dict of query request
         :raises: Error
 
@@ -436,8 +437,21 @@ class OpServerUtils(object):
 
         if len(filter_terms) == 0:
             filter_terms = None
-
-        flowtable_query = OpServerUtils.Query(table,
+        if session_type:
+            sessiontable_query = OpServerUtils.Query(table,
+                                              start_time=lstart_time,
+                                              end_time=lend_time,
+                                              select_fields=sf,
+                                              where=where,
+                                              sort_fields=sort_fields,
+                                              sort=sort,
+                                              limit=limit,
+                                              filter=filter_terms,
+                                              dir=dir,
+                                              session_type=session_type)
+            return sessiontable_query.__dict__
+        else:
+            flowtable_query = OpServerUtils.Query(table,
                                               start_time=lstart_time,
                                               end_time=lend_time,
                                               select_fields=sf,
@@ -447,6 +461,7 @@ class OpServerUtils(object):
                                               limit=limit,
                                               filter=filter_terms,
                                               dir=dir)
+            return flowtable_query.__dict__
 
 #        flowtable_query = OpServerUtils.Query(table,
 #                                             start_time = lstart_time,
@@ -483,16 +498,17 @@ class OpServerUtils(object):
         limit = None
         filter = None
         dir = None
-
+        session_type = None
         def __init__(
             self, table, start_time, end_time, select_fields, where=None,
-                sort_fields=None, sort=None, limit=None, filter=None, dir=None):
+                sort_fields=None, sort=None, limit=None, filter=None, dir=None, session_type=None):
 #        def __init__(self, table, start_time, end_time, select_fields, where = None,
 # sort_fields = None, sort = None, limit = None, filter = None):
             self.table = table
             self.start_time = start_time
             self.end_time = end_time
             self.select_fields = select_fields
+            self.session_type = session_type
             if where is not None:
                 self.where = where
             if sort_fields is not None:
