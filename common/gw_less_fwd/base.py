@@ -33,6 +33,25 @@ class GWLessFWDTestBase(BaseVrouterTest, ConfigSvcChain):
                                                         ip_fab_vn_fq_name_str)
         return ip_fab_vn_obj
 
+    def disable_policy_on_vhost0(self, value=True):
+        '''Enable/Disable policy on vhost0 interfaces
+        '''
+        for compute_name in self.inputs.compute_names:
+            if value:
+                self.logger.info('Disabling Policy on vhost0 VMI: %s' %
+                                 vhost0_fq_name_str)
+            else:
+                self.logger.info('Enabling Policy on vhost0: %s' %
+                                 vhost0_fq_name_str)
+
+            vhost0_fq_name_str = "default-global-system-config:"+compute_name+":vhost0"
+            vhost_vmi_obj = self.vnc_h.virtual_machine_interface_read(fq_name_str=
+                                                        vhost0_fq_name_str)
+            vhost_vmi_obj.set_virtual_machine_interface_disable_policy(bool(value))
+            self.vnc_h.virtual_machine_interface_update(vhost_vmi_obj)
+        return True
+
+
     def setup_ipam(self, ipam=None):
         '''Configures flat-subnet ipam with subnet and allocation pools
             Input ipam looks like:
