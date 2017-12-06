@@ -433,6 +433,11 @@ class ConfigSvcChain(fixtures.Fixture):
 
         svc_img_name = svc_img_name or SVC_TYPE_PROPS[service_type][service_mode]
 
+        if self.inputs.pcap_on_vm:
+            if svc_img_name == 'analyzer':
+                svc_img_name = 'ubuntu-traffic'
+                image_name = 'ubuntu-traffic'
+
         # Mgmt
         (mgmt_vn_name,
          mgmt_vn_subnets,
@@ -487,9 +492,14 @@ class ConfigSvcChain(fixtures.Fixture):
             si_left_vn_fq_name = si_left_vn_fixture.vn_fq_name
             si_right_vn_fq_name = si_right_vn_fixture.vn_fq_name
 
-        vns = [self._get_if_needed(svc_img_name, 'management', mgmt_vn_fixture),
-               self._get_if_needed(svc_img_name, 'left', si_left_vn_fixture),
-               self._get_if_needed(svc_img_name, 'right', si_right_vn_fixture)]
+        if self.inputs.pcap_on_vm:
+            svc_vns_img_name = SVC_TYPE_PROPS[service_type][service_mode]
+        else:
+            svc_vns_img_name = svc_img_name
+
+        vns = [self._get_if_needed(svc_vns_img_name, 'management', mgmt_vn_fixture),
+               self._get_if_needed(svc_vns_img_name, 'left', si_left_vn_fixture),
+               self._get_if_needed(svc_vns_img_name, 'right', si_right_vn_fixture)]
 
         # End VMs
         left_vm_name = left_vm_name or get_random_name('left_vm')
@@ -504,9 +514,9 @@ class ConfigSvcChain(fixtures.Fixture):
         if not st_fixture:
             st_name = kwargs.get('st_name', get_random_name('service_template_1'))
             st_fixture = self.config_st(st_name,
-                mgmt=self._get_if_needed(svc_img_name, 'management', mgmt_vn_fq_name),
-                left=self._get_if_needed(svc_img_name, 'left', si_left_vn_fq_name),
-                right=self._get_if_needed(svc_img_name, 'right', si_right_vn_fq_name),
+                mgmt=self._get_if_needed(svc_vns_img_name, 'management', mgmt_vn_fq_name),
+                left=self._get_if_needed(svc_vns_img_name, 'left', si_left_vn_fq_name),
+                right=self._get_if_needed(svc_vns_img_name, 'right', si_right_vn_fq_name),
                 st_version=st_version,
                 service_mode=service_mode,
                 service_type=service_type)
@@ -522,9 +532,9 @@ class ConfigSvcChain(fixtures.Fixture):
             si_name = get_random_name('si')
             si_fixture = self.config_si(si_name,
                 st_fixture,
-                mgmt_vn_fq_name=self._get_if_needed(svc_img_name, 'management', mgmt_vn_fq_name),
-                left_vn_fq_name=self._get_if_needed(svc_img_name, 'left', si_left_vn_fq_name),
-                right_vn_fq_name=self._get_if_needed(svc_img_name, 'right', si_right_vn_fq_name),
+		mgmt_vn_fq_name=self._get_if_needed(svc_vns_img_name, 'management', mgmt_vn_fq_name),
+                left_vn_fq_name=self._get_if_needed(svc_vns_img_name, 'left', si_left_vn_fq_name),
+                right_vn_fq_name=self._get_if_needed(svc_vns_img_name, 'right', si_right_vn_fq_name),
                 port_tuples_props=port_tuples_props,
                 static_route=static_route,
                 max_inst=max_inst,
