@@ -308,6 +308,8 @@ class VerifyIntfMirror(VerifySvcMirror):
 
         analyzer_port = 8099
         image_name = 'cirros' if not sub_intf else 'ubuntu-traffic'
+        if self.inputs.pcap_on_vm:
+            image_name='ubuntu-traffic'
 
         vn1_subnets = [get_random_cidr(af=self.inputs.get_af())]
         vn2_subnets = [get_random_cidr(af=self.inputs.get_af())]
