@@ -78,6 +78,8 @@ class SecurityGroupBasicRegressionTests1(BaseSGTest, VerifySecGroup, ConfigPolic
             inputs=self.inputs, subnets=vn_net))
         assert vn_fixture.verify_on_setup()
         img_name = self.inputs.get_ci_image() or 'ubuntu-traffic'
+        if self.inputs.vcenter_dc:
+           img_name='ubuntu'
         vm1_fixture = self.useFixture(VMFixture(
             project_name=self.inputs.project_name, connections=self.connections,
             vn_obj=vn_fixture.obj, image_name=img_name, flavor='contrail_flavor_small',
