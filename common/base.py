@@ -166,6 +166,8 @@ class GenericTestBase(test_v1.BaseTestCase_v1, _GenericTestBaseMethods):
                   image_name='ubuntu-traffic',
                   port_ids=[], **kwargs):
         cleanup = kwargs.get('cleanup', True)
+        if self.inputs.vcenter_dc:
+           image_name='ubuntu'
         vm_fixture = self.create_only_vm(vn_fixture=vn_fixture,
                         vm_name=vm_name,
                         node_name=node_name,
