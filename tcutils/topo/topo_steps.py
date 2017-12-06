@@ -465,7 +465,8 @@ def createVMNova(
     self.vm_fixture = {}
     host_list = self.connections.orch.get_hosts()
     vm_image_name = self.inputs.get_ci_image() or 'ubuntu-traffic'
-
+    if self.inputs.vcenter_dc:
+	vm_image_name = 'ubuntu'
     for vm in self.topo.vmc_list:
         sec_gp = []
         if option == 'contrail':
