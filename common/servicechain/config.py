@@ -349,7 +349,12 @@ class ConfigSvcChain(fixtures.Fixture):
             hosts=[]):
         non_docker_zones = [x for x in self.orch.get_zones() if x != 'nova/docker']
         svm_fixtures = []
-        svc_img_name = svc_img_name or SVC_TYPE_PROPS[service_type][service_mode]
+
+        if self.inputs.vcenter_dc:
+            svc_img_name = VC_SVC_TYPE_PROPS[service_type][service_mode]
+        else:
+            svc_img_name = svc_img_name or SVC_TYPE_PROPS[service_type][service_mode]
+
         for i in range(max_inst):
             svm_name = get_random_name("pt_svm" + str(i))
             svm_fixture = self.config_vm_only(

@@ -30,14 +30,14 @@ class ECMPTestBase(GenericTestBase):
             cls.right_vn_subnets = [get_random_cidr(af=cls.inputs.get_af())]
             cls.right_vn_fixture = cls.create_only_vn(cls.right_vn_name,
                                                       cls.right_vn_subnets)
-            #if cls.inputs.get_af() == 'v6':
-            #    cls.left_vn_subnets += [get_random_cidr()]
-            #    cls.right_vn_subnets += [get_random_cidr()]
 
             if cls.inputs.is_ci_setup() and cls.inputs.get_af() == 'v4':
                 cls.image_name = cls.inputs.get_ci_image()
             else:
-                cls.image_name = 'ubuntu-traffic'
+                if cls.inputs.vcenter_dc:
+                    cls.image_name = 'ubuntu'
+                else:
+                    cls.image_name = 'ubuntu-traffic'
 
             # End Vms
             cls.left_vm_name = get_random_name('left_vm_%s' % (
