@@ -41,6 +41,7 @@ PACKAGES_REQUIRED_UBUNTU=(
     python-cinderclient
     python-contrail
     python-glanceclient
+    python-barbicanclient
     python-heatclient
     python-novaclient
     python-neutronclient
