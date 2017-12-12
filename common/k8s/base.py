@@ -663,7 +663,8 @@ class BaseK8sTest(test.BaseTestCase, _GenericTestBaseMethods, vnc_api_test.VncLi
         self.logger.info('Will restart contrail-kube-manager  services now on'
             ' %s' %(ips))
         self.inputs.restart_service('contrail-kube-manager', ips,
-                                     container='contrail-kube-manager')
+                                     container='contrail-kube-manager',
+                                     verify_service=False)
     # end restart_kube_manager
 
     def create_snat_router(self, name):

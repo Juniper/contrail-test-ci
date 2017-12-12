@@ -1334,7 +1334,8 @@ class ContrailTestInit(object):
             return self.collector_services
         return [service_name] if service_name else []
 
-    def _action_on_service(self, service_name, event, host_ips=None, container=None):
+    def _action_on_service(self, service_name, event, host_ips=None, container=None,
+                          verify_service=True):
         services = self.get_contrail_services(service_name=service_name)
         for service in services:
             for host in host_ips or self.host_ips:
@@ -1345,13 +1346,14 @@ class ContrailTestInit(object):
                 issue_cmd = 'service %s %s' % (service, event)
                 self.run_cmd_on_server(
                     host, issue_cmd, username, password, pty=False, container=container)
-                if event == 'restart':
+                if verify_service and event == 'restart':
                     assert self.confirm_service_active(service_name, host, container=container), \
                         "Service Restart failed for %s" % (service_name)
 
     def restart_service(self, service_name, host_ips=None, contrail_service=True,
-                        container=None):
-        self._action_on_service(service_name, 'restart', host_ips, container)
+                        container=None, verify_service=True):
+        self._action_on_service(service_name, 'restart', host_ips, container,
+                verify_service=verify_service)
     # end restart_service
 
     def stop_service(self, service_name, host_ips=None, contrail_service=True,
