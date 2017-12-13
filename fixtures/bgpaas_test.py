@@ -1,5 +1,6 @@
 import fixtures
 import time
+import sys
 import re
 from project_test import *
 from tcutils.util import *
@@ -72,7 +73,7 @@ class BgpaasFixture(fixtures.Fixture):
         super(BgpaasFixture, self).cleanUp()
         self.delete()
 
-    @retry(delay=5, tries=10)
+    @retry(delay=10, tries=20)
     def verify_bgpaas_in_control_nodes(self):
 
         result = True
@@ -88,18 +89,19 @@ class BgpaasFixture(fixtures.Fixture):
                       'With Peer %s peering is not Established. Current State %s ' %
                       (cn_bgp_neighbor['peer_id'], cn_bgp_neighbor['state']))
                   continue
-	       if cn_bgp_neighbor['peer_id'] == self.bgp_vm_peer_ip :
+	       elif cn_bgp_neighbor['peer_id'] == self.bgp_vm_peer_ip :
                   self.logger.info(
                       'With Peer %s peering is Established.' %
                       (cn_bgp_neighbor['peer_id'] ))
                   peer_info = cn_bgp_neighbor
+            if not peer_info:
+               continue
             vn_fq_name = self.vn_fixture.vn_fq_name.split(":")
             rt_name = self.vn_fixture.vn_fq_name + ":" + vn_fq_name[-1] + ".inet.0"
             rt_name_exist = False
-            if peer_info:
-               for rt in peer_info['routing_tables']:
-                   if rt['name'] == rt_name:
-	              rt_name_exist = True
+            for rt in peer_info['routing_tables']:
+                if rt['name'] == rt_name:
+	           rt_name_exist = True
             route_seen = False
             for route_bgp in self.bgp_exported_routes_list:
                 if rt_name_exist:
@@ -148,9 +150,10 @@ class BgpaasFixture(fixtures.Fixture):
             result = result and False
             self.logger.error(
                 "One or more verifications in Control-nodes for BGPaaS failed")
+            sys.exit()
             return result
 
-        #return result
+        return result
         
         if not self.verify_bgpaas_in_opserver():
             result = result and False

@@ -71,9 +71,14 @@ class TestBasicBGPaaS(BaseBGPaasTest):
         vm2_fixture = self.create_vm(vn_fixture=vn1_fixture,
                                      vm_name=get_random_name('vm1'),image_name='bgpass-v6-vm')
 
-        time.sleep(300)
         assert vm1_fixture.verify_on_setup()
-        assert vm2_fixture.verify_on_setup()
+        for i in xrange(5) :
+            vm_up = vm2_fixture.verify_on_setup() 
+            if vm_up :
+               break
+
+        if not vm_up :
+           assert "vSRX VM is not up"
 
 	service_name = "bgpaas.router"
         asn   = "652"
@@ -95,15 +100,15 @@ class TestBasicBGPaaS(BaseBGPaasTest):
         if bgpaas_vmi_obj:
            bgpaas_fixture.attach_vmi(bgpaas_vmi_obj)
 
-        time.sleep(60)
-
         assert bgpaas_fixture.verify_on_setup()
 
         self.logger.info("Verify ping to BGP exported IP: 3.1.1.5")
-        time.sleep(120)
-        ret = vm2_fixture.ping_with_certainty(
-            '3.1.1.5', expectation=True)
+        for i in xrange(10):
+            ping_status = vm2_fixture.ping_with_certainty(
+                '3.1.1.5', expectation=True)
+            if ping_status:
+               break
         result_msg = "vm ping test result to vm %s is: %s" % (
-            "3.1.1.5", ret)
+            "3.1.1.5", ping_status)
         self.logger.info(result_msg)
         return True
