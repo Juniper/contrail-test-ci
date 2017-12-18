@@ -541,7 +541,9 @@ class NovaHelper(object):
         elif node_name:
             nova_services = self.get_nova_compute_service_list()
             for compute_svc in nova_services:
-                if compute_svc.host == node_name:
+                if compute_svc.host == node_name or \
+                   self.get_host_name(compute_svc.host) == node_name:
+
                     zone = True
                     break
                 elif (compute_svc.host in self.inputs.compute_ips and

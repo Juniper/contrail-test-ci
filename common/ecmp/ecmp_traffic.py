@@ -139,7 +139,7 @@ class ECMPTraffic(ConfigSvcChain, VerifySvcChain):
                 else:
                     session = ssh(
                         host['host_ip'], host['username'], host['password'])
-                    cmd = 'tcpdump -nni %s -c 10 > /tmp/%s_out.log' % (
+                    cmd = 'sudo tcpdump -nni %s -c 10 > /tmp/%s_out.log' % (
                         tapintf, tapintf)
                     execute_cmd(session, cmd, self.logger)
             else:
