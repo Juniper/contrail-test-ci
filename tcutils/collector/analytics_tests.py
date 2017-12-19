@@ -2975,7 +2975,7 @@ class AnalyticsVerification(fixtures.Fixture):
         elif role == 'database-node':
             service_ip = self.inputs.database_ips[0]
         elif role == 'control-node':
-            service_ip = self.inputs.bgp_control_ips[0]
+            service_ip = self.inputs.cfgm_ips[0]
         elif role == 'vrouter':
             service_ip = self.inputs.compute_ips[0]
         elif role == 'analytics-node':
