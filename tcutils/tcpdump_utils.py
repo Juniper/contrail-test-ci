@@ -10,7 +10,7 @@ def start_tcpdump_for_intf(ip, username, password, interface, filters='-v', logg
         logger = contrail_logging.getLogger(__name__)
     session = ssh(ip, username, password)
     pcap = '/tmp/%s_%s.pcap' % (interface, get_random_name())
-    cmd = 'tcpdump -ni %s -U %s -w %s' % (interface, filters, pcap)
+    cmd = 'sudo tcpdump -ni %s -U %s -w %s' % (interface, filters, pcap)
     execute_cmd(session, cmd, logger)
     return (session, pcap)
 
@@ -31,7 +31,7 @@ def start_tcpdump_for_vm_intf(obj, vm_fix, vn_fq_name, filters='-v', pcap_on_vm=
             compute_password, vm_tapintf, filters, logger=obj.logger)
     else:
         pcap = '/tmp/%s.pcap' % (get_random_name())
-        tcpdump_cmd = 'tcpdump -ni %s -U %s -w %s 1>/dev/null 2>/dev/null'
+        tcpdump_cmd = 'sudo tcpdump -ni %s -U %s -w %s 1>/dev/null 2>/dev/null'
         if svm:
             tcpdump_cmd = '/usr/local/sbin/' + tcpdump_cmd
         cmd_to_tcpdump = [ tcpdump_cmd % (vm_intf, filters, pcap) ]
@@ -50,14 +50,14 @@ def stop_tcpdump_for_vm_intf(obj, session, pcap, vm_fix_pcap_pid_files=[], filte
         output = []
         pkt_count = []
         for vm_fix, pcap, pidfile in vm_fix_pcap_pid_files:
-            tcpdump_cmd = 'tcpdump -nr %s %s'
+            tcpdump_cmd = 'sudo tcpdump -nr %s %s'
             if svm:
                 tcpdump_cmd = '/usr/local/sbin/' + tcpdump_cmd
             cmd_to_output  = tcpdump_cmd % (pcap, filters)
-            cmd_to_kill = 'cat %s | xargs kill ' % (pidfile)
+            cmd_to_kill = 'sudo cat %s | xargs kill ' % (pidfile)
             count = cmd_to_output + '| wc -l'
             if svm:
-                cmd_to_kill = 'kill -9 $(cat ' + pidfile + ')'
+                cmd_to_kill = 'kill -9 $(sudo cat ' + pidfile + ')'
             vm_fix.run_cmd_on_vm(cmds=[cmd_to_kill], as_sudo=True)
             vm_fix.run_cmd_on_vm(cmds=[cmd_to_output], as_sudo=True)
             output.append(vm_fix.return_output_cmd_dict[cmd_to_output])
@@ -102,7 +102,7 @@ def pcap_on_all_vms_and_verify_mirrored_traffic(
 # end pcap_on_all_vms_and_verify_mirrored_traffic
 
 def read_tcpdump(obj, session, pcap):
-    cmd = 'tcpdump -n -r %s' % pcap
+    cmd = 'sudo tcpdump -n -r %s' % pcap
     out, err = execute_cmd_out(session, cmd, obj.logger)
     return out
 
@@ -110,9 +110,9 @@ def read_tcpdump(obj, session, pcap):
 def verify_tcpdump_count(obj, session, pcap, exp_count=None, mac=None,
                          exact_match=True, vm_fix_pcap_pid_files=[], svm=False):
     if mac:
-        cmd = 'tcpdump -r %s | grep %s | wc -l' % (pcap,mac)
+        cmd = 'sudo tcpdump -r %s | grep %s | wc -l' % (pcap,mac)
     else:
-        cmd = 'tcpdump -r %s | wc -l' % pcap
+        cmd = 'sudo tcpdump -r %s | wc -l' % pcap
     if not vm_fix_pcap_pid_files:
         out, err = execute_cmd_out(session, cmd, obj.logger)
         count = int(out.strip('\n'))
@@ -147,7 +147,7 @@ def verify_tcpdump_count(obj, session, pcap, exp_count=None, mac=None,
     return result
 
 def search_in_pcap(session, pcap, search_string, vm_fix_pcap_pid_files=[]):
-    cmd = 'tcpdump -v -r %s | grep "%s"' % (pcap, search_string)
+    cmd = 'sudo tcpdump -v -r %s | grep "%s"' % (pcap, search_string)
     if not vm_fix_pcap_pid_files:
         out, err = execute_cmd_out(session, cmd)
     else:
