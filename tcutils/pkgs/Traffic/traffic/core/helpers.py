@@ -70,12 +70,8 @@ class Helper(object):
                 output = remote_cmd(host_string=host_string, cmd=cmd,
                          gateway_password=self.lhost.password, with_sudo=True,
                          gateway='%s@%s' % (self.lhost.user, self.lhost.ip))
-                if (not output) and retry:
-                    self.log.error(
-                            "Scapy issue while sending/receiving packets. Will retry after 5 secs.")
-                    sleep(5)
-                    retry -= 1
-                    continue
+                if not output:
+                    break
                 if ("Connection timed out" in output or
                         "Connection refused" in output) and retry:
                     self.log.debug(
@@ -110,7 +106,7 @@ class Sender(Helper):
         self.log.info("Sending traffic with '%s'", self.pktheader)
         out = self.runcmd("sendpkts --name %s -p %s" %
                           (self.name, self.profile))
-        if 'Daemon already running' in out:
+        if out and 'Daemon already running' in out:
             errmsg = "Traffic stream with name '%s' already present in VM '%s' \
                       at compute '%s'" % (self.name, self.rhost.ip, self.lhost.ip)
             assert False, errmsg
