@@ -4225,7 +4225,7 @@ class AnalyticsVerification(fixtures.Fixture):
            #                 [server])
            # assert result   
             result = False    
-            for ip in self.inputs.database_control_ips:
+            for ip in self.inputs.cfgm_control_ips:
                 server = "%s:%s"%(ip,port_dict['cassandra'])
                 result = result or self.verify_connection_infos(ops_inspect,\
                             'contrail-api',\
@@ -4298,7 +4298,7 @@ class AnalyticsVerification(fixtures.Fixture):
                    break
   
             result = False    
-            for ip in self.inputs.database_control_ips:
+            for ip in self.inputs.cfgm_control_ips:
                 server = "%s:%s"%(ip,port_dict['cassandra'])
                 result_cass = result_cass or self.verify_connection_infos(ops_inspect,\
                             'contrail-device-manager',\
@@ -4366,7 +4366,7 @@ class AnalyticsVerification(fixtures.Fixture):
                    break
    
             result = False    
-            for ip in self.inputs.database_control_ips:
+            for ip in self.inputs.cfgm_control_ips:
                 server = "%s:%s"%(ip,port_dict['cassandra'])
                 result_cass = result_cass or self.verify_connection_infos(ops_inspect,\
                             'contrail-schema',\
@@ -4426,7 +4426,7 @@ class AnalyticsVerification(fixtures.Fixture):
                    break
                   
             result = False    
-            for ip in self.inputs.database_control_ips:
+            for ip in self.inputs.cfgm_control_ips:
                 server = "%s:%s"%(ip,port_dict['cassandra'])
                 result_cass = result_cass or self.verify_connection_infos(ops_inspect,\
                             'contrail-svc-monitor',\
