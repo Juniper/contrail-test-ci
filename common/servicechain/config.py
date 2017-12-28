@@ -20,6 +20,17 @@ from tcutils.util import retry, is_v6
 import random
 import re
 
+# Default images for vcenter based environments
+VC_SVC_TYPE_PROPS = {
+    'firewall': {'in-network-nat': 'ubuntu-nat-fw',
+                 'in-network': 'ubuntu-in-net',
+                 'transparent': '',
+                 },
+    'analyzer': {'transparent': 'analyzer',
+                 'in-network' : 'analyzer',
+                 }
+}
+
 SVC_TYPE_PROPS = {
     'firewall': {'in-network-nat': 'tiny_nat_fw',
                  'in-network': 'tiny_in_net',
@@ -151,7 +162,7 @@ class ConfigSvcChain(fixtures.Fixture):
         vn_fixture = self.useFixture(VNFixture(
             project_name=self.inputs.project_name, connections=self.connections,
             vn_name=vn_name, inputs=self.inputs, subnets=vn_net))
-        #assert vn_fixture.verify_on_setup()
+        assert vn_fixture.verify_on_setup()
         return vn_fixture
 
     def attach_policy_to_vn(self, policy_fix, vn_fix, policy_type=None):
@@ -247,7 +258,7 @@ class ConfigSvcChain(fixtures.Fixture):
         self.remove_from_cleanups(vm_fix.cleanUp)
 
     def get_svm_obj(self, vm_name):
-        for vm_obj in self.nova_h.get_vm_list():
+        for vm_obj in self.orch.get_vm_list():
             if vm_obj.name == vm_name:
                 return vm_obj
         errmsg = "No VM named '%s' found in the compute" % vm_name
@@ -268,14 +279,14 @@ class ConfigSvcChain(fixtures.Fixture):
     def get_svm_compute(self, svm_name):
         svm_obj = self.get_svm_obj(svm_name)
         vm_nodeip = self.inputs.host_data[
-            self.nova_h.get_nova_host_of_vm(svm_obj)]['host_ip']
+            self.orch.get_host_of_vm(svm_obj)]['host_ip']
         return self.inputs.host_data[vm_nodeip]
 
     def get_svm_tapintf(self, svm_name):
         self.is_svm_active(svm_name)
         svm_obj = self.get_svm_obj(svm_name)
         vm_nodeip = self.inputs.host_data[
-            self.nova_h.get_nova_host_of_vm(svm_obj)]['host_ip']
+            self.orch.get_host_of_vm(svm_obj)]['host_ip']
         inspect_h = self.agent_inspect[vm_nodeip]
         self.logger.debug(
             "svm_obj:'%s' compute_ip:'%s' agent_inspect:'%s'", svm_obj.__dict__,
@@ -294,7 +305,7 @@ class ConfigSvcChain(fixtures.Fixture):
         self.is_svm_active(svm_name)
         svm_obj = self.get_svm_obj(svm_name)
         vm_nodeip = self.inputs.host_data[
-            self.nova_h.get_nova_host_of_vm(svm_obj)]['host_ip']
+            self.orch.get_host_of_vm(svm_obj)]['host_ip']
         inspect_h = self.agent_inspect[vm_nodeip]
         self.logger.debug(
             "svm_obj:'%s' compute_ip:'%s' agent_inspect:'%s'", svm_obj.__dict__,
@@ -319,7 +330,7 @@ class ConfigSvcChain(fixtures.Fixture):
 
     def start_tcpdump_on_intf(self, host, tapintf):
         session = ssh(host['host_ip'], host['username'], host['password'])
-        cmd = 'tcpdump -nni %s -c 1 proto 1 > /tmp/%s_out.log 2>&1' % (
+        cmd = 'sudo tcpdump -nni %s -c 1 proto 1 > /tmp/%s_out.log 2>&1' % (
             tapintf, tapintf)
         execute_cmd(session, cmd, self.logger)
     # end start_tcpdump_on_intf
@@ -328,7 +339,7 @@ class ConfigSvcChain(fixtures.Fixture):
         session = ssh(host['host_ip'], host['username'], host['password'])
         self.logger.info('Waiting for tcpdump to complete')
         time.sleep(10)
-        output_cmd = 'cat /tmp/%s_out.log' % tapintf
+        output_cmd = 'sudo cat /tmp/%s_out.log' % tapintf
         out, err = execute_cmd_out(session, output_cmd, self.logger)
         return out
     # end stop_tcpdump_on_intf
@@ -336,7 +347,7 @@ class ConfigSvcChain(fixtures.Fixture):
     def create_service_vms(self, vns, service_mode='transparent', max_inst=1,
             svc_img_name=None, service_type='firewall',
             hosts=[]):
-        non_docker_zones = [x for x in self.nova_h.zones if x != 'nova/docker']
+        non_docker_zones = [x for x in self.orch.get_zones() if x != 'nova/docker']
         svm_fixtures = []
         svc_img_name = svc_img_name or SVC_TYPE_PROPS[service_type][service_mode]
         for i in range(max_inst):
@@ -376,7 +387,10 @@ class ConfigSvcChain(fixtures.Fixture):
         if self.inputs.is_ci_setup() and self.inputs.get_af() == 'v4':
             image_name = self.inputs.get_ci_image()
         else:
-            image_name = image_name or 'ubuntu-traffic'
+	    if self.inputs.vcenter_dc:
+		image_name = 'ubuntu'
+	    else:
+	        image_name = image_name or 'ubuntu-traffic'
         return image_name
     # end _get_end_vm_image
 
@@ -442,7 +456,10 @@ class ConfigSvcChain(fixtures.Fixture):
 
         image_name = self._get_end_vm_image(image_name)
 
-        svc_img_name = svc_img_name or SVC_TYPE_PROPS[service_type][service_mode]
+	if self.inputs.vcenter_dc:
+	    svc_img_name = VC_SVC_TYPE_PROPS[service_type][service_mode]
+	else:
+            svc_img_name = svc_img_name or SVC_TYPE_PROPS[service_type][service_mode]
 
         # Mgmt
         (mgmt_vn_name,
@@ -487,7 +504,6 @@ class ConfigSvcChain(fixtures.Fixture):
                                                          trans_right_vn_subnets,
                                                          trans_right_vn_fixture,
                                                          'trans_right_vn')
-
         else :
             si_left_vn_name = left_vn_name
             si_left_vn_subnets = left_vn_subnets
@@ -543,12 +559,11 @@ class ConfigSvcChain(fixtures.Fixture):
                                                        service_type=service_type,
                                                        hosts=hosts,
                                                        max_inst=max_inst)
-
         if not si_fixture:
             si_name = get_random_name('si')
             si_fixture = self.config_si(si_name,
                 st_fixture,
-                mgmt_vn_fq_name=self._get_if_needed(svc_img_name, 'management', mgmt_vn_fq_name),
+		 mgmt_vn_fq_name=self._get_if_needed(svc_img_name, 'management', mgmt_vn_fq_name),
                 left_vn_fq_name=self._get_if_needed(svc_img_name, 'left', si_left_vn_fq_name),
                 right_vn_fq_name=self._get_if_needed(svc_img_name, 'right', si_right_vn_fq_name),
                 port_tuples_props=port_tuples_props,
@@ -566,6 +581,7 @@ class ConfigSvcChain(fixtures.Fixture):
                     static_route=static_route,
                     max_inst=max_inst,
                     svm_fixtures=svm_fixtures2)
+
         if created_left_vm:
             self.verify_vm(left_vm_fixture)
         if created_right_vm:
@@ -622,6 +638,7 @@ class ConfigSvcChain(fixtures.Fixture):
             assert si_fixture2.verify_on_setup(wait_for_vms=False), \
                 ('SI Verification failed')
             ret_dict.update({'si_fixture2': si_fixture2})
+
         return ret_dict
 
     def get_svms_in_si(self, si):
@@ -631,7 +648,7 @@ class ConfigSvcChain(fixtures.Fixture):
         (svm_ids, msg) = si.get_vm_refs()
         svm_list= []
         for svm_id in svm_ids:
-            svm_list.append(self.nova_h.get_vm_by_id(svm_id))
+            svm_list.append(self.orch.get_vm_by_id(svm_id))
         return svm_list
     #end get_svms_in_si
 
