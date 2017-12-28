@@ -36,14 +36,14 @@ SVC_TYPE_PROPS = {
                  'in-network': 'tiny_in_net',
                  'transparent': 'tiny_trans_fw',
                  },
-    'analyzer': {'transparent': 'analyzer',
-                 'in-network' : 'analyzer',
+    'analyzer': {'transparent': 'ubuntu',
+                 'in-network' : 'ubuntu',
                  }
 }
 
 # To check what kind of intfs need to be configured for a image
 SVC_IMAGE_PROPS = {
-    'analyzer' : { 'management' : False, 'left' : True, 'right' : False }
+    'ubuntu' : { 'management' : False, 'left' : True, 'right' : False }
 }
 
 class ConfigSvcChain(fixtures.Fixture):
@@ -562,8 +562,12 @@ class ConfigSvcChain(fixtures.Fixture):
         if not si_fixture:
             si_name = get_random_name('si')
             si_fixture = self.config_si(si_name,
+<<<<<<< HEAD
                 st_fixture,
 		 mgmt_vn_fq_name=self._get_if_needed(svc_img_name, 'management', mgmt_vn_fq_name),
+=======
+                st_fixture,                                                                                                                                                                 mgmt_vn_fq_name=self._get_if_needed(svc_img_name, 'management', mgmt_vn_fq_name),
+>>>>>>> 11cd570... Fix for the bug 1721900
                 left_vn_fq_name=self._get_if_needed(svc_img_name, 'left', si_left_vn_fq_name),
                 right_vn_fq_name=self._get_if_needed(svc_img_name, 'right', si_right_vn_fq_name),
                 port_tuples_props=port_tuples_props,
