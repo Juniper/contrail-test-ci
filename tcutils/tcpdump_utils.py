@@ -193,5 +193,3 @@ def check_pcap_file_exists(session, pcap, expect=True):
     if expect and out or not expect and not out:
         return True
     return False
-
-
