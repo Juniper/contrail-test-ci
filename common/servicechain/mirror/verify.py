@@ -310,7 +310,6 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         else:
             session = ssh(host['host_ip'], host['username'], host['password'])
             pcap = self.start_tcpdump(session, tapintf, vlan=vlan)
-        assert wait_for_pcap_to_get_create(session, pcap),'pcap not got created'
         src_ip = src_vm.vm_ip
         dst_ip = dst_vm.vm_ip
         if vlan:
