@@ -71,7 +71,7 @@ class BaseBGPaaS(BaseNeutronTest, BaseHC):
 	bgpaas_fixture.attach_vmi(vmi)
 	return bgpaas_fixture
 
-    def detach_vmi_from_bgpaas(self, vm, vn, bgpaas_fixture):
+    def detach_vmi_from_bgpaas(self, vmi, bgpaas_fixture):
         '''
         Detach the VMI from the BGPaaS object
         '''
