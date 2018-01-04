@@ -12,13 +12,13 @@ class ConfigSvcMirror(ConfigSvcChain):
     def start_tcpdump(self, session, tap_intf, vm_fixtures=[], pcap_on_vm=False, vlan=None):
         if not pcap_on_vm:
             pcap = '/tmp/mirror-%s.pcap' % tap_intf
-            cmd = 'rm -f %s' % pcap
+            cmd = 'sudo rm -f %s' % pcap
             execute_cmd(session, cmd, self.logger)
             sleep(5)
             filt_str = ''
             if not vlan:
                 filt_str = 'udp port 8099'
-            cmd = "tcpdump -ni %s %s -w %s" % (tap_intf, filt_str, pcap)
+            cmd = "sudo tcpdump -ni %s %s -w %s" % (tap_intf, filt_str, pcap)
             self.logger.info("Staring tcpdump to capture the mirrored packets.")
             execute_cmd(session, cmd, self.logger)
             return pcap
@@ -36,14 +36,14 @@ class ConfigSvcMirror(ConfigSvcChain):
         self.logger.info("Waiting for the tcpdump write to complete.")
         sleep(3)
         if not pcap_on_vm:
-            cmd = 'kill $(pidof tcpdump)'
+            cmd = 'sudo kill $(pidof tcpdump)'
             execute_cmd(session, cmd, self.logger)
             execute_cmd(session, 'sync', self.logger)
             sleep(3)
-            cmd = 'tcpdump -nr %s %s | wc -l' % (pcap, filt)
+            cmd = 'sudo tcpdump -nr %s %s | wc -l' % (pcap, filt)
             out, err = execute_cmd_out(session, cmd, self.logger)
             count = int(out.strip('\n'))
-            cmd = 'rm -f %s' % pcap
+            cmd = 'sudo rm -f %s' % pcap
             execute_cmd(session, cmd, self.logger)
             return count
         else:
