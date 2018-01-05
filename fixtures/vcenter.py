@@ -588,7 +588,15 @@ class VcenterOrchestrator(Orchestrator):
                                          'in-network': 'ubuntu-in-net',
                                          },
                          }
-        return svc_type_props 
+        return svc_type_props
+    
+    def poweroff_vm(self,vm_obj):
+        vm_obj=vm_obj.vcenter._find_obj(vm_obj.vcenter._dc, 'vm', {'name' : vm_obj.name})
+        _wait_for_task(vm_obj.PowerOff())
+    
+    def poweron_vm(self,vm_obj):
+        vm_obj=vm_obj.vcenter._find_obj(vm_obj.vcenter._dc, 'vm', {'name' : vm_obj.name})
+        _wait_for_task(vm_obj.PowerOn())
 
 class Subnets(object):
 

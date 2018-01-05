@@ -150,7 +150,10 @@ class VMFixture(fixtures.Fixture):
 
     # end __init__
 
-    def read(self):
+    def read(self,refresh=False):
+        self.refresh = refresh
+        if refresh:
+            self.vm_ips = list()
         if self.vm_id:
             self.vm_obj = self.orch.get_vm_by_id(vm_id=self.vm_id)
             if not self.vm_obj:
