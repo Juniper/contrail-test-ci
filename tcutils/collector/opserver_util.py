@@ -482,6 +482,8 @@ class OpServerUtils(object):
             self.start_time = start_time
             self.end_time = end_time
             self.select_fields = select_fields
+            if session_type is not None:
+                self.session_type = session_type
             if where is not None:
                 self.where = where
             if sort_fields is not None:
