@@ -1967,7 +1967,7 @@ class VMFixture(fixtures.Fixture):
                 else:
                     self.orch.delete_vm(vm_obj)
                     self.vm_objs.remove(vm_obj)
-            self.verify_cleared_from_setup(verify=verify)
+            #self.verify_cleared_from_setup(verify=verify)
         else:
             self.logger.info('Skipping the deletion of VM %s' %
                              (self.vm_name))
