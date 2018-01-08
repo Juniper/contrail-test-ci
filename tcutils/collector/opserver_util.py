@@ -473,6 +473,7 @@ class OpServerUtils(object):
         filter = None
         dir = None
         session_type = None
+
         def __init__(
             self, table, start_time, end_time, select_fields, where=None,
                 sort_fields=None, sort=None, limit=None, filter=None, dir=None, session_type=None):
@@ -482,6 +483,8 @@ class OpServerUtils(object):
             self.start_time = start_time
             self.end_time = end_time
             self.select_fields = select_fields
+            if session_type is not None:
+                self.session_type = session_type
             if where is not None:
                 self.where = where
             if sort_fields is not None:
