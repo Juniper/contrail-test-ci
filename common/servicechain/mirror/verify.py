@@ -913,12 +913,14 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             pcap = '/tmp/mirror-%s.pcap' % tap_intf
             cmd = 'rm -f %s' % pcap
             execute_cmd(session, cmd, self.logger)
+            assert check_pcap_file_exists(session, pcap, expect=False),'pcap file still exists'
             filt_str = ''
             if not vlan:
                 filt_str = 'udp port 8099'
-            cmd = "sudo tcpdump -ni %s %s -w %s" % (tap_intf, filt_str, pcap)
+            cmd = "sudo tcpdump -ni %s -U %s -w %s" % (tap_intf, filt_str, pcap)
             self.logger.info("Starting tcpdump to capture the mirrored packets.")
             execute_cmd(session, cmd, self.logger)
+            assert check_pcap_file_exists(session, pcap),'pcap file does not exist'
             return pcap
         else:
             pcap = '/tmp/%s.pcap' % (get_random_name())
