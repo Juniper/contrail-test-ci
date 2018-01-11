@@ -317,7 +317,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             cmds = "/sbin/ifconfig " + sub_intf + " | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'"
             src_ip = src_vm.run_cmd_on_vm(cmds=[cmds]).values()[0]
             dst_ip = dst_vm.run_cmd_on_vm(cmds=[cmds]).values()[0]
-        assert src_vm.ping_with_certainty(dst_ip, count=5, size='1200')
+        assert src_vm.ping_with_certainty(dst_ip, count=5, size='1400')
         #lets wait 10 sec for tcpdump to capture all the packets
         sleep(10)
         self.logger.info('Ping from %s to %s executed with c=5, expected mirrored packets 5 Ingress,5 Egress count = 10'
