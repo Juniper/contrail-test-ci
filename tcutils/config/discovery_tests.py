@@ -983,7 +983,7 @@ class DiscoveryVerification(fixtures.Fixture):
                     "From control node introspect, xmpp-clients: %s" %
                     (control_node_bgp_xmpp_peer_list))
                 
-                if sorted(computes) != sorted(control_node_bgp_xmpp_peer_list):
+                if sorted(computes) != sorted(control_node_bgp_xmpp_peer_list) and sorted(computes) != sorted(control_node_bgp_peer_list):
                     result = result and False
                     self.logger.error(
                         'The required XMPP entry not present in control node introspect for %s' % (host))
