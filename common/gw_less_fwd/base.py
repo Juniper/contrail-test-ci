@@ -526,6 +526,15 @@ class GWLessFWDTestBase(BaseVrouterTest, ConfigSvcChain):
         for vm_fixture in vm_fixtures.values():
             compute_node_ips.add(vm_fixture.get_compute_host())
 
+        # Add static route on compute host for VMs to point to vhost0
+        # This is needed when VMs are across computes, but computes
+        # belong to the same subnet. Right now, agent does not add this
+        # route and adding this in test code as a temporary fix
+        for compute_ip in compute_node_ips:
+            for vn_fixture in vn_fixtures.values():
+                cmd = 'route add -net %s dev vhost0' %(vn_fixture.vn_subnets)
+                output = self.inputs.run_cmd_on_server(compute_ip, cmd)
+
         # Pinging all VMIs from vhost
         for compute_ip in compute_node_ips:
             for src_vm_fixture in vm_fixtures.values():
