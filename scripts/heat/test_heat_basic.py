@@ -33,7 +33,7 @@ class TestBasicHeat(BaseHeatTest, ECMPTraffic, ECMPVerify):
     def tearDownClass(cls):
         super(TestBasicHeat, cls).tearDownClass()
 
-    @test.attr(type=['sanity'])
+    #@test.attr(type=['sanity'])
     @preposttest_wrapper
     def test_svc_creation_with_heat(self):
         '''
@@ -61,7 +61,7 @@ class TestBasicHeat(BaseHeatTest, ECMPTraffic, ECMPVerify):
         svc_chain = self.config_svc_chain(svc_rules, vn_list, [l_h_obj, r_hs_obj])
         assert vms[0].ping_with_certainty(vms[1].vm_ip, expectation=True)
     # end test_svc_creation_with_heat
-# end TestHeat
+# end TestBasicHeat
 
 class TestBasicHeatv2(TestBasicHeat):
     @classmethod
