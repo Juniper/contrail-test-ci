@@ -88,6 +88,7 @@ class ContrailReportInit:
             self.prov_data = self._create_prov_data()
         else:
             self.prov_data = self._read_prov_file()
+       
         (self.build_id, self.sku) = self.get_build_id()
         self.setup_detail = '%s %s~%s' % (self.get_distro(), self.build_id,
                                           self.sku)
@@ -364,10 +365,10 @@ class ContrailReportInit:
         tries = 50
         while not build_id and tries:
             try:
-                build_id = self.run_cmd_on_server(self.cfgm_ips[0], cmd)
+                build_id = self.run_cmd_on_server(self.cfgm_ips[0], cmd, as_sudo=True)
                 if not build_id:
                     build_id = self.run_cmd_on_server(
-                        self.cfgm_ips[0], alt_cmd)
+                        self.cfgm_ips[0], alt_cmd, as_sudo=True)
             except NetworkError, e:
                 time.sleep(1)
                 pass
@@ -397,17 +398,25 @@ class ContrailReportInit:
         return self.distro
     # end get_distro
 
-    def run_cmd_on_server(self, server_ip, issue_cmd, username=None, password=None, pty=True):
+    def run_cmd_on_server(self, server_ip, issue_cmd, username=None,
+                          password=None, pty=True, as_sudo=False,
+                          logger=None):
         if server_ip in self.host_data.keys():
             if not username:
                 username = self.host_data[server_ip]['username']
             if not password:
                 password = self.host_data[server_ip]['password']
+        logger = logger or contrail_logging.getLogger(__name__)
+        logger.debug('[%s]: Running cmd : %s' % (server_ip, issue_cmd))
         with hide('everything'):
             with settings(
                 host_string='%s@%s' % (username, server_ip), password=password,
                     warn_only=True, abort_on_prompts=False):
-                output = run('%s' % (issue_cmd), pty=pty)
+                if as_sudo:
+                    output = sudo('%s' % (issue_cmd), pty=pty)
+                else:
+                    output = run('%s' % (issue_cmd), pty=pty)
+                logger.debug('Output : %s' % (output))
                 return output
     # end run_cmd_on_server
 
