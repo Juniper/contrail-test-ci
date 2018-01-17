@@ -4,7 +4,7 @@ from common.servicechain.config import ConfigSvcChain
 from tcutils.commands import ssh, execute_cmd, execute_cmd_out
 from common.ecmp.ecmp_traffic import ECMPTraffic
 from common.ecmp.ecmp_verify import ECMPVerify
-from tcutils.util import get_random_cidr, get_random_name
+from tcutils.util import get_random_cidr, get_random_name, check_pcap_file_exists
 
 
 class ConfigSvcMirror(ConfigSvcChain):
@@ -14,6 +14,7 @@ class ConfigSvcMirror(ConfigSvcChain):
             pcap = '/tmp/mirror-%s.pcap' % tap_intf
             cmd = 'sudo rm -f %s' % pcap
             execute_cmd(session, cmd, self.logger)
+            assert check_pcap_file_exists(session, pcap, expect=False),'pcap file still exists'
             sleep(5)
             filt_str = ''
             if not vlan:
@@ -21,6 +22,7 @@ class ConfigSvcMirror(ConfigSvcChain):
             cmd = "sudo tcpdump -ni %s %s -w %s" % (tap_intf, filt_str, pcap)
             self.logger.info("Staring tcpdump to capture the mirrored packets.")
             execute_cmd(session, cmd, self.logger)
+            assert check_pcap_file_exists(session, pcap),'pcap file does not exist'
             return pcap
         else:
             pcap = '/tmp/%s.pcap' % (get_random_name())
