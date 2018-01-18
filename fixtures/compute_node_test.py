@@ -10,6 +10,8 @@ import re
 import time
 import tempfile
 
+import os
+import os.path
 from common.agent.flow_table import FlowTable, FlowEntry
 from tcutils.contrail_status_check import ContrailStatusChecker
 
@@ -133,20 +135,30 @@ class ComputeNodeFixture(fixtures.Fixture):
             self.username, self.ip), password=self.password, warn_only=True,
             abort_on_prompts=False):
             if type == "get":
-                result = get(node_file, local_file)
+                node_file_tmp="/tmp/%s"%(os.path.basename(local_file))
+                copy_cmd = "cp %s %s"%(node_file, node_file_tmp)
+                self.execute_cmd(copy_cmd)
+                result = get(node_file_tmp, local_file)
+                rm_cmd = "rm -rf %s"%(node_file_tmp)
+                self.execute_cmd(rm_cmd)
                 self.logger.debug(result)
                 if result.failed:
                     self.logger.warn('Failed to get %s(as %s) from %s' % (
                         node_file, local_file, self.ip))
                 return result.succeeded
             if type == "put":
-                result = put(node_file, local_file)
+                node_file_tmp="/tmp/%s"%(os.path.basename(node_file))
+                copy_cmd = "cp %s %s"%(node_file, node_file_tmp)
+                result = put(node_file, node_file_tmp)
+                copy_cmd = "sudo cp %s %s"%(node_file_tmp, local_file)
+                self.execute_cmd(copy_cmd)
                 self.logger.debug(result)
                 if result.failed:
                     self.logger.error('Failed to upload %s(as %s) to %s' % (
                         node_file, local_file, self.ip))
                 return result.succeeded
     # end file_transfer
+
 
     def set_flow_aging_time(self, flow_cache_timeout=100):
         self.logger.debug(
