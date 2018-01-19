@@ -13,7 +13,7 @@ from tcutils.wrappers import preposttest_wrapper
 import uuid
 from base import BaseDiscoveryTest
 import test
-
+from tcutils.util import skip_because
 
 class TestDiscoveryBasic(BaseDiscoveryTest):
 
@@ -45,6 +45,7 @@ class TestDiscoveryBasic(BaseDiscoveryTest):
 
 
     @test.attr(type=['sanity', 'ci_sanity', 'vcenter', 'suite1'])
+    @skip_because(control_node_ip_in_agent_conf = True)
     @preposttest_wrapper
     def test_agent_gets_control_nodes_from_discovery(self):
         '''
