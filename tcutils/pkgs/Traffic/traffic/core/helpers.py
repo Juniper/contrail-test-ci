@@ -75,20 +75,14 @@ class Helper(object):
                         host_string='%s@%s' % (self.rhost.user, self.rhost.ip),
                         password='ubuntu', as_sudo=True, cmd=cmd,
                         logger=self.log)
-                    if (not output) and retry:
-                        self.log.error(
-                            "Scapy issue while sending/receiving packets. Will retry after 5 secs.")
-                        sleep(5)
-                        retry -= 1
-                        continue
-                    if ("Connection timed out" in output or
+                    if output and ("Connection timed out" in output or
                             "Connection refused" in output) and retry:
                         self.log.debug(
                             "SSH timeout, sshd might not be up yet. will retry after 5 secs.")
                         sleep(5)
                         retry -= 1
                         continue
-                    elif "Connection timed out" in output:
+                    elif output and "Connection timed out" in output:
                         raise SSHError(output)
                     else:
                         break
@@ -115,7 +109,7 @@ class Sender(Helper):
         self.log.info("Sending traffic with '%s'", self.pktheader)
         out = self.runcmd("sendpkts --name %s -p %s" %
                           (self.name, self.profile))
-        if 'Daemon already running' in out:
+        if out and 'Daemon already running' in out:
             errmsg = "Traffic stream with name '%s' already present in VM '%s' \
                       at compute '%s'" % (self.name, self.rhost.ip, self.lhost.ip)
             assert False, errmsg
