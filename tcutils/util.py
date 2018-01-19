@@ -1013,6 +1013,16 @@ def skip_because(*args, **kwargs):
                     msg = "Skipped as not supported in non-HA setup"
                     raise testtools.TestCase.skipException(msg)
 
+            if 'control_node_ip_in_agent_conf' in kwargs:
+                remote_file='/etc/contrail/contrail-vrouter-agent.conf'
+                for cmp_node in self.inputs.compute_ips:
+                   cmd = "crudini --get %s CONTROL-NODE server"%(remote_file)
+                   res = self.inputs.run_cmd_on_server(cmp_node, cmd)
+		   if len(res.split('.'))==4:
+                        skip = True
+                        msg = "Skipped as control-node IP is set in contrail-vrouter-agent.conf"
+                        raise testtools.TestCase.skipException(msg)
+
             if "bug" in kwargs:
                 skip = True
                 if not kwargs['bug'].isdigit():
