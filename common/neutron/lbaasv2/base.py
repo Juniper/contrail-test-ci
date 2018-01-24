@@ -147,5 +147,35 @@ class BaseLBaaSTest(BaseNeutronTest, test_v1.BaseTestCase_v1):
         return True
     #end def verify_lb_method
 
+    @retry(tries=3, delay=10)
+    def verify_uve_stats_session(self, lb_fix, requests):
+        '''
+           Function to verify loadbalancer stats
+           lb_fix - LB fixture for which stats needs to collected
+           requests - Number of requests made to VIP
+
+           return true, if the requests are equally loadbalanced to members
+        '''
+        self.logger.info("Verify the stats are correct")
+        if lb_fix.get_listener_stats():
+             listener_session = lb_fix.get_listener_stats()['total_sessions']
+             pool_session = lb_fix.get_pool_stats()['total_sessions']
+             mem_session = {}
+             if listener_session == requests and listener_session == pool_session:
+                 self.logger.info("listener session and pool session are same as number of requests as expected")
+                 ##Identify the active members and find the session stats
+                 for mem in lb_fix.member_ids:
+                     if lb_fix.get_member_stats(mem)['status'] == 'ACTIVE':
+                         mem_session[mem] = lb_fix.get_member_stats(mem)['total_sessions']
+                 expected_mem_session = requests/len(mem_session.keys())
+                 for mem in mem_session.keys():
+                     if mem_session[mem] != expected_mem_session:
+                         errmsg = ("Member session of UUID %s, is %d, is not same as expected mem session, %d"
+                                % (mem, mem_session[mem]. expected_mem_session))
+                         self.logger.error(errmsg)
+                         return False
+                 return True
+        return False
+
 #end BaseLBaaSTest class
 

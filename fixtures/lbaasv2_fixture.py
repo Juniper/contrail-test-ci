@@ -819,6 +819,73 @@ class LBaasV2Fixture(LBBaseFixture):
     def get_network_handle(self):
         return self.get_neutron_handle()
 
+    def get_ops_loadbalancer(self):
+        '''
+           Function to retrieve Loadbalancer UVE to collect session stats
+           Returns loadbalancer UVE as an object
+           if stats not found returns None 
+        '''
+        self.ops_inspect = self.connections.ops_inspects
+        for ip in self.inputs.collector_ips:
+            self.ops_lb_obj = self.ops_inspect[ip].get_ops_loadbalancer(self.lb_uuid)
+            if self.ops_lb_obj:
+                return self.ops_lb_obj
+
+    def get_listener_stats(self):
+        '''
+            Function to collect listener stats of Loadbalancer
+            Returns the stats in dictionary, if it found
+                {u'bytes_in': 600,
+                 u'bytes_out': 1760,
+                 u'current_sessions': 0,
+                 u'max_sessions': 1,
+                 u'obj_name': u'967a0e45-22e3-4e35-a270-9fe6adb8afbf',
+                 u'status': u'ACTIVE',
+                 u'total_sessions': 8,
+                 u'vrouter': u'nodeh5'}
+        '''
+        stats = self.get_ops_loadbalancer()
+        if 'UveLoadbalancerStats' in stats.keys():
+            for keys in stats['UveLoadbalancerStats']['listener'].iterkeys():
+                if  self.listener_uuid in keys and \
+                    self.inputs.get_node_name(self.get_active_vrouter()) in keys:
+                    return stats['UveLoadbalancerStats']['listener'][keys]
+        return None
+
+    def get_pool_stats(self):
+        stats = self.get_ops_loadbalancer()
+        if 'UveLoadbalancerStats' in stats.keys():
+            for keys in stats['UveLoadbalancerStats']['pool'].iterkeys():
+                if  self.pool_uuid in keys and \
+                    self.inputs.get_node_name(self.get_active_vrouter()) in keys:
+                    return stats['UveLoadbalancerStats']['pool'][keys]
+        return None
+
+    def get_member_stats(self, member_id):
+        '''
+            Function to collect member stats of Loadbalancer
+            member UUID for which stats need to be collected
+            Returns the stats in dictionary, if it found
+                {u'active_connections': 0,
+                 u'bytes_in': 300,
+                 u'bytes_out': 880,
+                 u'connection_errors': 0,
+                 u'current_sessions': 0,
+                 u'max_connections': 0,
+                 u'max_sessions': 1,
+                 u'obj_name': u'1c01ceff-0d9b-4d93-8c1f-b1003ebb38de',
+                 u'status': u'ACTIVE',
+                 u'total_sessions': 4,
+                 u'vrouter': u'nodeh5'}
+        '''
+        stats = self.get_ops_loadbalancer()
+        if 'UveLoadbalancerStats' in stats.keys():
+            for keys in stats['UveLoadbalancerStats']['member'].iterkeys():
+                if  member_id in keys and \
+                    self.inputs.get_node_name(self.get_active_vrouter()) in keys:
+                    return stats['UveLoadbalancerStats']['member'][keys]
+        return None
+
     @property
     def network_h(self):
         if not getattr(self, '_network_h', None):
