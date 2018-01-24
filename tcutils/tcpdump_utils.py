@@ -187,9 +187,13 @@ def delete_pcap(session, pcap):
 
 @retry(delay=2, tries=40)
 def check_pcap_file_exists(session, pcap, expect=True):
+    logger = contrail_logging.getLogger(__name__)
+    sleep(3)
     cmd = 'ls -d /tmp/* | grep -w %s ' % (pcap)
     out, err = execute_cmd_out(session, cmd)
     out = bool(out)
+    if expect and not out:
+        logger.warn("pcap file not created yet..wait and check again..")
     if expect and out or not expect and not out:
         return True
     return False
