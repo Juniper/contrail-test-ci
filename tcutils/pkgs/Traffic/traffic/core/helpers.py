@@ -69,7 +69,8 @@ class Helper(object):
                 host_string = '%s@%s' % (self.rhost.user, self.rhost.ip)
                 output = remote_cmd(host_string=host_string, cmd=cmd,
                          gateway_password=self.lhost.password, with_sudo=True,
-                         gateway='%s@%s' % (self.lhost.user, self.lhost.ip))
+                         gateway='%s@%s' % (self.lhost.user, self.lhost.ip),
+                         password=self.rhost.password)
                 if not output:
                     break
                 if ("Connection timed out" in output or
