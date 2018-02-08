@@ -117,13 +117,17 @@ class GWLessFWDTestBase(BaseVrouterTest, ConfigSvcChain):
     def delete_static_route_vhost(self, compute_node_ips, vn_fixtures):
         '''Cleanup static route on vhost0
         '''
-        for compute_ip in compute_node_ips:
-            for vn_fixture in vn_fixtures.values():
-                vn_cidr = vn_fixture.get_cidrs()[0]
-                self.logger.debug('Deleting static route: %s on compute: %s'
-                                  %(vn_cidr, compute_ip))
-                cmd = 'route del -net %s dev vhost0' %(vn_cidr)
-                output = self.inputs.run_cmd_on_server(compute_ip, cmd)
+        try:
+            for compute_ip in compute_node_ips:
+                for vn_fixture in vn_fixtures.values():
+                    vn_cidr = vn_fixture.get_cidrs()[0]
+                    self.logger.debug('Deleting static route: %s on compute: %s'
+                                    %(vn_cidr, compute_ip))
+                    cmd = 'route del -net %s dev vhost0' %(vn_cidr)
+                    output = self.inputs.run_cmd_on_server(compute_ip, cmd)
+        except Exception as e:
+            self.logger.error("Error in deleting static route, got exception: %s"
+                              % (e))
 
 
     def detach_policy_ip_fabric_vn(self, ip_fab_vn_obj, policy_obj):
@@ -137,8 +141,9 @@ class GWLessFWDTestBase(BaseVrouterTest, ConfigSvcChain):
     def setup_vns(self, vn=None):
         '''Setup VN
            Input vn format:
-                vn = {'count':1,
+                vn = {'count':2,
                     'vn1':{'subnet':'10.10.10.0/24', 'ip_fabric':True,},
+                    'vn1':{'subnet':get_random_cidr(), 'ip_fabric':True,},
                     }
 
                 vn = {'count':1,
@@ -149,7 +154,7 @@ class GWLessFWDTestBase(BaseVrouterTest, ConfigSvcChain):
                           },
                     }
         '''
-        vn_count = vn['count'] if vn else 1
+        vn_count = vn['count'] if vn else 0
         vn_fixtures = {} # Hash to store VN fixtures
         for i in range(0,vn_count):
             vn_id = 'vn'+str(i+1)
@@ -187,7 +192,7 @@ class GWLessFWDTestBase(BaseVrouterTest, ConfigSvcChain):
                    'vmi2':{'vn': 'vn1'},
                   }
         '''
-        vmi_count = vmi['count'] if vmi else 1
+        vmi_count = vmi['count'] if vmi else 0
         vmi_fixtures = {} # Hash to store VMI fixtures
         for i in range(0,vmi_count):
             vmi_id = 'vmi'+str(i+1)
@@ -221,7 +226,7 @@ class GWLessFWDTestBase(BaseVrouterTest, ConfigSvcChain):
                 }
             launch_mode can be distribute or non-distribute
         '''
-        vm_count = vm['count'] if vm else 1
+        vm_count = vm['count'] if vm else 0
         launch_mode = vm.get('launch_mode','default')
         vm_fixtures = {} # Hash to store VM fixtures
 
@@ -274,6 +279,22 @@ class GWLessFWDTestBase(BaseVrouterTest, ConfigSvcChain):
         return vm_fixtures
 
 
+    def provision_underlay_gw(self):
+        '''Setup Fabric Gateway
+
+            Sets up underlay fabric gateway
+        '''
+
+        # Provision Fabric Gateway
+        name = self.inputs.fabric_gw_info[0][0]
+        ip = self.inputs.fabric_gw_info[0][1]
+        self.vnc_h.provision_fabric_gw(name, ip, self.inputs.router_asn)
+        self.addCleanup(self.vnc_h.delete_fabric_gw, name)
+
+        # Default security group to allow all traffic
+        self.allow_default_sg_to_allow_all_on_project(self.inputs.project_name)
+
+
 
     def setup_gw_less_fwd(self, vn=None, vmi=None, vm=None, verify=True):
         '''Setup Gateway Less Forwarding .
@@ -282,10 +303,10 @@ class GWLessFWDTestBase(BaseVrouterTest, ConfigSvcChain):
 
             Input parameters looks like:
                 #VN parameters:
-                vn = {'count':1,            # VN count
+                vn = {'count':2,            # VN count
                      # VN Details
                     'vn1':{'subnet':'10.10.10.0/24', 'ip_fabric':True},
-                    'vn2':{'subnet':'20.20.20.0/24'},
+                    'vn2':{'subnet':get_random_cidr(), 'ip_fabric':True},
                     }
 
                 #VMI parameters:
@@ -302,17 +323,10 @@ class GWLessFWDTestBase(BaseVrouterTest, ConfigSvcChain):
                     'vm2':{'vn':['vn1'], 'vmi':['vmi2']}, # VM Details
                     }
 
-
         '''
-        # Provision Fabric Gateway
-        name = self.inputs.fabric_gw_info[0][0]
-        ip = self.inputs.fabric_gw_info[0][1]
-        self.vnc_h.provision_fabric_gw(name, ip, self.inputs.router_asn)
-        self.addCleanup(self.vnc_h.delete_fabric_gw, name)
 
-
-        # Default security group to allow all traffic
-        self.allow_default_sg_to_allow_all_on_project(self.inputs.project_name)
+        # Provision underlay gateway
+        self.provision_underlay_gw()
 
         # VNs creation
         vn_fixtures = self.setup_vns(vn)
