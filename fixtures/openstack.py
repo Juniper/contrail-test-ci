@@ -194,11 +194,14 @@ class OpenstackOrchestrator(Orchestrator):
            return super(OpenstackOrchestrator, self).delete_floating_ip(fip_id=fip_id, **kwargs)
        self.quantum_h.delete_floatingip(fip_id)
 
-   def assoc_floating_ip(self, fip_id, vm_id, option='orch', **kwargs):
+   def assoc_floating_ip(self, fip_id, vm_id, vn_fq_name=None, option='orch', **kwargs):
        if option == 'contrail':
            return super(OpenstackOrchestrator, self).assoc_floating_ip(fip_id=fip_id, vm_id=vm_id, **kwargs)
        update_dict = {}
-       update_dict['port_id'] = self.quantum_h.get_port_id(vm_id)
+       if vn_fq_name == null:
+          update_dict['port_id'] = self.quantum_h.get_port_id(vm_id)
+       else:
+          update_dict['port_id'] = self.get_vmi_id(vn_fq_name)
        self.logger.debug('Associating FIP ID %s with Port ID %s' %(fip_id,
                           update_dict['port_id']))
        if update_dict['port_id']:
