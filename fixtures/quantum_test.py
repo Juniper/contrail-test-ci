@@ -130,7 +130,7 @@ class QuantumHelper():
             return None
     # end _create_subnet
 
-    def create_port(self, net_id, fixed_ips=[],
+    def create_port(self, net_id, subnet_id=None, ip_address=None, fixed_ips=[],
                     mac_address=None, no_security_group=False,
                     security_groups=[], extra_dhcp_opts=None,
                     sriov=False, binding_profile=None):
@@ -148,6 +148,25 @@ class QuantumHelper():
 
         if fixed_ips:
             port_req_dict['fixed_ips'] = fixed_ips
+        else:
+            port_req_dict['fixed_ips'] = []
+
+        if type(subnet_id) == list:
+           subnet_ids = subnet_id
+        elif subnet_id :
+           subnet_ids = [subnet_id]
+        else:
+           subnet_ids = []
+
+        for subnet_id in subnet_ids:
+            fixed_ip_req = {}
+            if subnet_id:
+                fixed_ip_req['subnet_id'] = subnet_id
+            if ip_address:
+                fixed_ip_req['ip_address'] = ip_address
+            print "subnet:",fixed_ip_req
+            port_req_dict['fixed_ips'].append(fixed_ip_req)
+
         if sriov:
             port_req_dict['binding:vnic_type'] = 'direct'
         if binding_profile:
@@ -353,13 +372,19 @@ class QuantumHelper():
         return fip_resp[fields] if fields else fip_resp
     # end get_floatingip
 
-    def get_port_id(self, vm_id):
+    def get_port_id(self, vm_id, vn_id=None):
         ''' Returns the Neutron port-id of a VM.
 
         '''
         try:
             port_rsp = self.obj.list_ports(device_id=[vm_id])
-            port_id = port_rsp['ports'][0]['id']
+            if vn_id:
+              for port in  port_rsp['ports']:
+                if port['network_id'] == vn_id:
+                   port_id = port['id']
+                   break
+            else:
+              port_id = port_rsp['ports'][0]['id']
             return port_id
         except Exception as e:
             self.logger.error('Error occured while getting port-id of a VM ')
