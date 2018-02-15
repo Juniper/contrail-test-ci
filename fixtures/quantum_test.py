@@ -130,7 +130,7 @@ class QuantumHelper():
             return None
     # end _create_subnet
 
-    def create_port(self, net_id, subnet_id=None, fixed_ips=[],
+    def create_port(self, net_id, subnet_id=None, ip_address=None, fixed_ips=[],
                     mac_address=None, no_security_group=False,
                     security_groups=[], extra_dhcp_opts=None,
                     sriov=False, binding_profile=None):
