@@ -597,7 +597,9 @@ l[0]={'protocol': '1', 'stats_bytes': '222180', 'stats_packets': '2645', 'setup_
                         for ee in fip:
                             pp[ee.tag] = ee.text
                         p[e.tag].append(pp)
-                if e.tag == 'bridge_domain_list':
+                    else:
+                        continue
+                elif e.tag == 'bridge_domain_list':
                     p[e.tag] = []
                     for bd in e.xpath('./list/VmIntfBridgeDomainUuid'):
                         pp = {}
