@@ -139,8 +139,6 @@ class ComputeNodeFixture(fixtures.Fixture):
                 copy_cmd = "cp %s %s"%(node_file, node_file_tmp)
                 self.execute_cmd(copy_cmd)
                 result = get(node_file_tmp, local_file)
-                rm_cmd = "rm -rf %s"%(node_file_tmp)
-                self.execute_cmd(rm_cmd)
                 self.logger.debug(result)
                 if result.failed:
                     self.logger.warn('Failed to get %s(as %s) from %s' % (
