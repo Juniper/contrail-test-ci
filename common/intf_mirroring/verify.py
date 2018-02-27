@@ -748,7 +748,7 @@ class VerifyIntfMirror(VerifySvcMirror):
             self.logger.info("Traffic is getting mirrored from parent port as expected")
 
         self.logger.info("Enabling intf mirroring on sub intf, expect pkts to get mirrored from both the ports")
-        self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance)
+        self.enable_intf_mirroring(vnc, tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance, header = True)
 
         if not self.verify_port_mirroring(src_vm_fixture, dst_vm_fixture, mirror_vm_fixture, vlan=vlan, parent=parent_intf):
             result = result and False
@@ -757,7 +757,6 @@ class VerifyIntfMirror(VerifySvcMirror):
             self.logger.info("Traffic is getting mirrored from both parent port and sub intf as expected")
         # Disable intf mirroring on parent port
         self.disable_intf_mirroring(vnc, parent_tap_intf_obj)
-
         if not self.verify_port_mirroring(src_vm_fixture, dst_vm_fixture, mirror_vm_fixture, vlan=vlan):
             result = result and False
             self.logger.error("Traffic stopped getting mirrored from sub intf after disabling intf mirroring on parent port")
@@ -765,7 +764,7 @@ class VerifyIntfMirror(VerifySvcMirror):
             self.logger.info("Traffic is getting mirrored from sub intf as expected")
 
         # enable intf mirroring on parent port
-        self.enable_intf_mirroring(vnc, parent_tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance)
+        self.enable_intf_mirroring(vnc, parent_tap_intf_obj, analyzer_ip_address, analyzer_name, routing_instance, header = True)
 
         self.logger.info("Check traffic is getting mirrored from both the ports")
 
