@@ -841,6 +841,66 @@ class VNCApiInspect (VerificationUtilBase):
         dct = {'aaa-mode': aaa_mode}
         self.put(path='aaa-mode', payload=dct)
 
+    def get_quota_usage_count(self,tenant_id):
+        '''
+        method: get_quota_usage_count returns count of for the given tenant
+        '''
+        quota_dict = {}
+        resp = self.dict_get(str('virtual-networks?parent_id='+tenant_id+'&count=True'))
+        quota_dict['virtual-networks'] = resp['virtual-networks']['count']
+        resp = self.dict_get(str('instance-ips?parent_id='+tenant_id+'&count=True'))
+        quota_dict['instance-ips'] = resp['instance-ips']['count']
+        resp = self.dict_get(str('virtual-machine-interfaces?parent_id='+tenant_id+'&count=True'))
+        quota_dict['virtual-machine-interfaces'] = resp['virtual-machine-interfaces']['count']
+        resp = self.dict_get(str('virtual-networks?parent_id='+tenant_id+'&count=True'))
+        quota_dict['virtual-networks'] = resp['virtual-networks']['count']
+        resp = self.dict_get(str('virtual-DNSs?parent_id='+tenant_id+'&count=True'))
+        quota_dict['virtual-DNSs'] = resp['virtual-DNSs']['count']
+        resp = self.dict_get(str('virtual-DNS-records?parent_id='+tenant_id+'&count=True'))
+        quota_dict['virtual-DNS-records'] = resp['virtual-DNS-records']['count']
+        resp = self.dict_get(str('network-ipams?parent_id='+tenant_id+'&count=True'))
+        quota_dict['network-ipams'] = resp['network-ipams']['count']
+        resp = self.dict_get(str('network-policys?parent_id='+tenant_id+'&count=True'))
+        quota_dict['network-policys'] = resp['network-policys']['count']
+        resp = self.dict_get(str('floating-ip-pools?parent_id='+tenant_id+'&count=True'))
+        quota_dict['floating-ip-pools'] = resp['floating-ip-pools']['count']
+        resp = self.dict_get(str('service-templates?parent_id='+tenant_id+'&count=True'))
+        quota_dict['service-templates'] = resp['service-templates']['count']
+        resp = self.dict_get(str('service-instances?parent_id='+tenant_id+'&count=True'))
+        quota_dict['service-instances'] = resp['service-instances']['count']
+        resp = self.dict_get(str('logical-routers?parent_id='+tenant_id+'&count=True'))
+        quota_dict['logical-routers'] = resp['logical-routers']['count']
+        resp = self.dict_get(str('security-groups?parent_id='+tenant_id+'&count=True'))
+        quota_dict['security-groups'] = resp['security-groups']['count']
+        resp = self.dict_get(str('loadbalancer-pools?parent_id='+tenant_id+'&count=True'))
+        quota_dict['loadbalancer-pools'] = resp['loadbalancer-pools']['count']
+        resp = self.dict_get(str('loadbalancer-healthmonitors?parent_id='+tenant_id+'&count=True'))
+        quota_dict['loadbalancer-healthmonitors'] = resp['loadbalancer-healthmonitors']['count']
+        resp = self.dict_get(str('virtual-ips?parent_id='+tenant_id+'&count=True'))
+        quota_dict['virtual-ips'] = resp['virtual-ips']['count']
+        resp = self.dict_get(str('loadbalancer-members?parent_id='+tenant_id+'&count=True'))
+        quota_dict['loadbalancer-members'] = resp['loadbalancer-members']['count']
+        resp = self.dict_get(str('virtual-networks?parent_id='+tenant_id+'&detail=True'))
+        vns = resp.get('virtual-networks', [])
+        total_subnet_count = 0
+        for vn in vns:
+            subnets = 0
+            network_ipam_refs =  vn['virtual-network']['network_ipam_refs']
+            network_ipam_refs = network_ipam_refs[0]
+            subnets = network_ipam_refs['attr']['ipam_subnets']
+            subnets = len(subnets)
+            self.log.debug("Network name : %s - Number of subnets :%s ",vn['virtual-network']['display_name'],subnets)
+            total_subnet_count += subnets
+        quota_dict['subnets'] = total_subnet_count
+        resp = self.dict_get(str('security-groups?parent_id='+tenant_id+'&detail=True'))
+        sgs = resp.get('security-groups', [])
+        total_sgrule_count = 0
+        for sg in sgs:
+            sgr =  len(sg['security-group']['security_group_entries']['policy_rule'])
+            total_sgrule_count += sgr
+        quota_dict['security-group-rules'] = total_sgrule_count
+        return quota_dict
+
 if __name__ == '__main__':
     va = VNCApiInspect('10.84.7.2')
     r = va.get_cs_domain()
