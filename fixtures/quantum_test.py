@@ -104,7 +104,7 @@ class QuantumHelper():
         except CommonNetworkClientException as e:
             self.logger.exception(
                 'Neutron Exception while creating network %s' % (vn_name))
-            return None
+            raise e
 
     def create_subnet(self, subnet, net_id, ipam_fq_name=None, enable_dhcp=True, disable_gateway=False):
         subnet_req = subnet
@@ -125,7 +125,7 @@ class QuantumHelper():
             self.logger.exception(
                 'Neutron Exception while creating subnet for vn with id %s' %
                 (net_id))
-            return None
+            raise e
     # end _create_subnet
 
     def create_port(self, net_id, fixed_ips=[],
@@ -158,7 +158,7 @@ class QuantumHelper():
             self.logger.exception(
                 'Neutron Exception while creating port in vn with id %s' %
                 (net_id))
-            return None
+            raise e            
 
     # end create_port
 
@@ -183,7 +183,7 @@ class QuantumHelper():
         except CommonNetworkClientException as e:
             self.logger.exception(
                 'Neutron Exception while creating security group %s' % (name))
-            return None
+            raise e
 
     # end create_security_group
 
@@ -220,6 +220,7 @@ class QuantumHelper():
         except CommonNetworkClientException as e:
             self.logger.exception(
                 'Neutron Exception while creating SG Rule %s' % (sg_rule_dict))
+            raise e
         return sg_rule
     # end create_security_group_rule
 
@@ -227,9 +228,8 @@ class QuantumHelper():
         #currently this method can be only used before adding any custom rule to sg
         rules = self.list_security_group_rules(tenant_id=self.project_id)
         for rule in rules['security_group_rules']:
-            if rule['security_group_id'] == sg_id and rule['remote_ip_prefix'] == '0.0.0.0/0':
+            if rule['security_group_id'] == sg_id and (rule['remote_ip_prefix'] == '0.0.0.0/0' or rule['remote_ip_prefix'] == '::/0'):
                 self.delete_security_group_rule(rule['id'])
-                break
 
     def delete_security_group_rule(self, rule_id):
         self.obj.delete_security_group_rule(rule_id)
