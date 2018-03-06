@@ -27,7 +27,7 @@ class ContrailVncApi(object):
 
     def delete_project(self, project_name):
         return self._vnc.project_delete(project_name)
-  
+
     def read_project_obj(self,project_fq_name=None,project_id=None):
         if project_fq_name:
             return self._vnc.project_read(project_fq_name)
@@ -42,7 +42,7 @@ class ContrailVncApi(object):
          project = self._vnc._tenant_name
          fq_name = ['default-domain',project] #This may fail for non-default domain
                                               #WA for vcenter/vcenter-gw
-         return self.read_project_obj(project_fq_name=fq_name)        
+         return self.read_project_obj(project_fq_name=fq_name)
 
     def get_floating_ip(self, fip_id, **kwargs):
         fip_obj = self._vnc.floating_ip_read(id=fip_id)
@@ -50,11 +50,11 @@ class ContrailVncApi(object):
 
     def create_floating_ip(self, pool_obj, project_obj, **kwargs):
         owner = kwargs.get('owner')
- 
+
         if not pool_obj:
             #Create FIP Poola
             vn_obj = kwargs.get('vn_obj',None)
-            fip_pool_name = 'fip_pool'   
+            fip_pool_name = 'fip_pool'
             pool_obj = FloatingIpPool(fip_pool_name, vn_obj)
             self._vnc.floating_ip_pool_create(pool_obj)
 
@@ -1855,6 +1855,57 @@ class ContrailVncApi(object):
 
     # end delete_fabric_gw
 
+    def provision_mvpn(self, name, ip, asn):
+        '''Provision MVPN.
+           Input is: name and ip  and asn of BGP router
+        '''
+        router_name = name
+        router_ip = ip
+        router_type = 'router'
+        vendor = 'mx'
+        router_asn = asn
+        address_families = ["inet-mvpn", "inet-vpn", "e-vpn", "inet6-vpn"]
+
+
+        rt_inst_obj = self._vnc.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                    'ip-fabric', '__default__'])
+        bgp_router = BgpRouter(router_name, rt_inst_obj)
+        params = BgpRouterParams()
+        params.address = router_ip
+        params.router_type = router_type
+        params.vendor = vendor
+        params.address_families = AddressFamilies(
+            address_families)
+        params.autonomous_system = router_asn
+        params.identifier = router_ip
+        bgp_router.set_bgp_router_parameters(params)
+
+        try:
+            bgp_router_id = self._vnc.bgp_router_create(bgp_router)
+            bgp_router_obj = self._vnc.bgp_router_read(
+                id=bgp_router_id)
+            self._log.info('Created BGP router: %s' % (router_name))
+            return bgp_router_obj
+
+        except RefsExistError:
+            self._log.info("BGP router: %s is already present, "\
+                                "continuing the test" %(router_name))
+            bgp_fq_name=['default-domain', 'default-project',
+                            'ip-fabric', '__default__']
+            bgp_fq_name.append(router_name)
+            bgp_router_obj = self._vnc.bgp_router_read(fq_name=
+                                                        bgp_fq_name)
+            return bgp_router_obj
+        except:
+            self._log.error("Error in configuring BGP router: %s" %(
+                router_name))
+            return False
+
+
+    # end provision_fabric_gw
+
+
     def read_global_vrouter_config(self):
         fq_name = [ 'default-global-system-config',
                     'default-global-vrouter-config']
@@ -1904,7 +1955,7 @@ class ContrailVncApi(object):
     #Lbaasv2 functions
     def get_loadbalancer(self,lb_uuid):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        return self.lb_feature_handles.lb_mgr.read(id=lb_uuid) 
+        return self.lb_feature_handles.lb_mgr.read(id=lb_uuid)
     #End get_loadbalancer
 
     def list_floatingips(self, tenant_id=None, port_id=None):
@@ -1926,36 +1977,36 @@ class ContrailVncApi(object):
         lb_name = kwargs.get('name',None)
         if lb_name:
             self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-            lb_objects=self.lb_feature_handles.lb_mgr.lb_list() 
+            lb_objects=self.lb_feature_handles.lb_mgr.lb_list()
             return lb_objects['loadbalancers']
     #End list_loadbalancers
 
     def create_loadbalancer(self, name=None, network_id=None,
                             subnet_id=None, address=None,project=None):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        #proj_obj = self.read_project_obj(project_fq_name=project) 
-        proj_obj = self.vnc_project 
+        #proj_obj = self.read_project_obj(project_fq_name=project)
+        proj_obj = self.vnc_project
         vn_obj = self.get_vn_obj_from_id(network_id)
         lb_obj=self.lb_feature_handles.lb_mgr.create(name,proj_obj,
                         		vn_obj,vip_address=address,
-                        		subnet_uuid=subnet_id) 
+                        		subnet_uuid=subnet_id)
         return lb_obj
     #End create_loadbalancer
 
     def delete_loadbalancer(self, lb_id):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        self.lb_feature_handles.lb_mgr.delete(lb_id) 
+        self.lb_feature_handles.lb_mgr.delete(lb_id)
     #End delete_loadbalancer
 
     def assoc_floatingip(self, fip_id, port_id):
         return self.assoc_floating_ip(fip_id, port_id,vmi_id=port_id)
     #End assoc_floatingip
 
-    def create_floatingip(self, fip_pool_vn_id, 
+    def create_floatingip(self, fip_pool_vn_id,
                         	project_id=None, port_id=None,
                           project_fq_name=None):
         pool_obj= self.get_vn_obj_from_id(fip_pool_vn_id)
-        proj_obj = self.vnc_project 
+        proj_obj = self.vnc_project
         (fip, fip_id) = self.create_floating_ip(None, proj_obj,vn_obj=pool_obj)
         if port_id:
             self.assoc_floating_ip(fip_id, port_id,vmi_id=port_id)
@@ -1973,7 +2024,7 @@ class ContrailVncApi(object):
 
     def get_listener(self, listener_id, **kwargs):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        return self.lb_feature_handles.ll_mgr.read(id=listener_id) 
+        return self.lb_feature_handles.ll_mgr.read(id=listener_id)
     #End get_listener
 
     def list_lbaas_pools(self, **kwargs):
@@ -1982,17 +2033,17 @@ class ContrailVncApi(object):
         parent_id = parent_obj.uuid
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
         ll_list = self.lb_feature_handles.lb_pool_mgr.resource_list(tenant_id=parent_id)
-        return ll_list['loadbalancer-pools'] 
+        return ll_list['loadbalancer-pools']
     #End list_lbaas_pools
 
     def get_lbaas_member(self, member_id, pool_id, **kwargs):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        return self.lb_feature_handles.lb_member_mgr.read(id=member_id) 
+        return self.lb_feature_handles.lb_member_mgr.read(id=member_id)
     #End get_lbaas_member
 
     def get_lbaas_healthmonitor(self, hm_id, **kwargs):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        return self.lb_feature_handles.lb_hm_mgr.read(id=hm_id) 
+        return self.lb_feature_handles.lb_hm_mgr.read(id=hm_id)
     #End get_lbaas_healthmonitor
 
     def list_listeners(self, **kwargs):
@@ -2012,30 +2063,30 @@ class ContrailVncApi(object):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
         lb_obj =self._vnc.loadbalancer_read(id=lb_id)
         proj_fq_name = kwargs.get('projetc_fq_name',None)
-        proj_obj=self.vnc_project 
+        proj_obj=self.vnc_project
         return self.lb_feature_handles.ll_mgr.create(lb_obj,proj_obj,name=name,
                         							protocol=protocol,
                         							protocol_port=port,
                         							connection_limit=connection_limit,
                         							default_tls_container=default_tls_container,
                         							sni_containers=sni_containers
-                        							) 
+                        							)
     #End create_listener
 
     def create_lbaas_pool(self, listener_id, protocol, lb_algorithm,
                           name=None, session_persistence=None,**kwargs):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        ll_obj= self._vnc.loadbalancer_listener_read(id=listener_id) 
+        ll_obj= self._vnc.loadbalancer_listener_read(id=listener_id)
         proj_fq_name = kwargs.get('projetc_fq_name',None)
-        proj_obj=self.vnc_project 
+        proj_obj=self.vnc_project
         return self.lb_feature_handles.lb_pool_mgr.create(ll_obj,proj_obj,
                         					protocol,name=name,
                         					session_persistence=session_persistence,
-                        					lb_algorithm=lb_algorithm) 
+                        					lb_algorithm=lb_algorithm)
     #End create_lbaas_pool
 
     def delete_lbaas_pool(self, pool_id):
-        self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log) 
+        self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
         self.lb_feature_handles.lb_pool_mgr.delete(id=pool_id)
     #End delete_lbaas_pool
 
@@ -2048,11 +2099,11 @@ class ContrailVncApi(object):
 
     def create_lbaas_member(self, address, port, pool_id, weight=1,
                             subnet_id=None, network_id=None):
-        self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log) 
+        self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
         pool_obj = self._vnc.loadbalancer_pool_read(id=pool_id)
         if network_id and not subnet_id:
             subnet_id=get_network_subnet_id(self._vnc,network_id)
-        return self.lb_feature_handles.lb_member_mgr.create(pool_obj, address=address, 
+        return self.lb_feature_handles.lb_member_mgr.create(pool_obj, address=address,
                         						protocol_port=port,
                         						weight=weight,
                         						subnet_id=subnet_id)
@@ -2065,7 +2116,7 @@ class ContrailVncApi(object):
 
     def delete_lbaas_member(self, member_id, pool_id):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        self.lb_feature_handles.lb_member_mgr.delete(id=member_id) 
+        self.lb_feature_handles.lb_member_mgr.delete(id=member_id)
     #End delete_lbaas_member
 
     def update_lbaas_member(self, member_id, pool_id, port=None,
@@ -2079,10 +2130,10 @@ class ContrailVncApi(object):
         'address': 'address',
         'subnet_id': 'subnet_id',
         '''
-        
-        
-        self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log) 
-        return self.lb_feature_handles.lb_member_mgr.update(member_id, 
+
+
+        self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
+        return self.lb_feature_handles.lb_member_mgr.update(member_id,
                         							admin_state=admin_state,
                         							status=status,
                         							port=port,
@@ -2094,19 +2145,19 @@ class ContrailVncApi(object):
                                    probe_type, timeout, http_method=None,
                                    http_codes=None, http_url=None):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        proj_obj=self.vnc_project 
+        proj_obj=self.vnc_project
         return self.lb_feature_handles.lb_hm_mgr.create(pool_id, delay, max_retries,
                         						probe_type, timeout,
                         						http_method=http_method,
                         						http_codes=http_codes,
                         						http_url=http_url,
                         						proj_obj=proj_obj)
- 
+
     #End create_lbaas_healthmonitor
 
     def delete_lbaas_healthmonitor(self, hm_id):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        return self.lb_feature_handles.lb_hm_mgr.delete(id=hm_id) 
+        return self.lb_feature_handles.lb_hm_mgr.delete(id=hm_id)
     #End delete_lbaas_healthmonitor
 
     def update_lbaas_healthmonitor(self,hm_id, delay=None, max_retries=None,
@@ -2115,9 +2166,9 @@ class ContrailVncApi(object):
                         			project_fq_name=None):
 
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        proj_obj=self.vnc_project 
+        proj_obj=self.vnc_project
         return self.lb_feature_handles.lb_hm_mgr.update(hm_id=hm_id,proj_obj=proj_obj,
-                        			 delay=delay, 
+                        			 delay=delay,
                         			 max_retries=max_retries,
                                      timeout=timeout, http_method=http_method,
                                      http_codes=http_codes, http_url=http_url)
@@ -2125,7 +2176,7 @@ class ContrailVncApi(object):
 
     def delete_listener(self, listener_id):
         self.lb_feature_handles = LBFeatureHandles(self._vnc,self._log)
-        self.lb_feature_handles.ll_mgr.delete(id=listener_id) 
+        self.lb_feature_handles.ll_mgr.delete(id=listener_id)
     #End delete_listener
     #End Lbaasv2 functions
 
@@ -2140,12 +2191,12 @@ class ContrailVncApi(object):
 
 class LBFeatureHandles:
     __metaclass__ = Singleton
-    
+
     def __init__(self,vnc,log):
         self._vnc=vnc
         self._log=log
         self.get_lb_feature_handles()
-    
+
     def get_lb_feature_handles(self):
         self.lb_mgr = ServiceLbManager(self._vnc,self._log)
         self.ll_mgr = ServiceLbListenerManager(self._vnc,self._log)
