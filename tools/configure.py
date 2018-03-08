@@ -40,7 +40,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
         get_apiserver_protocol, get_apiserver_certfile, get_apiserver_keyfile, \
         get_apiserver_cafile, get_keystone_insecure_flag, \
         get_apiserver_insecure_flag, get_keystone_certfile, get_keystone_keyfile, \
-        get_keystone_cafile, get_keystone_version
+        get_keystone_cafile, get_keystone_version, get_discovery_protocol
     from fabfile.utils.multitenancy import get_mt_enable
     from fabfile.utils.interface import get_data_ip
     from fabfile.tasks.install import update_config_option, update_js_config
@@ -64,6 +64,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
     auth_server_ip = get_authserver_ip()
     auth_server_port = get_authserver_port()
     api_auth_protocol = get_apiserver_protocol()
+    discovery_auth_protocol = get_discovery_protocol()
 
     if api_auth_protocol == 'https':
         api_certfile = validate_and_copy_file(get_apiserver_certfile(), cfgm_host)
@@ -520,6 +521,7 @@ def configure_test_env(contrail_fab_path='/opt/contrail/utils', test_dir='/contr
          '__config_amqp_ips__'     : ','.join(config_amqp_ips),
          '__config_amqp_port__'    : config_amqp_port,
          '__api_auth_protocol__'   : api_auth_protocol,
+         '__ds_auth_protocol__'    : discovery_auth_protocol,
          '__api_certfile__'        : api_certfile,
          '__api_keyfile__'         : api_keyfile,
          '__api_cafile__'          : api_cafile,
