@@ -162,10 +162,12 @@ class TestInputs(object):
                                             'Basic', 'auth_port', 5000)
         self.auth_protocol = read_config_option(self.config,
                                             'Basic', 'auth_protocol', 'http')
-        self.api_protocol = read_config_option(self.config,
-                                          'cfgm', 'api_protocol', 'http')
+        self.ds_protocol = read_config_option(self.config,
+                                          'cfgm', 'ds_protocol', 'http')
         self.ds_port = read_config_option(self.config, 'services',
                                           'discovery_port', '5998')
+        self.api_protocol = read_config_option(self.config,
+                                          'cfgm', 'api_protocol', 'http')
         self.api_server_port = read_config_option(self.config, 'services',
                                           'config_api_port', '8082')
         self.analytics_api_port = read_config_option(self.config, 'services',
