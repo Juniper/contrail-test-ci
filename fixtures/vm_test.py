@@ -2071,22 +2071,34 @@ class VMFixture(fixtures.Fixture):
     # end scp_file_to_vm
 
     def put_pub_key_to_vm(self):
+        '''
+            Copy pub key from cfgm node to VM
+        '''
         fab_connections.clear()
         self.logger.debug('Copying public key to VM %s' % (self.vm_name))
-        self.orch.put_key_file_to_host(self.vm_node_ip)
         auth_file = '.ssh/authorized_keys'
+        file_name = 'id_rsa.pub'
+        pub_key = '~/.ssh/%s' % (file_name)
         self.run_cmd_on_vm(['mkdir -p ~/.ssh'])
-        host = self.inputs.host_data[self.vm_node_ip]
-        with hide('everything'):
-            with settings(
-                host_string='%s@%s' % (host['username'], self.vm_node_ip),
-                password=host['password'],
-                    warn_only=True, abort_on_prompts=False):
-                fab_put_file_to_vm(host_string='%s@%s' % (
-                    self.vm_username, self.local_ip),
-                    password=self.vm_password,
-                    src='/tmp/id_rsa.pub', dest='/tmp/',
-                    logger=self.logger)
+        host = self.inputs.host_data[self.inputs.cfgm_ip]
+        host_string = '%s@%s' % (host['username'], self.inputs.cfgm_ip)
+        source_file = '%s:%s' % (host_string, pub_key)
+        try:
+            self.copy_file_to_vm(source_file, dstdir='/tmp/',
+                src_password=host['password'])
+
+        except IOError as e:
+            if "Source not found" in str(e):
+                key_tmp = '/tmp/%s' % (file_name)
+                source_file = '%s:%s' % (host_string, key_tmp)
+                self.copy_file_to_vm(source_file, dstdir='/tmp/',
+                    src_password=host['password'])
+
+        except Exception, e:
+            self.logger.exception(
+                'Exception occured while trying to get the pub key file to the \
+                 VM from config node')
+
         cmds = [
             'cat /tmp/id_rsa.pub >> ~/%s' % (auth_file),
             'chmod 600 ~/%s' % (auth_file),
@@ -2156,31 +2168,51 @@ class VMFixture(fixtures.Fixture):
     # end check_file_transfer
 
     def get_rsa_to_vm(self):
-        '''Get the rsa file to the VM from the agent
+        '''Get the rsa file to the VM from cfgm
 
         '''
-        host = self.inputs.host_data[self.vm_node_ip]
+        file_name = 'id_rsa'
+        ssh_dir = '~/.ssh'
+        key_file = '%s/%s' % (ssh_dir, file_name)
+        host = self.inputs.host_data[self.inputs.cfgm_ip]
+        host_string = '%s@%s' % (host['username'], self.inputs.cfgm_ip)
+        source_file = '%s:%s' % (host_string, key_file)
+        dst_vm = '%s/' % (ssh_dir)
         output = ''
+        exception_msg = 'Exception occured while trying to get the rsa file' +\
+            'to the VM from config node'
+        self.run_cmd_on_vm(['mkdir -p %s' % (ssh_dir)], as_sudo=True)
         try:
-            self.orch.put_key_file_to_host(self.vm_node_ip)
-            with hide('everything'):
-                with settings(
-                    host_string='%s@%s' % (
-                        host['username'], self.vm_node_ip),
-                    password=host['password'],
-                        warn_only=True, abort_on_prompts=False):
-                    key_file = self.orch.get_key_file()
-                    fab_put_file_to_vm(host_string='%s@%s' % (
-                        self.vm_username, self.local_ip),
-                        password=self.vm_password,
-                        src=key_file, dest='~/',
-                        logger=self.logger)
-                    self.run_cmd_on_vm(cmds=['chmod 600 id_rsa'])
+            self.copy_file_to_vm(source_file, dstdir=dst_vm,
+                src_password=host['password'])
+
+        except IOError as e:
+            if "Source not found" in str(e):
+                #Try from /tmp
+                key_tmp = '/tmp/%s' % (file_name)
+                source_file = '%s:%s' % (host_string, key_tmp)
+                try:
+                    self.copy_file_to_vm(source_file, dstdir=dst_vm,
+                        src_password=host['password'])
+                except IOError as e:
+                    if "Source not found" in str(e):
+                        #Generate ssh keys on config node in /tmp and copy to VM
+                        cmd = 'ssh-keygen -f %s -t rsa -N \'\';ls -l %s' % (key_tmp,
+                            key_tmp)
+                        output = remote_cmd(host_string, cmd, with_sudo=True,
+                            password=host['password'], logger=self.logger)
+                        if "No such file or directory" in output:
+                            self.logger.exception('ssh key generation failed')
+                        else:
+                            self.copy_file_to_vm(source_file, dstdir=dst_vm,
+                                src_password=host['password'])
+                except Exception, e:
+                    self.logger.exception(exception_msg)
 
         except Exception, e:
-            self.logger.exception(
-                'Exception occured while trying to get the rsa file to the \
-                 VM from the agent')
+            self.logger.exception(exception_msg)
+
+        self.run_cmd_on_vm(cmds=['chmod 600 %s' % (key_file)])
     # end get_rsa_to_vm
 
     def run_cmd_on_vm(self, cmds=[], as_sudo=False, timeout=30,
@@ -2489,7 +2521,17 @@ class VMFixture(fixtures.Fixture):
             return False
     # end wait_for_ssh_on_vm
 
-    def copy_file_to_vm(self, localfile, dstdir=None, force=False):
+    def copy_file_to_vm(self, localfile, dstdir=None, force=False,
+            src_password=None):
+        '''
+            1. Can copy files from test location(test docker) to VM
+            2. Can copy files from remote system to VM
+            Args:
+                localfile: source file path or in format user@host:file_abs_path
+                dstdir: dst path on VM
+                src_password: source system password,required when
+                    copying from remote system
+        '''
         host = self.inputs.get_host_ip(self.vm_node_ip)
 #        filename = localfile.split('/')[-1]
 #        if dstdir:
@@ -2509,7 +2551,8 @@ class VMFixture(fixtures.Fixture):
         dest_gw_ip = self.vm_node_ip
         dest_gw_login = "%s@%s" % (dest_gw_username,dest_gw_ip)
         remote_copy(localfile, dstdir, dest_password=self.vm_password,
-                    dest_gw=dest_gw_login, dest_gw_password=dest_gw_password)
+                    dest_gw=dest_gw_login, dest_gw_password=dest_gw_password,
+                    src_password=src_password)
     # end copy_file_to_vm
 
     def get_vm_ipv6_addr_from_vm(self, intf='eth0', addr_type='link'):
