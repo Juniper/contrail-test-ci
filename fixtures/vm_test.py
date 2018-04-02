@@ -2083,21 +2083,25 @@ class VMFixture(fixtures.Fixture):
         host = self.inputs.host_data[self.inputs.cfgm_ip]
         host_string = '%s@%s' % (host['username'], self.inputs.cfgm_ip)
         source_file = '%s:%s' % (host_string, pub_key)
+        exception_msg = 'Exception occured while trying to get the pub ' +\
+            'key file to the VM from config node'
         try:
             self.copy_file_to_vm(source_file, dstdir='/tmp/',
                 src_password=host['password'])
 
         except IOError as e:
             if "Source not found" in str(e):
+                #Try copy from /tmp on config node
                 key_tmp = '/tmp/%s' % (file_name)
                 source_file = '%s:%s' % (host_string, key_tmp)
-                self.copy_file_to_vm(source_file, dstdir='/tmp/',
-                    src_password=host['password'])
+                try:
+                    self.copy_file_to_vm(source_file, dstdir='/tmp/',
+                        src_password=host['password'])
+                except Exception, e:
+                    self.logger.exception(exception_msg)
 
         except Exception, e:
-            self.logger.exception(
-                'Exception occured while trying to get the pub key file to the \
-                 VM from config node')
+            self.logger.exception(exception_msg)
 
         cmds = [
             'cat /tmp/id_rsa.pub >> ~/%s' % (auth_file),
