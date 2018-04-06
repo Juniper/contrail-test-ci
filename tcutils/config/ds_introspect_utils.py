@@ -12,8 +12,8 @@ from discovery_util import DiscoveryServerUtils
 
 class VerificationDsSrv (VerificationUtilBase):
 
-    def __init__(self, ip, port=5998, logger=LOG):
-        super(VerificationDsSrv, self).__init__(ip, port, logger=logger)
+    def __init__(self, ip, port=5998, inputs=None, protocol='http', logger=LOG):
+        super(VerificationDsSrv, self).__init__(ip, port, logger=logger, args=inputs, protocol=protocol)
 
     def get_ds_services(self):
         '''http://10.204.216.7:5998/services'''

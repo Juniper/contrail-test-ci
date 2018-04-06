@@ -177,6 +177,7 @@ vcenter_compute=$__vcenter_compute__
 [cfgm]
 #API protocol, certs file location
 api_protocol=$__api_auth_protocol__
+ds_protocol=$__ds_auth_protocol__
 api_certfile=$__api_certfile__
 api_keyfile=$__api_keyfile__
 api_cafile=$__api_cafile__

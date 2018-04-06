@@ -198,6 +198,8 @@ class ContrailConnections():
             host = discovery_ip
         if host not in self.ds_inspect:
             self.ds_inspect[host] = VerificationDsSrv(host, self.inputs.ds_port,
+                                                      inputs=self.inputs,
+                                                      protocol=self.inputs.ds_protocol,
                                                       logger=self.logger)
         return self.ds_inspect[host]
 
