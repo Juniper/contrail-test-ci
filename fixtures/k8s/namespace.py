@@ -143,8 +143,8 @@ class NamespaceFixture(fixtures.Fixture):
         if self.isolation:
             body.metadata.annotations = {"opencontrail.org/isolation": "true"}
         if self.custom_isolation:
-            body.metadata.annotations = {"opencontrail.org/network": "%s" % self.fq_network_name}
         self.obj = self.k8s_client.v1_h.create_namespace(body)
+            body.metadata.annotations["opencontrail.org/network"] = "%s" %  self.fq_network_name
         self._populate_attr()
         self.logger.info('Created namespace %s' % (self.name))
         if self.inputs.deployer=='openshift':
