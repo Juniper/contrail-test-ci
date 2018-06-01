@@ -308,7 +308,7 @@ class OpenstackOrchestrator(Orchestrator):
                                                 ethertype=ethertype)
                except:
                    self.logger.error("error while creating sg rule through quantum")
-                   return False
+                   raise
            if direction == 'egress':
                try:
                    for addr in rule['dst_addresses']:
@@ -324,7 +324,7 @@ class OpenstackOrchestrator(Orchestrator):
                                                 ethertype=ethertype)
                except:
                    self.logger.error("error while creating sg rule through quantum")
-                   return False
+                   raise
            #when remote is security group
            if remote_group_id:
                if not self.quantum_h.create_security_group_rule(

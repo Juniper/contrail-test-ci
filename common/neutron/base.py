@@ -50,6 +50,8 @@ class BaseNeutronTest(GenericTestBase):
 
     def update_default_quota_list(
             self,
+            defaults_knob=False,
+            defaults=-1,
             subnet=-1,
             virtual_network=-1,
             floating_ip=-1,
@@ -95,16 +97,17 @@ class BaseNeutronTest(GenericTestBase):
             api_conf_h = open(api_conf, 'a')
             config = ConfigParser.ConfigParser()
             config.add_section('QUOTA')
-            config.set('QUOTA', 'subnet', subnet)
-            config.set('QUOTA', 'virtual_network', virtual_network)
-            config.set('QUOTA', 'floating_ip', floating_ip)
-            config.set('QUOTA', 'logical_router', logical_router)
-            config.set('QUOTA', 'security_group', security_group)
-            config.set('QUOTA', 'security_group_rule', security_group_rule)
-            config.set(
+            if defaults_knob == True: config.set('QUOTA', 'defaults', defaults)
+            if subnet != -1: config.set('QUOTA', 'subnet', subnet)
+            if virtual_network != -1: config.set('QUOTA', 'virtual_network', virtual_network)
+            if floating_ip != -1: config.set('QUOTA', 'floating_ip', floating_ip)
+            if logical_router != -1: config.set('QUOTA', 'logical_router', logical_router)
+            if security_group != -1: config.set('QUOTA', 'security_group', security_group)
+            if security_group_rule != -1: config.set('QUOTA', 'security_group_rule', security_group_rule)
+            if virtual_machine_interface != -1: config.set(
                 'QUOTA',
                 'virtual_machine_interface',
-                virtual_machine_interface)
+                 virtual_machine_interface)
             config.write(api_conf_h)
             api_conf_h.close()
 
