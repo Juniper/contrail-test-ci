@@ -50,6 +50,10 @@ def getvmnics(content,vm,hosts):
             vlanId = None
             vSwitch = None
             if hasattr(dev_backing, 'port'):
+                #
+                # License: Apache-2.0
+                # https://github.com/vmware/pyvmomi-community-samples/blob/master/samples/getvnicinfo.py
+                #
                 portGroupKey = dev.backing.port.portgroupKey
                 dvsUuid = dev.backing.port.switchUuid
                 try:
