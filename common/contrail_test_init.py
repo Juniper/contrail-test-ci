@@ -461,7 +461,7 @@ class TestInputs(object):
             'contrail-query-engine', 'contrail-analytics-nodemgr',
             'contrail-snmp-collector', 'contrail-topology']
         self.database_services = [
-            'contrail-database', 'contrail-database-nodemgr', 'kafka']
+            'contrail-database', 'contrail-database-nodemgr', 'confluent-kafka']
         self.correct_states = ['active', 'backup']
 
         self.gc_host_mgmt = read_config_option(self.config,
