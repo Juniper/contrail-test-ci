@@ -2228,7 +2228,7 @@ class AnalyticsVerification(fixtures.Fixture):
                                                  container='analytics')
         cfgm_processes = ['contrail-config-nodemgr',
             'contrail-device-manager', 'contrail-schema', 'contrail-svc-monitor']
-        db_processes = ['contrail-database-nodemgr', 'confluent-kafka']
+        db_processes = ['contrail-database-nodemgr', 'kafka']
         analytics_processes = ['contrail-query-engine', 'contrail-collector', 'contrail-analytics-nodemgr']
         if underlay:
             analytics_processes.extend(['contrail-snmp-collector', 'contrail-topology'])

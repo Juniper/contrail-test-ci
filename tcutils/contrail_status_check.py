@@ -358,7 +358,7 @@ class ContrailStatusChecker():
                                        "contrail-topology"],
                         "analyticsdb" : ["contrail-database",
                                          "contrail-database-nodemgr",
-                                         "confluent-kafka"],
+                                         "kafka"],
                         "contrail-kube-manager" : ["contrail-kube-manager"],
                         "compute" : ["contrail-vrouter-agent",
                                      "contrail-vrouter-nodemgr"]}
