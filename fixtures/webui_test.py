@@ -841,7 +841,6 @@ class WebuiTest:
                     simple_action = rule['simple_action']
                     protocol = rule['protocol']
                     src_address = rule['source_network']
-                    direction = rule['direction']
                     dst_address = rule['dest_network']
                     if rule['src_ports']:
                         if isinstance(rule['src_ports'], list):
@@ -872,8 +871,7 @@ class WebuiTest:
                         elements=True, if_elements=[1])[plus_count-1]
                     protocol_element.clear()
                     protocol_element.send_keys(protocol.upper())
-                    rule_list = ['direction', \
-                        'simple_action', 'src_address', 'dst_address']
+                    rule_list = ['simple_action', 'src_address', 'dst_address']
                     for item in rule_list:
                         item_data = 'data-cell-' + item
                         rule_element = self.ui.find_element(
