@@ -649,7 +649,7 @@ class TestInputs(object):
                             ,                ['10.204.217.130', [{u'scheduling': u'strict', u'bandwidth': u'0', u'priority_id': u'1'},
                                                                 {u'scheduling': u'rr', u'bandwidth': u'25', u'priority_id': u'3'}]]]'''
         self.ns_agilio_vrouter_data = {}
-
+        self.virtio = False
         self.esxi_vm_ips = {}
         self.vgw_data = {}
         self.hypervisors = {}
@@ -769,6 +769,7 @@ class TestInputs(object):
             self.ns_agilio_vrouter_data = json_data['ns_agilio_vrouter']
             if self.ns_agilio_vrouter_data:
                 self.pcap_on_vm = True
+                self.virtio = True
 
         self._process_tor_data()
         self._process_for_vcenter_gateway()
