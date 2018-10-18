@@ -1975,6 +1975,8 @@ class VMFixture(fixtures.Fixture):
         if self.inputs.fixture_cleanup == 'force':
             do_cleanup = True
         if do_cleanup:
+            if not self.port_ids:
+                self.port_ids = []
             if len(self.port_ids) != 0:
                 for each_port_id in self.port_ids:
                     #in case of vcenter vm_obj dont't have option to  detach interface
