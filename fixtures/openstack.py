@@ -173,7 +173,7 @@ class OpenstackOrchestrator(Orchestrator):
        return super(OpenstackOrchestrator, self).get_vn_list(**kwargs)
 
    def get_policy(self, fq_name, option='orch', **kwargs):
-       if option == 'contrail':
+       if option == 'contrail' or self.inputs.ns_agilio_vrouter_data:
            return super(OpenstackOrchestrator, self).get_policy(fq_name=fq_name, **kwargs)
        return self.quantum_h.get_policy_if_present(fq_name[1], fq_name[2])
 
