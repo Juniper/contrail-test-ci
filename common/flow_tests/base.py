@@ -61,7 +61,7 @@ class FlowTestBase(BaseVrouterTest):
                 sessions_exported += record['sample_count']
         if not sessions_exported:
             self.logger.debug("No sessions exported from the vrouter %s"\
-                " in last %s seconds" % (node_ip, last))
+                " for start time %s, end time %s" % (node_ip, start_time, end_time))
 
         return sessions_exported
 
@@ -75,9 +75,10 @@ class FlowTestBase(BaseVrouterTest):
     # end setup_flow_export_rate
 
     def enable_logging_on_compute(self, node_ip, log_type,
-            restart_on_cleanup=True):
+            restart_on_cleanup=True, session_type='sampled'):
         ''' Enable local logging on compute node
             log_type: can be agent/syslog
+            session_type: slo/sampled
         '''
         container_name = 'agent'
         conf_file = '/etc/contrail/contrail-vrouter-agent.conf'
@@ -96,15 +97,19 @@ class FlowTestBase(BaseVrouterTest):
         oper = 'set'
         section = 'DEFAULT'
         self.update_contrail_conf(service_name, oper, section,
-            'log_flow', 1, node_ip, container_name)
-        self.update_contrail_conf(service_name, oper, section,
-            'log_local', 1, node_ip, container_name)
-        self.update_contrail_conf(service_name, oper, section,
             'log_level', 'SYS_INFO', node_ip, container_name)
 
         if log_type == 'syslog':
-            self.update_contrail_conf(service_name, oper, section,
-                'use_syslog', 1, node_ip, container_name)
+            session_dst='syslog'
+        else:
+            session_dst='file'
+
+        if session_type == 'sampled':
+            self.update_contrail_conf(service_name, oper, 'SESSION',
+                'sample_destination', session_dst, node_ip, container_name)
+        elif session_type == 'slo':
+            self.update_contrail_conf(service_name, oper, 'SESSION',
+                'slo_destination', session_dst, node_ip, container_name)
 
         self.inputs.restart_service(service_name, [node_ip],
             container=container_name, verify_service=True)
