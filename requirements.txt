@@ -10,6 +10,7 @@ pyvirtualdisplay
 selenium==2.53.6
 unittest2
 xmltodict
+ncclient==0.6.3
 junos-eznc==1.2.2
 pyvmomi==5.5.0
 linecache2
