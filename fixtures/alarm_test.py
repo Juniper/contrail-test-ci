@@ -276,7 +276,6 @@ class AlarmFixture(fixtures.Fixture):
     # end verify_alarm_setup
 
     def cleanUp(self):
-        super(AlarmFixture, self).cleanUp()
         do_cleanup = True
         if self.inputs.fixture_cleanup == 'no':
             do_cleanup = False
@@ -293,6 +292,7 @@ class AlarmFixture(fixtures.Fixture):
         else:
             self.logger.debug('Skippping deletion of alarm %s' %
                               self.alarm_name)
+        super(AlarmFixture, self).cleanUp()
     # end cleanup
 
     def _delete_alarm(self, verify=False):

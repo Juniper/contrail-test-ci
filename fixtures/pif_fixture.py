@@ -72,7 +72,6 @@ class PhysicalInterfaceFixture(vnc_api_test.VncLibFixture):
     
 
     def cleanUp(self):
-        super(PhysicalInterfaceFixture, self).cleanUp()
         do_cleanup = True
         if self.already_present:
             do_cleanup = False
@@ -80,6 +79,7 @@ class PhysicalInterfaceFixture(vnc_api_test.VncLibFixture):
                  self.fq_name))
         if do_cleanup:
             self.delete_pif()
+        super(PhysicalInterfaceFixture, self).cleanUp()
     # end cleanUp
 
     def delete_pif(self):

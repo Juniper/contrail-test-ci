@@ -179,9 +179,9 @@ class QFXFixture(ToRFixture, AbstractToR):
             self.config_ovsdb()
 
     def cleanUp(self):
-        super(QFXFixture, self).cleanUp()
         if self.bringup:
             self.remove_ovsdb()
+        super(QFXFixture, self).cleanUp()
 
     def _copy_certs_to_switch(self):
         pwd = os.getcwd()

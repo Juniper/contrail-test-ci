@@ -159,12 +159,12 @@ class PortFixture(vnc_api_test.VncLibFixture):
     # end _contrail_create_port
 
     def cleanUp(self):
-        super(PortFixture, self).cleanUp()
         if self.api_type == 'neutron':
             self._neutron_delete_port()
         else:
             self._contrail_delete_port()
         self.logger.info('Deleted port %s' % (self.uuid))
+        super(PortFixture, self).cleanUp()
 
     def _neutron_delete_port(self):
         self.neutron_handle.delete_port(self.uuid)

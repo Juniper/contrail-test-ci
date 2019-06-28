@@ -59,8 +59,8 @@ class QosQueueFixture(QosBaseFixture):
         self.create()
 
     def cleanUp(self):
-        super(QosQueueFixture, self).cleanUp()
         self.delete()
+        super(QosQueueFixture, self).cleanUp()
 
     def create(self):
         if self.uuid:
@@ -194,8 +194,8 @@ class QosForwardingClassFixture(QosBaseFixture):
         self.create()
 
     def cleanUp(self):
-        super(QosForwardingClassFixture, self).cleanUp()
         self.delete()
+        super(QosForwardingClassFixture, self).cleanUp()
 
     def create(self):
         if self.uuid:
@@ -401,8 +401,8 @@ class QosConfigFixture(QosBaseFixture):
         self.create()
 
     def cleanUp(self):
-        super(QosConfigFixture, self).cleanUp()
         self.delete()
+        super(QosConfigFixture, self).cleanUp()
 
     def _get_code_point_to_fc_map(self, mapping_dict=None):
         if not mapping_dict:

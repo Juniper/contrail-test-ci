@@ -103,12 +103,12 @@ class PhysicalRouterFixture(PhysicalDeviceFixture):
             logger=self.logger)
 
     def cleanUp(self):
-        super(PhysicalRouterFixture, self).cleanUp()
         do_cleanup = True
         if self.bgp_router_already_present:
             do_cleanup = False
         if do_cleanup:
             self.delete_bgp_router()
+        super(PhysicalRouterFixture, self).cleanUp()
 
     def get_irb_mac(self):
         return self.router_session.get_mac_address('irb')

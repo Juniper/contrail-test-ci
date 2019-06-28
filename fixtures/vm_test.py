@@ -1895,8 +1895,8 @@ class VMFixture(fixtures.Fixture):
     # end get_vrf_ids
 
     def cleanUp(self):
-        super(VMFixture, self).cleanUp()
         self.delete()
+        super(VMFixture, self).cleanUp()
 
     def delete(self, verify=False):
         do_cleanup = True

@@ -111,7 +111,6 @@ class PhysicalDeviceFixture(vnc_api_test.VncLibFixture):
         self.addCleanup(self.delete_physical_ports)
 
     def cleanUp(self):
-        super(PhysicalDeviceFixture, self).cleanUp()
         do_cleanup = True
         if self.already_present:
             do_cleanup = False
@@ -119,6 +118,7 @@ class PhysicalDeviceFixture(vnc_api_test.VncLibFixture):
                 self.phy_device.fq_name))
         if do_cleanup:
             self.delete_device()
+        super(PhysicalDeviceFixture, self).cleanUp()
 
     def add_virtual_network(self, vn_id):
         self.logger.debug('Adding VN %s to physical device %s' % (

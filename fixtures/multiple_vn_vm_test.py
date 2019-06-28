@@ -215,7 +215,6 @@ class create_multiple_vn_and_multiple_vm_fixture(fixtures.Fixture):
         time.sleep(5)
 
     def cleanUp(self):
-        super(create_multiple_vn_and_multiple_vm_fixture, self).cleanUp()
         vm_thread_to_delete = []
         vn_thread_to_delete = []
         try:
@@ -243,3 +242,4 @@ class create_multiple_vn_and_multiple_vm_fixture(fixtures.Fixture):
                 assert vn_obj.verify_not_in_result
         except Exception as e:
             print e
+        super(create_multiple_vn_and_multiple_vm_fixture, self).cleanUp()
