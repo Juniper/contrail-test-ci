@@ -13,4 +13,4 @@
 host=review.opencontrail.org
 port=29418
 project=Juniper/contrail-test-ci.git
-defaultbranch=R3.2.15.x
+defaultbranch=R3.2.15.x.15.x
