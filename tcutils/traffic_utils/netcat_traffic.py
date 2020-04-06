@@ -49,12 +49,24 @@ class Netcat(BaseTraffic):
         return True
     # end start
 
+    @retry(delay=1, tries=5)
+    def verify_session_closed(self, fix, pid):
+        cmd = 'netstat -anp | grep ' + pid
+        output = fix.run_cmd_on_vm(cmds=[cmd], as_sudo=True)
+        self.logger.info("Result of netstat on VM: %s" % output)
+        if output.get(cmd):
+            self.logger.error("Session still not closed from %s", output)
+            return False
+        else:
+            return True
+
     def stop(self):
         if self.receiver_pid:
             cmd = 'kill -s SIGINT %s' % self.receiver_pid
             output = self.receiver_vm_fix.run_cmd_on_vm(cmds=[cmd], as_sudo=True)
             self.logger.debug("Result of killing netcat on VM: %s" % output)
-
+        assert self.verify_session_closed(self.receiver_vm_fix, self.receiver_pid)
+        assert self.verify_session_closed(self.sender_vm_fix, self.sender_pid)
         self.sent = self.get_sender_packet_count()
         self.recv = self.get_packet_count()
         self.logger.info("Stopped netcat session from %s to %s, "
@@ -127,8 +139,13 @@ class Netcat(BaseTraffic):
         elif '\r' in output[cmd]:
             pid_recv = output[cmd].split('\r')[0]
             result = True
-        else:
+        elif type(output) is dict:
+            pid_recv = output.get('pidof nc.traditional')
+            self.sender_pid = pid_recv
+            result = True
+        if not pid_recv:
             result = False
+
 
         return result, pid_recv
     # end start_nc_receiver
@@ -170,7 +187,10 @@ class Netcat(BaseTraffic):
         elif '\r' in output[cmd]:
             sender_pid = output[cmd].split('\r')[0]
             result = True
-        else:
+        elif type(output[cmd]) is str:
+            sender_pid = output[cmd].strip()
+            result = True
+        if not sender_pid:
             result = False
 
         return result, sender_pid
