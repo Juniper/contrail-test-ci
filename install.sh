@@ -497,6 +497,7 @@ EOF
         fi
 
         cat <<EOF
+RUN  cd /usr/local/lib/python2.7/dist-packages/ && rm -rf fabfile fabric Fabric-1.7.5.egg-info /usr/local/bin/fab
 RUN  $merge_code $fab_utils_mv cd /contrail-test && pip install -r requirements.txt
 RUN mv /images /contrail-test/images
 COPY \$ENTRY_POINT /entrypoint.sh
