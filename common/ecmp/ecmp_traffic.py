@@ -35,7 +35,7 @@ class ECMPTraffic(ConfigSvcChain, VerifySvcChain):
         sender, receiver = self.start_traffic(
             src_vm, dst_vm_list, stream_list, src_ip=src_ip, dst_ip=dst_ip)
         self.verify_flow_thru_si(si_fix, src_vn, ecmp_hash=ecmp_hash, flow_count=flow_count)
-        self.verify_flow_records(src_vm, src_ip=src_ip, dst_ip=dst_ip, flow_count=flow_count)
+        self.verify_flow_records(src_vm, stream_list)
         self.stop_traffic(sender, receiver, dst_vm_list, stream_list)
 
         return True
@@ -227,8 +227,9 @@ class ECMPTraffic(ConfigSvcChain, VerifySvcChain):
 
         # end verify_flow_thru_si
 
-    def verify_flow_records(self, src_vm, src_ip=None, dst_ip=None, flow_count=3):
+    def verify_flow_records(self, src_vm, streams):
 
+        proto_num_map = { 'icmp': '1', 'tcp': '6', 'udp': '17' }
         self.logger.info('Checking Flow records')
         vn_fq_name = src_vm.vn_fq_name
         items_list = src_vm.tap_intf[vn_fq_name].items()
@@ -239,17 +240,22 @@ class ECMPTraffic(ConfigSvcChain, VerifySvcChain):
         inspect_h = self.agent_inspect[src_vm.vm_node_ip]
 
         flow_result = True
-        for i in range(0,flow_count):
-            src_port = unicode(8000)
-            dest_port =unicode(9000+i)
+        for s in streams:
+            if s.all_fields['proto'] == 'icmp':
+                continue
+            proto = proto_num_map[s.all_fields['proto']]
+            sport = unicode(s.all_fields['sport'])
+            dport = unicode(s.all_fields['dport'])
             flow_rec = inspect_h.get_vna_fetchflowrecord(
-                nh=nh_id, sip=src_ip, dip=dst_ip, sport=src_port, dport=dest_port, protocol='17')
+                nh=nh_id, sip=s.all_fields['src'], dip=s.all_fields['dst'],
+                sport=sport, dport=dport, protocol=proto)
             if flow_rec is None:
+                self.logger.info('Flow %s not seen' % s.all_fields)
                 flow_result = False
         if flow_result:
-            self.logger.info('Flow between %s and %s seen' % (dst_ip, src_ip))
+            self.logger.info('Flow records are seen')
         else:
-            assert flow_result, 'Flow between %s and %s not seen' % ( dst_ip, src_ip)
+            assert flow_result, 'One or more flow not seen'
 
         return True
         # end verify_flow_records
