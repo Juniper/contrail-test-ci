@@ -85,7 +85,7 @@ class VMFixture(fixtures.Fixture):
         if os.environ.has_key('ci_image'):
             image_name = os.environ.get('ci_image')
         self.image_name = image_name
-        self.flavor = self.orch.get_default_image_flavor(self.image_name) or flavor
+        self.flavor = flavor or self.orch.get_default_image_flavor(self.image_name)
         self.project_name = project_name or self.connections.project_name
         self.domain_name = self.connections.domain_name
         self.vm_name = vm_name or get_random_name(self.project_name)

@@ -147,7 +147,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             svm = self.get_svms_in_si(
                 self.si_fixtures[0], self.inputs.project_name)
             if svm_name == svm[0].name:
-                count = 10
+                count = 5 
                 if svc_mode == 'transparent' and self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
                     count = count * 2
                 if not self.inputs.pcap_on_vm:
@@ -183,8 +183,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             sport, dport)
         assert sent and recv == sent, errmsg
         count = sent
-        if svc_mode == 'transparent' and self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
-            count = count * 2
+        #if svc_mode == 'transparent' and self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
+        #    count = count * 2
         if self.inputs.pcap_on_vm:
             output, mirror_pkt_count = self.stop_tcpdump(None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, pcap_on_vm=True)
             errmsg = "%s UDP Packets mirrored to the analyzer VM %s,"\
@@ -330,7 +330,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             svm = self.get_svms_in_si(
                 self.si_fixtures[0], self.inputs.project_name)
             if svm_name == svm[0].name:
-                count = 10
+                count = 5 
                 if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
                     count = count * 2
                 if not self.inputs.pcap_on_vm:
@@ -367,8 +367,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             sport, dport)
         assert sent and recv == sent, errmsg
         count = sent
-        if svc_mode == 'transparent' and self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
-            count = count * 2
+        #if svc_mode == 'transparent' and self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
+        #    count = count * 2
         if self.inputs.pcap_on_vm:
             output, mirror_pkt_count = self.stop_tcpdump(None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, pcap_on_vm=True)
             errmsg = "%s UDP Packets mirrored to the analyzer VM %s,"\
@@ -519,7 +519,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             svm = self.get_svms_in_si(
                 self.si_fixtures[0], self.inputs.project_name)
             if svm_name == svm[0].name:
-                count = 5
+                count = 10 
                 if not self.inputs.pcap_on_vm:
                     self.verify_icmp_mirror(svm_name, session, pcap, count)
                 else:
@@ -540,7 +540,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         assert left_vm_fix.ping_with_certainty(
             right_vm_fix.vm_ip, expectation=expectation), errmsg
 
-        count = 10
+        count = 5 
         if not expectation:
             count = 0
         if left_vm_fix.vm_node_ip != right_vm_fix.vm_node_ip:
@@ -585,8 +585,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             count = 0
             errmsg = "'%s' traffic with src port %s and dst port %s passed; Expected to fail" % (
                 proto, sport, dport)
-        if left_vm_fix.vm_node_ip != right_vm_fix.vm_node_ip:
-            count = count * 2
+        #if left_vm_fix.vm_node_ip != right_vm_fix.vm_node_ip:
+        #    count = count * 2
         assert sent and recv == sent, errmsg
         for svm_name, (session, pcap) in sessions.items():
             self.verify_l4_mirror(svm_name, session, pcap, exp_count, proto)
@@ -722,7 +722,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             self.vm2_fixture.vm_ip), errmsg
         svmname = si_prefix + str('2_1')
         for svm_name, (session, pcap) in sessions.items():
-            count = 10
+            count = 5 
             if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
                 count = count * 2
             if not self.inputs.pcap_on_vm:
@@ -815,7 +815,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         svmname = self.get_svms_in_si(
                      self.si_fixtures[0], self.inputs.project_name)[0].name
         for svm_name, (session, pcap) in sessions.items():
-            count = 10
+            count = 5 
             if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
                 count = count * 2
             if not self.inputs.pcap_on_vm:
@@ -848,8 +848,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         assert sent and recv == sent, errmsg
 
         count = sent
-        if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
-            count = count * 2
+        #if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
+        #    count = count * 2
         if self.inputs.pcap_on_vm:
             output, mirror_pkt_count = self.stop_tcpdump(None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, pcap_on_vm=True)
             errmsg = "%s UDP Packets mirrored to the analyzer VM %s,"\
@@ -891,8 +891,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         assert sent and recv == sent, errmsg
 
         count = sent
-        if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
-            count = count * 2
+        #if self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
+        #    count = count * 2
         if self.inputs.pcap_on_vm:
             output, mirror_pkt_count = self.stop_tcpdump(None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, pcap_on_vm=True)
             errmsg = "%s UDP Packets mirrored to the analyzer VM %s,"\
@@ -920,7 +920,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
         svmname = self.get_svms_in_si(
                      self.si_fixtures[0], self.inputs.project_name)[0].name
         for svm_name, (session, pcap) in sessions.items():
-            count = 10
+            count = 5 
             if left_vm_fix.vm_node_ip != right_vm_fix.vm_node_ip:
                 count = count * 2
             if not self.inputs.pcap_on_vm:
@@ -1090,8 +1090,8 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             sport, dport)
         assert sent and recv == sent, errmsg
         count = sent
-        if svc_mode == 'transparent' and self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
-            count = count * 2
+        #if svc_mode == 'transparent' and self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
+        #    count = count * 2
         if self.inputs.pcap_on_vm:
             output, mirror_pkt_count = self.stop_tcpdump(None, None, vm_fix_pcap_pid_files=vm_fix_pcap_pid_files, pcap_on_vm=True)
             errmsg = "%s UDP Packets mirrored to the analyzer VM %s,"\
@@ -1214,7 +1214,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             svm = self.get_svms_in_si(
                 self.si_fixtures[0], self.inputs.project_name)
             if svm_name == svm[0].name:
-                count = 10
+                count = 5 
                 if svc_mode == 'transparent' and self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
                     count = count * 2
                 if not self.inputs.pcap_on_vm:
@@ -1247,7 +1247,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
             svm = self.get_svms_in_si(
                 self.si_fixtures[0], self.inputs.project_name)
             if svm_name == svm[0].name:
-                count = 10
+                count = 5 
                 if svc_mode == 'transparent' and self.vm1_fixture.vm_node_ip != self.vm2_fixture.vm_node_ip:
                     count = count * 2
                 if not self.inputs.pcap_on_vm:

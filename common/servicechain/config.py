@@ -34,11 +34,11 @@ class ConfigSvcChain(fixtures.Fixture):
         for si_fix in si_fixtures:
             self.logger.debug("Delete SI '%s'", si_fix.si_name)
             si_fix.cleanUp()
-            self.remove_from_cleanups(si_fix.cleanUp)
+            self.remove_from_cleanups(si_fix)
 
         self.logger.debug("Delete ST '%s'", st_fix.st_name)
         st_fix.cleanUp()
-        self.remove_from_cleanups(st_fix.cleanUp)
+        self.remove_from_cleanups(st_fix)
 
     def config_st_si(self, st_name, si_name_prefix, si_count,
                      svc_scaling=False, max_inst=1, domain= None,
@@ -231,23 +231,23 @@ class ConfigSvcChain(fixtures.Fixture):
         self.logger.debug("Removing policy from '%s'",
                           vn_policy_fix.vn_fixture.vn_name)
         vn_policy_fix.cleanUp()
-        self.remove_from_cleanups(vn_policy_fix.cleanUp)
+        self.remove_from_cleanups(vn_policy_fix)
 
     def unconfig_policy(self, policy_fix):
         """Un Configures policy."""
         self.logger.debug("Delete policy '%s'", policy_fix.policy_name)
         policy_fix.cleanUp()
-        self.remove_from_cleanups(policy_fix.cleanUp)
+        self.remove_from_cleanups(policy_fix)
 
     def delete_vn(self, vn_fix):
         self.logger.debug("Delete vn '%s'", vn_fix.vn_name)
         vn_fix.cleanUp()
-        self.remove_from_cleanups(vn_fix.cleanUp)
+        self.remove_from_cleanups(vn_fix)
 
     def delete_vm(self, vm_fix):
         self.logger.debug("Delete vm '%s'", vm_fix.vm_name)
         vm_fix.cleanUp()
-        self.remove_from_cleanups(vm_fix.cleanUp)
+        self.remove_from_cleanups(vm_fix)
 
     def get_svm_obj(self, vm_name):
         for vm_obj in self.nova_h.get_vm_list():
