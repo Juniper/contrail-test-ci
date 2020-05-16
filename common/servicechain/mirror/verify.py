@@ -949,7 +949,7 @@ class VerifySvcMirror(ConfigSvcMirror, VerifySvcChain, ECMPVerify):
            single node : Pkts mirrored to the analyzer should be equal to 'count'
            multinode :Pkts mirrored to the analyzer should be equal to '2xcount'
         """
-        domain = self.connections.domain_name
+        domain_name = self.connections.domain_name
         vn1_subnets = [get_random_cidr(af=self.inputs.get_af())]
         vn2_subnets = [get_random_cidr(af=self.inputs.get_af())]
         self.vn1_fq_name = domain_name + ":"  + self.inputs.project_name + \
