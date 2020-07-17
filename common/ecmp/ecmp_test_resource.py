@@ -135,6 +135,7 @@ class ECMPSolnSetup():
 
         self.vnc_lib.floating_ip_create(self.fip_obj)
         self.addCleanup(self.vnc_lib.floating_ip_delete, self.fip_obj.fq_name)
+        sleep(10)
         errmsg = "Ping to the shared Floating IP ip %s from left VM failed" % self.my_fip
         assert self.fvn_vm1.ping_with_certainty(
                 self.my_fip), errmsg
