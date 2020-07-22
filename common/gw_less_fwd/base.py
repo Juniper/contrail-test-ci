@@ -288,10 +288,12 @@ class GWLessFWDTestBase(BaseVrouterTest, ConfigSvcChain):
         '''
 
         # Provision Fabric Gateway
+        '''
         name = self.inputs.fabric_gw_info[0][0]
         ip = self.inputs.fabric_gw_info[0][1]
         self.vnc_h.provision_fabric_gw(name, ip, self.inputs.router_asn)
         self.addCleanup(self.vnc_h.delete_fabric_gw, name)
+        '''
 
         # Default security group to allow all traffic
         self.allow_default_sg_to_allow_all_on_project(self.inputs.project_name)
