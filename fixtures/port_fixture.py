@@ -172,6 +172,7 @@ class PortFixture(vnc_api_test.VncLibFixture):
                 self.iip_objs.append(iip_obj)
         else:
             iip_id = str(uuid.uuid4())
+            iip_obj = vnc_api_test.InstanceIp(name=iip_id, instance_ip_family='v4')
             iip_obj = vnc_api_test.InstanceIp(name=iip_id)
             iip_obj.uuid = iip_id
             iip_obj.add_virtual_machine_interface(vmi_obj)
