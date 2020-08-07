@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9963d642_6f5b420b",
+        "filename": "fixtures/port_fixture.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 175,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-08-07T22:59:39Z",
+      "side": 1,
+      "message": "Shouldnt this be uncommented and the next line commented/deleted.",
+      "revId": "6610f050cba47a01f20d39f1130919d199f652bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
