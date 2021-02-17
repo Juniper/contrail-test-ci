@@ -563,6 +563,7 @@ EOF
 
         cat <<EOF
 RUN sudo pip install --upgrade "pip < 21.0"
+RUN sudo rm -rf /tmp/pip*
 RUN $merge_code $fab_utils_mv cd /contrail-test && pip install -r requirements.txt
 RUN mv /images /contrail-test/images
 COPY \$ENTRY_POINT /entrypoint.sh
