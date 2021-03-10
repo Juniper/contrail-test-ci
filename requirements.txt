@@ -6,7 +6,7 @@ testrepository
 junitxml
 pytun
 pexpect
-pyvirtualdisplay
+pyvirtualdisplay==2.0
 selenium==2.53.6
 unittest2
 xmltodict
