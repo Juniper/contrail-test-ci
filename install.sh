@@ -19,6 +19,34 @@ else
     apt_get="apt-get $apt_quiet --assume-yes"
 fi
 
+## retry function
+function retryModule() {
+set +e
+try_cnt=0
+    while [[ $try_cnt -lt 3 ]]; do
+       echo "$2"
+       $1
+       if [[ $? -ne 0 ]]; then
+         try_cnt=$(expr $try_cnt + 1)
+         if [[ $try_cnt -ge 3 ]]; then
+              echo "error occured while $2 .. retried 3 times and existing.."
+              exit 1
+         fi
+         echo "error occured while $2 ... retrying.."
+         sleep 45
+       else
+          set -e
+          break
+       fi
+    done
+}
+
+function buildDocker_retry() {
+  msg="info: Running $1"
+  cmd="$1"
+  retryModule "$cmd" "$msg"
+}
+
 CONTRAIL_TEST_CI_REPO=https://github.com/juniper/contrail-test-ci
 CONTRAIL_TEST_CI_REF=master
 CONTRAIL_TEST_REPO=https://github.com/juniper/contrail-test
@@ -599,7 +627,7 @@ EOF
             exit 1
         fi
 
-        docker build ${proxy_args} ${cache_opt} -t $CONTAINER_TAG $BUILD_DIR; rv=$?
+        buildDocker_retry "docker build ${proxy_args} ${cache_opt} -t $CONTAINER_TAG $BUILD_DIR"; rv=$?
         rm -rf $BUILD_DIR
         return $rv
     }
