@@ -48,6 +48,7 @@ PACKAGES_REQUIRED_UBUNTU=(
     python-pip
     python-requests
     python-setuptools
+    python-jinja2
 )
 # These packages are required in docker container for Ubuntu
 PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD=(
@@ -57,6 +58,7 @@ PACKAGES_REQUIRED_UBUNTU_DOCKER_BUILD=(
     libxslt1-dev
     libyaml-dev
     libz-dev
+    python-jinja2
 )
 PACKAGES_REQUIRED_RALLY=(
     libssl-dev
@@ -66,6 +68,7 @@ PACKAGES_REQUIRED_RALLY=(
     python-dev
     libxml2-dev
     libxslt1-dev
+    python-jinja2
 )
 CS_CACHE=http://10.84.5.120/cs-shared/builder/cache/ubuntu1404/contrail-test/
 EXTRAS=(
@@ -442,7 +445,7 @@ RUN echo 'deb http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sou
     $apt_get update; $apt_get install unzip firefox xvfb; \
     $wget -c http://chromedriver.storage.googleapis.com/2.10/chromedriver_linux64.zip; \
     unzip chromedriver_linux64.zip; cp ./chromedriver /usr/bin/; chmod ugo+rx /usr/bin/chromedriver; \
-    $apt_get install libxpm4 libxrender1 libgtk2.0-0 libnss3 libgconf-2-4 google-chrome-stable; \
+    $apt_get install libxpm4 libxrender1 libgtk2.0-0 libnss3 libgconf-2-4 google-chrome-stable python-jinja2; \
     $apt_get remove -y firefox; \
     $wget https://ftp.mozilla.org/pub/mozilla.org/firefox/releases/31.0/linux-x86_64/en-US/firefox-31.0.tar.bz2 -O /tmp/firefox.tar.bz2; \
     cd /opt; tar xjf /tmp/firefox.tar.bz2; ln -sf /opt/firefox/firefox /usr/bin/firefox;
