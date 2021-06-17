@@ -145,7 +145,7 @@ class ContrailVncApi(object):
 
     def delete_security_group_rules(self, sg_id, **kwargs):
         sg = self._vnc.security_group_read(id=sg_id)
-        sg.set_security_group_entries(None)
+        #sg.set_security_group_entries(None)
         self._vnc.security_group_update(sg)
 
     def set_security_group_rules(self, sg_id, sg_entries, **kwargs):
