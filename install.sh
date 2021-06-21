@@ -84,7 +84,8 @@ EXTRAS=(
 
 # registry server from which ubuntu build images are pulled
 # This should switch to 10.84.5.71
-registry_server="10.84.34.155:5000"
+#registry_server="10.84.34.155:5000"
+registry_server="10.160.12.173:5000"
 
 usage () {
     cat <<EOF
@@ -373,7 +374,8 @@ EOT
 
 function make_dockerfile {
     type=$1
-    base_image=${2:-$registry_server/ubuntu-14.04.2}
+    #base_image=${2:-$registry_server/ubuntu-14.04.2}
+    base_image=${2:-$registry_server/artifactory/contrail-legacy/ubuntu-14.04.5}
     cat <<EOF
 FROM $base_image
 MAINTAINER Contrail Builder <contrail-builder@juniper.net>
@@ -563,7 +565,8 @@ EOF
     build_prep () {
         image_tag=${1:-$PREP_IMAGE}
         BUILD_DIR=$(mktemp -d)
-        make_dockerfile prep "$registry_server/ubuntu-14.04.2" > $BUILD_DIR/Dockerfile
+        #make_dockerfile prep "$registry_server/ubuntu-14.04.2" > $BUILD_DIR/Dockerfile
+        make_dockerfile prep "$registry_server/artifactory/contrail-legacy/ubuntu-14.04.5" > $BUILD_DIR/Dockerfile
 
         if [[ -n $scp_package ]]; then
             # Disabling xtrace to avoid printing SSHPASS
