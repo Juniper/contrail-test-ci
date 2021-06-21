@@ -22,7 +22,11 @@ class Netcat(BaseTraffic):
             receiver_vm_fix,
             proto,
             sport,
-            dport):
+            dport,
+            sender_vn_fqname=None,
+            receiver_vn_fqname=None,
+            fip=None,
+            af=None):
 
         self.sender_vm_fix = sender_vm_fix
         self.receiver_vm_fix = receiver_vm_fix
@@ -31,9 +35,16 @@ class Netcat(BaseTraffic):
         self.dport = dport
         self.inputs = sender_vm_fix.inputs
         self.logger = self.inputs.logger
+        self.src_ip = sender_vm_fix.get_vm_ips(
+                          vn_fq_name=sender_vn_fqname, af=af)[0]
+        recv_ip = receiver_vm_fix.get_vm_ips(
+                          vn_fq_name=receiver_vn_fqname, af=af)[0]
+        self.dst_ip = self.recv_ip = recv_ip
+        if fip:
+            self.dst_ip = fip
         self.logger.info('Starting netcat session from %s to %s,'
             'Protocol : %s, Source port : %s, Dest port : %s' % (
-            sender_vm_fix.vm_ip, receiver_vm_fix.vm_ip,
+            self.src_ip, self.dst_ip,
             proto, sport, dport))
 
         result, self.receiver_pid = self.start_nc_receiver()
@@ -48,6 +59,7 @@ class Netcat(BaseTraffic):
 
         return True
     # end start
+    
 
     @retry(delay=1, tries=5)
     def verify_session_closed(self, fix, pid):
