@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9a35ba29_df021385",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 4
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 99
+      },
+      "writtenOn": "2021-06-23T16:16:59Z",
+      "side": 1,
+      "message": "Please clean up the commit message and provide a brief description of the code change being made and the tracking ticket if any.",
+      "revId": "40a74787b5a00658d7e5b359a6477e2a639c3280",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "481e9f84_64640652",
+        "filename": "fixtures/contrailapi.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 148,
+      "author": {
+        "id": 99
+      },
+      "writtenOn": "2021-06-23T16:16:59Z",
+      "side": 1,
+      "message": "Don\u0027t comment unwanted code. Remove it as git keeps change history.",
+      "revId": "40a74787b5a00658d7e5b359a6477e2a639c3280",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c25d65b3_d6fcf138",
+        "filename": "tcutils/traffic_utils/netcat_traffic.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 42,
+      "author": {
+        "id": 99
+      },
+      "writtenOn": "2021-06-23T16:16:59Z",
+      "side": 1,
+      "message": "directly assign to dst_ip, recv_ip is not being used anywhere later in the code. no need of recv_ip and self.recv_ip variables.",
+      "revId": "40a74787b5a00658d7e5b359a6477e2a639c3280",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
