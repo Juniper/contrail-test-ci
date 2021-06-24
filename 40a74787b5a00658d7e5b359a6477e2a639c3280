@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "9c062c74_2bc62ac1",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 4
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 1101
+      },
+      "writtenOn": "2021-06-24T07:18:22Z",
+      "side": 1,
+      "message": "added jira number CEM-22458",
+      "parentUuid": "9a35ba29_df021385",
+      "revId": "40a74787b5a00658d7e5b359a6477e2a639c3280",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "481e9f84_64640652",
         "filename": "fixtures/contrailapi.py",
         "patchSetId": 4
