@@ -54,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "46a80d9c_c8fb0ba0",
+        "filename": "fixtures/contrailapi.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 148,
+      "author": {
+        "id": 1101
+      },
+      "writtenOn": "2021-07-01T06:30:01Z",
+      "side": 1,
+      "message": "done , updated jira number CEM-22458",
+      "parentUuid": "481e9f84_64640652",
+      "revId": "40a74787b5a00658d7e5b359a6477e2a639c3280",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "c25d65b3_d6fcf138",
         "filename": "tcutils/traffic_utils/netcat_traffic.py",
         "patchSetId": 4
@@ -68,6 +86,24 @@
       "revId": "40a74787b5a00658d7e5b359a6477e2a639c3280",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "474bc0af_f44716a3",
+        "filename": "tcutils/traffic_utils/netcat_traffic.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 42,
+      "author": {
+        "id": 1101
+      },
+      "writtenOn": "2021-07-01T06:30:01Z",
+      "side": 1,
+      "message": "Done added the changes",
+      "parentUuid": "c25d65b3_d6fcf138",
+      "revId": "40a74787b5a00658d7e5b359a6477e2a639c3280",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
