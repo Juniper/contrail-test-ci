@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fff719db_84b95c89",
+        "filename": "install.sh",
+        "patchSetId": 8
+      },
+      "lineNbr": 88,
+      "author": {
+        "id": 147
+      },
+      "writtenOn": "2021-07-02T05:22:04Z",
+      "side": 1,
+      "message": "why can\u0027t we take this from testbed.py file? shouldn\u0027t hardcode values which can change.",
+      "revId": "6f37c85e932716c27d8d0cdaab76523e34e1d88c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
