@@ -39,6 +39,9 @@ class Netcat(BaseTraffic):
                           vn_fq_name=sender_vn_fqname, af=af)[0]
         self.dst_ip = receiver_vm_fix.get_vm_ips(
                           vn_fq_name=receiver_vn_fqname, af=af)[0]
+        self.roopa_ip = receiver_vm_fix.get_vm_ips(
+                          vn_fq_name=receiver_vn_fqname, af=af)[0]
+
         if fip:
             self.dst_ip = fip
         self.logger.info('Starting netcat session from %s to %s,'
