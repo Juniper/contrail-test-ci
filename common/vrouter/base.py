@@ -806,8 +806,11 @@ class BaseVrouterTest(BaseNeutronTest):
             self.logger.warn('Cannot check routes without enough VM details')
             return False
 
-        result = validate_route_in_vrouter(route, inspect_h, vm_intf['name'],
-                                           vm_fixture.vm_node_ip, vm_intf['label'], self.logger)
+        tunnel_ip = self.inputs.host_data[vm_fixture.get_host_of_vm()][
+		'host_control_ip']
+	result = validate_route_in_vrouter(route, inspect_h, vm_intf['name'],
+		tunnel_ip, vm_intf['label'], self.logger)
+
         return result
     # end validate_route_is_of_vm_in_vrouter
 
