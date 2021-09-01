@@ -15,6 +15,8 @@ from svc_template_fixture import SvcTemplateFixture
 from common.connections import ContrailConnections
 from common.policy.config import AttachPolicyFixture
 from tcutils.util import retry
+#from svc_image_name import SVC_TYPE_PROPS
+#import SVC_TYPE_PROPS
 import random
 import re
 
@@ -46,7 +48,8 @@ class ConfigSvcChain(fixtures.Fixture):
                      right_vn_fixture=None, svc_type='firewall',
                      svc_mode='transparent', flavor='contrail_flavor_2cpu',
                      static_route=[None, None, None], ordered_interfaces=True,
-                     svc_img_name=None, st_version=1):
+                     svc_img_name=None, st_version=2):
+
         domain = domain or self.connections.domain_name
         svc_type_props = self.orch.get_service_vm_image_dict() 
 
@@ -65,9 +68,11 @@ class ConfigSvcChain(fixtures.Fixture):
         mgmt_props = ['management', False, False]
         left_scaling = False
         right_scaling = False
+        #import pdb;pdb.set_trace()
         if svc_scaling:
             left_scaling = True
             right_scaling = svc_mode_props[svc_mode]['right']['shared']
+        #svc_mode='transparent'
         svc_img_name = svc_img_name or svc_type_props[svc_type][svc_mode]
         images_info = parse_cfg_file('configs/images.cfg')
         flavor = flavor or images_info[svc_img_name]['flavor']
@@ -219,6 +224,7 @@ class ConfigSvcChain(fixtures.Fixture):
                 zone=zone,**kwargs))
 
         return vm_fixture
+        #    return vm_fixture
 
     def config_fip(self, vn_id, pool_name):
         fip_fixture = self.useFixture(FloatingIPFixture(
