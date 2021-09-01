@@ -1,0 +1,361 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "11a48d7a_54b40eea",
+        "filename": "common/servicechain/config.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "commented out changes may be removed",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a88869bf_23944195",
+        "filename": "common/servicechain/config.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out changes",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1eef8714_263de75d",
+        "filename": "common/servicechain/config.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out changes",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9fac02d2_77ef518a",
+        "filename": "common/servicechain/config.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 227,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out changes",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4d46f8a6_e9a11bb7",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 657,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1b56c8db_e299cf1b",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 658,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "This could be written as left_vn_fixture.vn_fq_name, correct?",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8abf40d6_257d25df",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 660,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4d5ed0c9_b6dc025c",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 661,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "This could be written as right_vn_fixture.vn_fq_name, correct?",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d264363e_a21a48e9",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 723,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d39ff11c_d6b6f260",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 740,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "73f8efde_80fc9d64",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 819,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fb6c10d4_5517a573",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 903,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ecc7c2c0_0e78917e",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 918,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a0c4c0bf_b56d5c60",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 925,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3eae93b6_ee057348",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 958,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "45fa1ab8_2460fce7",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1009,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "dac17e8e_5a853933",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1011,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "this should be \"right_vm_fixture.vm_ip\" correct? since in the next line, old-right-vm is pinged from new-left-vm or consider enhancing the msg to carry both the src \u0026 dst vm ip",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f595cec3_30333b51",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1017,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bc122fa2_a853a962",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1019,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "this should be \"new_left_vm_fix.vm_ip\" or consider enhancing the msg to carry both the src \u0026 dst vm ip",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9d237178_c28aa2bc",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1025,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "pls remove commented out code",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "01fa7986_b641631a",
+        "filename": "common/servicechain/firewall/verify.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1027,
+      "author": {
+        "id": 128
+      },
+      "writtenOn": "2021-09-01T11:20:55Z",
+      "side": 1,
+      "message": "consider enhancing the msg to carry both the src \u0026 dst vm ip",
+      "revId": "a71b778e5365cc6e60433acb6724f4437ffbef25",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
