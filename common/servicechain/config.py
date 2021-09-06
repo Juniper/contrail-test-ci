@@ -46,7 +46,8 @@ class ConfigSvcChain(fixtures.Fixture):
                      right_vn_fixture=None, svc_type='firewall',
                      svc_mode='transparent', flavor='contrail_flavor_2cpu',
                      static_route=[None, None, None], ordered_interfaces=True,
-                     svc_img_name=None, st_version=1):
+                     svc_img_name=None, st_version=2):
+
         domain = domain or self.connections.domain_name
         svc_type_props = self.orch.get_service_vm_image_dict() 
 
