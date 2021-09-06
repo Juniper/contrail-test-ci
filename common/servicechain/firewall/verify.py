@@ -9,7 +9,7 @@ from tcutils.util import retry
 from common.ecmp.ecmp_traffic import ECMPTraffic
 from common.ecmp.ecmp_verify import ECMPVerify
 import re
-
+import time
 
 class VerifySvcFirewall(VerifySvcMirror):
 
@@ -583,6 +583,8 @@ class VerifySvcFirewall(VerifySvcMirror):
         left_vm_fixture = si_test_dict['left_vm_fixture']
         right_vm_fixture = si_test_dict['right_vm_fixture']
         si_fixtures = si_test_dict['si_fixtures']
+        left_vn_fixture = si_test_dict['left_vn_fixture']
+        right_vn_fixture = si_test_dict['right_vn_fixture']
 
         # Delete policy
         self.detach_policy(left_vn_policy_fix)
@@ -595,7 +597,7 @@ class VerifySvcFirewall(VerifySvcMirror):
 
         # Create policy again
         policy_fixture = self.config_policy(policy_fixture.policy_name,
-                                            policy_fixture.rules)
+                                            policy_fixture.rules_list)
         left_vn_policy_fix = self.attach_policy_to_vn(
             policy_fixture, left_vn_fixture)
         right_vn_policy_fix = self.attach_policy_to_vn(
@@ -618,6 +620,8 @@ class VerifySvcFirewall(VerifySvcMirror):
         policy_fixture = si_test_dict['policy_fixture']
         left_vm_fixture = si_test_dict['left_vm_fixture']
         right_vm_fixture = si_test_dict['right_vm_fixture']
+        left_vn_fixture = si_test_dict['left_vn_fixture']
+        right_vn_fixture = si_test_dict['right_vn_fixture']
         si_fixtures = si_test_dict['si_fixtures']
 
         # Install traffic package in VM
@@ -650,9 +654,9 @@ class VerifySvcFirewall(VerifySvcMirror):
         action_list = policy_fixture.rules_list[0]['action_list']
         new_rule = {'direction': '<>',
                     'protocol': 'tcp',
-                    'source_network': self.vn1_name,
+                    'source_network': left_vn_fixture.vn_fq_name,
                     'src_ports': [8000, 8000],
-                    'dest_network': self.vn2_name,
+                    'dest_network': right_vn_fixture.vn_fq_name,
                     'dst_ports': [9001, 9001],
                     'simple_action': None,
                     'action_list': action_list
@@ -694,6 +698,9 @@ class VerifySvcFirewall(VerifySvcMirror):
         left_vm_fixture = si_test_dict['left_vm_fixture']
         right_vm_fixture = si_test_dict['right_vm_fixture']
         si_fixtures = si_test_dict['si_fixtures']
+        left_vn_fixture = si_test_dict['left_vn_fixture']
+        right_vn_fixture = si_test_dict['right_vn_fixture']  
+
         # Delete policy
         self.detach_policy(left_vn_policy_fix)
         self.detach_policy(right_vn_policy_fix)
@@ -710,8 +717,8 @@ class VerifySvcFirewall(VerifySvcMirror):
         # Launch VMs in new left and right VN's
         new_left_vm = 'new_left_bridge_vm'
         new_right_vm = 'new_right_bridge_vm'
-        new_left_vm_fix = self.config_vm(new_left_vn_fix, new_left_vm)
-        new_right_vm_fix = self.config_vm(new_right_vn_fix, new_right_vm)
+        new_left_vm_fix = self.config_vm(new_left_vm, vn_fix=new_left_vn_fix)
+        new_right_vm_fix = self.config_vm(new_right_vm, vn_fix=new_right_vn_fix)
         # Wait for VM's to come up
         new_left_vm_fix.wait_till_vm_is_up()
         new_right_vm_fix.wait_till_vm_is_up()
@@ -725,8 +732,8 @@ class VerifySvcFirewall(VerifySvcMirror):
                     'src_ports': [0, -1],
                     'dest_network': new_right_vn,
                     'dst_ports': [0, -1],
-                    'simple_action': None,
-                    'action_list': {'apply_service': action_list}
+                    'simple_action': action_list.get('simple_action', None),
+                    'action_list': action_list,
                     }
         rules = policy_fixture.rules_list
         rules.append(new_rule)
@@ -802,8 +809,8 @@ class VerifySvcFirewall(VerifySvcMirror):
                     'src_ports': [8000, 8000],
                     'dest_network': new_right_vn,
                     'dst_ports': [9000, 9000],
-                    'simple_action': None,
-                    'action_list': {'apply_service': action_list}
+                    'simple_action': action_list.get('simple_action', None),
+                    'action_list': {'apply_service': action_list['apply_service']}
                     }
         rules.append(udp_rule)
 
@@ -871,19 +878,23 @@ class VerifySvcFirewall(VerifySvcMirror):
             right_vm_fixture.vm_ip), errmsg
     # end verify_add_new_vns
 
-    def verify_add_new_vms(self):
+    def verify_add_new_vms(self, si_test_dict):
         left_vn_policy_fix = si_test_dict['left_vn_policy_fix']
         right_vn_policy_fix = si_test_dict['right_vn_policy_fix']
         policy_fixture = si_test_dict['policy_fixture']
         left_vm_fixture = si_test_dict['left_vm_fixture']
         right_vm_fixture = si_test_dict['right_vm_fixture']
         si_fixtures = si_test_dict['si_fixtures']
+        left_vn_fixture = si_test_dict['left_vn_fixture']
+        right_vn_fixture = si_test_dict['right_vn_fixture'] 
 
         # Launch VMs in new left and right VN's
         new_left_vm = 'new_left_bridge_vm'
         new_right_vm = 'new_right_bridge_vm'
-        new_left_vm_fix = self.config_vm(left_vn_fixture, new_left_vm)
-        new_right_vm_fix = self.config_vm(right_vm_fixture, new_right_vm)
+        #new_left_vm_fix = self.config_vm(left_vn_fixture, new_left_vm)
+        #new_right_vm_fix = self.config_vm(right_vm_fixture, new_right_vm)
+        new_left_vm_fix = self.config_vm(new_left_vm, vn_fix=left_vn_fixture)
+        new_right_vm_fix = self.config_vm(new_right_vm, vn_fix=right_vn_fixture)
         # Wait for VM's to come up
         assert new_left_vm_fix.wait_till_vm_is_up()
         assert new_right_vm_fix.wait_till_vm_is_up()
@@ -893,11 +904,11 @@ class VerifySvcFirewall(VerifySvcMirror):
         assert new_left_vm_fix.ping_with_certainty(
             new_right_vm_fix.vm_ip), errmsg
 
-        errmsg = "Ping to right VM ip %s from left VM failed" % self.vm2_fixture.vm_ip
+        errmsg = "Ping to right VM ip %s from left VM failed" % right_vm_fixture.vm_ip
         assert new_left_vm_fix.ping_with_certainty(
-            self.vm2_fixture.vm_ip), errmsg
+            right_vm_fixture.vm_ip), errmsg
 
-        errmsg = "Ping to right VM ip %s from left VM failed" % self.vm2_fixture.vm_ip
+        errmsg = "Ping to right VM ip %s from left VM failed" % right_vm_fixture.vm_ip
         assert left_vm_fixture.ping_with_certainty(
             right_vm_fixture.vm_ip), errmsg
 
@@ -932,7 +943,7 @@ class VerifySvcFirewall(VerifySvcMirror):
                     'dest_network': right_vn_fixture.vn_name,
                     'dst_ports': [9000, 9000],
                     'simple_action': None,
-                    'action_list': {'apply_service': action_list}
+                    'action_list': action_list 
                     }
         rules = [new_rule]
 
@@ -976,20 +987,20 @@ class VerifySvcFirewall(VerifySvcMirror):
         assert sent and recv == sent, errmsg
 
         # Ping from left VM to right VM
-        errmsg = "Ping to right VM ip %s from left VM failed; Expected to fail" % new_right_vm_fix.vm_ip
+ 	errmsg = "Ping to right VM ip %s from left VM failed; Expected to fail" % new_right_vm_fix.vm_ip
         assert new_left_vm_fix.ping_with_certainty(
             new_right_vm_fix.vm_ip, expectation=False), errmsg
 
-        errmsg = "Ping to right VM ip %s from left VM failed; Expected to fail" % self.vm2_fixture.vm_ip
+        errmsg = "Ping to right VM ip %s from left VM ip %s failed; Expected to fail" % (new_left_vm_fix.vm_ip, right_vm_fixture.vm_ip)
         assert new_left_vm_fix.ping_with_certainty(
             right_vm_fixture.vm_ip, expectation=False), errmsg
 
-        errmsg = "Ping to right VM ip %s from left VM failed; Expected to fail" % self.vm2_fixture.vm_ip
-        assert self.vm1_fixture.ping_with_certainty(
-            self.vm2_fixture.vm_ip, expectation=False), errmsg
+        errmsg = "Ping to right VM ip %s from left VM ip %s failed; Expected to fail" % (right_vm_fixture.vm_ip, new_left_vm_fix.vm_ip)
+        assert left_vm_fixture.ping_with_certainty(
+            right_vm_fixture.vm_ip, expectation=False), errmsg
 
-        errmsg = "Ping to right VM ip %s from left VM passed; Expected to fail" % new_right_vm_fix.vm_ip
-        assert self.vm1_fixture.ping_with_certainty(
+        errmsg = "Ping to right VM ip %s from left VM ip %s passed; Expected to fail" % (new_right_vm_fix.vm_ip, new_left_vm_fix.vm_ip)
+        assert left_vm_fixture.ping_with_certainty(
             new_right_vm_fix.vm_ip, expectation=False), errmsg
 
     # end verify_add_new_vms

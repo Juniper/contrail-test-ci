@@ -14,7 +14,7 @@ ncclient==0.6.3
 junos-eznc==1.2.2
 pyvmomi==5.5.0
 linecache2
-eventlet
+eventlet==0.29.1
 nose
 tabulate
 fabric==1.11.1
