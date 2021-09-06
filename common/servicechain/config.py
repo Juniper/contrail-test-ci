@@ -47,6 +47,7 @@ class ConfigSvcChain(fixtures.Fixture):
                      svc_mode='transparent', flavor='contrail_flavor_2cpu',
                      static_route=[None, None, None], ordered_interfaces=True,
                      svc_img_name=None, st_version=1):
+
         domain = domain or self.connections.domain_name
         svc_type_props = self.orch.get_service_vm_image_dict() 
 
