@@ -232,13 +232,13 @@ class ConfigSvcChain(fixtures.Fixture):
         self.logger.debug("Removing policy from '%s'",
                           vn_policy_fix.vn_fixture.vn_name)
         vn_policy_fix.cleanUp()
-        self.remove_from_cleanups(vn_policy_fix)
+        self.remove_from_cleanups(vn_policy_fix.cleanUp)
 
     def unconfig_policy(self, policy_fix):
         """Un Configures policy."""
         self.logger.debug("Delete policy '%s'", policy_fix.policy_name)
         policy_fix.cleanUp()
-        self.remove_from_cleanups(policy_fix)
+        self.remove_from_cleanups(policy_fix.cleanUp)
 
     def delete_vn(self, vn_fix):
         self.logger.debug("Delete vn '%s'", vn_fix.vn_name)
