@@ -654,9 +654,15 @@ class VerifySvcFirewall(VerifySvcMirror):
         action_list = policy_fixture.rules_list[0]['action_list']
         new_rule = {'direction': '<>',
                     'protocol': 'tcp',
+<<<<<<< HEAD
                     'source_network': left_vn_fixture.vn_fq_name,
                     'src_ports': [8000, 8000],
                     'dest_network': right_vn_fixture.vn_fq_name,
+=======
+                    'source_network': si_test_dict['left_vn_fixture'].vn_fq_name, 
+                    'src_ports': [8000, 8000],
+                    'dest_network': si_test_dict['right_vn_fixture'].vn_fq_name, 
+>>>>>>> 24279aa... CEM-23875 CEM-23782
                     'dst_ports': [9001, 9001],
                     'simple_action': None,
                     'action_list': action_list
@@ -904,6 +910,7 @@ class VerifySvcFirewall(VerifySvcMirror):
         assert new_left_vm_fix.ping_with_certainty(
             new_right_vm_fix.vm_ip), errmsg
 
+<<<<<<< HEAD
         errmsg = "Ping to right VM ip %s from left VM failed" % right_vm_fixture.vm_ip
         assert new_left_vm_fix.ping_with_certainty(
             right_vm_fixture.vm_ip), errmsg
@@ -911,6 +918,13 @@ class VerifySvcFirewall(VerifySvcMirror):
         errmsg = "Ping to right VM ip %s from left VM failed" % right_vm_fixture.vm_ip
         assert left_vm_fixture.ping_with_certainty(
             right_vm_fixture.vm_ip), errmsg
+=======
+        errmsg = "Ping to right VM ip %s from left VM failed" % new_left_vm_fix.vm_ip
+        assert new_right_vm_fix.ping_with_certainty(
+            new_left_vm_fix.vm_ip), errmsg
+
+        errmsg = "Ping to right VM ip %s from left VM failed" % new_right_vm_fix.vm_ip
+>>>>>>> 24279aa... CEM-23875 CEM-23782
 
         errmsg = "Ping to right VM ip %s from left VM failed" % new_right_vm_fix.vm_ip
         assert left_vm_fixture.ping_with_certainty(
@@ -996,11 +1010,19 @@ class VerifySvcFirewall(VerifySvcMirror):
             right_vm_fixture.vm_ip, expectation=False), errmsg
 
         errmsg = "Ping to right VM ip %s from left VM ip %s failed; Expected to fail" % (right_vm_fixture.vm_ip, new_left_vm_fix.vm_ip)
+<<<<<<< HEAD
         assert left_vm_fixture.ping_with_certainty(
             right_vm_fixture.vm_ip, expectation=False), errmsg
 
         errmsg = "Ping to right VM ip %s from left VM ip %s passed; Expected to fail" % (new_right_vm_fix.vm_ip, new_left_vm_fix.vm_ip)
         assert left_vm_fixture.ping_with_certainty(
+=======
+        assert right_vm_fixture.ping_with_certainty(
+            new_left_vm_fix.vm_ip, expectation=False), errmsg
+
+        errmsg = "Ping to right VM ip %s from left VM ip %s passed; Expected to fail" % (new_right_vm_fix.vm_ip, new_left_vm_fix.vm_ip)
+        assert new_left_vm_fix.ping_with_certainty(
+>>>>>>> 24279aa... CEM-23875 CEM-23782
             new_right_vm_fix.vm_ip, expectation=False), errmsg
 
     # end verify_add_new_vms

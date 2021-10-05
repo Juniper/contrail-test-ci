@@ -46,7 +46,11 @@ class ConfigSvcChain(fixtures.Fixture):
                      right_vn_fixture=None, svc_type='firewall',
                      svc_mode='transparent', flavor='contrail_flavor_2cpu',
                      static_route=[None, None, None], ordered_interfaces=True,
+<<<<<<< HEAD
                      svc_img_name=None, st_version=1):
+=======
+                     svc_img_name=None, st_version=2):
+>>>>>>> 24279aa... CEM-23875 CEM-23782
 
         domain = domain or self.connections.domain_name
         svc_type_props = self.orch.get_service_vm_image_dict() 
