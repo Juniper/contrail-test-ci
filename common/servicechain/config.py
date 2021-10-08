@@ -136,6 +136,7 @@ class ConfigSvcChain(fixtures.Fixture):
                 for i in range(max_inst):
                     svm_name = get_random_name("pt_svm" + str(i))
                     pt_name = get_random_name("port_tuple" + str(i))
+                    zone = []
                     if svc_mode == 'transparent':
                         svm_vns = [self.trans_mgmt_vn_fixture, self.trans_left_vn_fixture, self.trans_right_vn_fixture]
                         if svc_type == 'analyzer':
@@ -193,8 +194,10 @@ class ConfigSvcChain(fixtures.Fixture):
 
     def config_and_verify_vm(self, vm_name, vn_fix=None, image_name='ubuntu-traffic', vns=[], count=1, flavor='contrail_flavor_small',
             zone=None,**kwargs):
+        global vm_fixture
         if vns:
-            vn_objs = [vn.obj for vn in vns]
+            vn_objs = []
+            vn_objs = [vn.obj for vn in vns if vn is not None]
             vm_fixture = self.config_vm(
                 vm_name, vns=vn_objs, image_name=image_name, count=count,
                 flavor=flavor, zone=zone,**kwargs)

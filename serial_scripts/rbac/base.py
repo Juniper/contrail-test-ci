@@ -9,15 +9,21 @@ from floating_ip import FloatingIPFixture
 from lbaasv2_fixture import LBaasV2Fixture
 from common.servicechain.firewall.verify import VerifySvcFirewall
 from tcutils.util import get_random_name
+from tcutils.config.vnc_introspect_utils import VNCApiInspect
 from cfgm_common.exceptions import PermissionDenied
 from vnc_api.vnc_api import VirtualNetworkType
 import test_v1
 import os
+import fixtures
+from common.openstack_libs import neutron_forbidden
 
 class BaseRbac(test_v1.BaseTestCase_v1):
     @classmethod
     def setUpClass(cls):
         super(BaseRbac, cls).setUpClass()
+        cls.rbac_for_analytics = False
+        if cls.inputs.get_analytics_aaa_mode() == 'rbac':
+            cls.rbac_for_analytics = True
         try:
             if os.getenv('RBAC_USER1') and os.getenv('RBAC_PASS1'):
                 cls.user1 = os.getenv('RBAC_USER1')
@@ -277,7 +283,7 @@ class BaseRbac(test_v1.BaseTestCase_v1):
     def associate_sg(self, sg_fixture, vm_fixture, verify=True):
         vm_fixture.add_security_group(sg_fixture.uuid)
         if verify:
-            result, msg = vm_fixture.verify_security_group(sg_fixture.uuid)
+            result, msg = vm_fixture.verify_security_group(sg_fixture.secgrp_name)
             assert result, msg
 
     def create_fip_pool(self, vn_fixture, connections=None, verify=True):
@@ -321,7 +327,7 @@ class BaseRbac(test_v1.BaseTestCase_v1):
     def create_fixture(self, fixturecls, **kwargs):
         try:
             return self.useFixture(fixturecls(**kwargs))
-        except PermissionDenied:
+        except (PermissionDenied, neutron_forbidden):
             return None
 
     def read_fip_pool(self, connections, uuid):
