@@ -6,6 +6,7 @@ testrepository
 junitxml
 pytun
 pexpect
+easyprocess==0.3
 pyvirtualdisplay==2.0
 selenium==2.53.6
 unittest2
