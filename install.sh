@@ -302,7 +302,7 @@ EOT
 
 function make_dockerfile {
     type=$1
-    base_image=${2:-$registry_server/ubuntu-14.04.2}
+    base_image=${2:-$registry_server/contrail-legacy/ubuntu-14.04.2}
     cat <<EOF
 FROM $base_image
 MAINTAINER Contrail Builder <contrail-builder@juniper.net>
@@ -483,7 +483,7 @@ EOF
     build_prep () {
         image_tag=${1:-$PREP_IMAGE}
         BUILD_DIR=$(mktemp -d)
-        make_dockerfile prep "$registry_server/ubuntu-14.04.2" > $BUILD_DIR/Dockerfile
+        make_dockerfile prep "$registry_server/contrail-legacy/ubuntu-14.04.2" > $BUILD_DIR/Dockerfile
 
         if [[ -n $scp_package ]]; then
             # Disabling xtrace to avoid printing SSHPASS
