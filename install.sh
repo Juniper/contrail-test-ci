@@ -312,6 +312,8 @@ ARG CONTRAIL_INSTALL_PACKAGE_URL
 ARG ENTRY_POINT=docker_entrypoint.sh
 ARG SSHPASS
 ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update
+RUN apt-get install -y wget
 ENV SKU=$openstack_release
 EOF
     if [[ $type == 'prep' ]]; then
