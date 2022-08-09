@@ -421,7 +421,7 @@ EOF
         fi
 
         cat <<EOF
-RUN  $merge_code $fab_utils_mv cd /contrail-test && pip install -r requirements.txt
+RUN $merge_code $fab_utils_mv cd /contrail-test && pip install MarkupSafe>=2.0 && pip install -r requirements.txt
 RUN mv /images /contrail-test/images
 COPY \$ENTRY_POINT /entrypoint.sh
 RUN chmod +x /entrypoint.sh
