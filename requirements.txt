@@ -1,14 +1,11 @@
 argparse==1.2.1
-backports.ssl-match-hostname==3.5.0.1
 chardet==2.0.1
 colorama==0.2.5
 discover==0.4.0
 dnspython==1.15.0
 dpkt==1.8.8
-ecdsa==0.18.0
 eventlet==0.33.1
 extras==1.0.0
-Fabric==1.11.1
 fixtures==1.0.0
 greenlet==1.1.2
 html5lib==0.999
