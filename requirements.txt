@@ -7,7 +7,6 @@ dpkt==1.8.8
 eventlet==0.33.1
 extras==1.0.0
 fixtures==1.0.0
-greenlet==1.1.2
 html5lib==0.999
 importlib-resources==0.8
 ipaddress==1.0.18
@@ -15,7 +14,6 @@ Jinja2==2.7.1
 junitxml==0.7
 junos-eznc==1.2.2
 linecache2==1.0.0
-lxml==4.9.1
 MarkupSafe==1.1.1
 monotonic==1.6
 ncclient==0.6.3

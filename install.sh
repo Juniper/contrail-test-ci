@@ -421,7 +421,7 @@ EOF
         fi
 
         cat <<EOF
-RUN sudo apt-get install libz-dev -y && pip install pathlib && sudo apt-get install libffi-dev -y && sudo apt-get install python-dev -y
+RUN sudo apt-get install libz-dev -y && pip install pathlib
 RUN $merge_code $fab_utils_mv cd /contrail-test && pip install -r requirements.txt
 RUN mv /images /contrail-test/images
 COPY \$ENTRY_POINT /entrypoint.sh
