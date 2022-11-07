@@ -4,6 +4,7 @@ testresources==0.2.7
 discover
 testrepository
 junitxml
+python-subunit==1.4.0
 pytun
 pexpect
 easyprocess==0.3
@@ -17,7 +18,7 @@ pyvmomi==5.5.0
 linecache2
 eventlet==0.29.1
 nose
-tabulate
+tabulate==0.8.5
 fabric==1.11.1
 paramiko==1.17.0
 dpkt==1.8.8
