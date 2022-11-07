@@ -17,7 +17,7 @@ pyvmomi==5.5.0
 linecache2
 eventlet==0.29.1
 nose
-tabulate
+tabulate==0.8.10
 fabric==1.11.1
 paramiko==1.17.0
 dpkt==1.8.8
