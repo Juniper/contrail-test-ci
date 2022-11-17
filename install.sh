@@ -112,7 +112,7 @@ fi
 
 # registry server from which ubuntu build images are pulled
 # This should switch to 10.84.5.71
-registry_server="10.84.34.155:5000"
+registry_server="svl-artifactory.juniper.net"
 
 usage () {
     cat <<EOF
@@ -407,9 +407,11 @@ EOT
 function make_dockerfile {
     type=$1
     if [[ ${BUILD_PLATFORM} == "16.04" ]]; then
-        base_image=${2:-$registry_server/ubuntu:16.04}
+        #base_image=${2:-$registry_server/ubuntu:16.04}
+        base_image=${2:-$registry_server/contrail-legacy/ubuntu:16.04.2}
     else
-        base_image=${2:-$registry_server/ubuntu-14.04.2}
+        #base_image=${2:-$registry_server/ubuntu-14.04.2}
+        base_image=${2:-$registry_server/contrail-legacy/ubuntu-14.04.5}
     fi
     cat <<EOF
 FROM $base_image
@@ -562,9 +564,10 @@ EOF
         fi
 
         cat <<EOF
+pip install enum34 --upgrade --ignore-installed
 RUN sudo pip install --upgrade "pip < 21.0"
 RUN sudo rm -rf /tmp/pip*
-RUN $merge_code $fab_utils_mv cd /contrail-test && pip install -r requirements.txt
+RUN $merge_code $fab_utils_mv cd /contrail-test && pip install --extra-index-url https://svl-artifactory.juniper.net/artifactory/api/pypi/pypi-virtual/simple/ -r requirements.txt
 RUN mv /images /contrail-test/images
 COPY \$ENTRY_POINT /entrypoint.sh
 RUN chmod +x /entrypoint.sh
@@ -627,9 +630,9 @@ EOF
         image_tag=${1:-$PREP_IMAGE}
         BUILD_DIR=$(mktemp -d)
         if [ ${BUILD_PLATFORM} = "16.04" ]; then
-            make_dockerfile prep "$registry_server/ubuntu:16.04" > $BUILD_DIR/Dockerfile
+            make_dockerfile prep "$registry_server/contrail-legacy/ubuntu:16.04.2" > $BUILD_DIR/Dockerfile
         else
-            make_dockerfile prep "$registry_server/ubuntu-14.04.2" > $BUILD_DIR/Dockerfile
+            make_dockerfile prep "$registry_server/contrail-legacy/ubuntu-14.04.5" > $BUILD_DIR/Dockerfile
         fi
 
         if [[ -n $scp_package ]]; then
@@ -940,7 +943,7 @@ EOF
         cp -RTf $ci_dir $test_dir
     fi
     cd $test_dir
-    pip install -r requirements.txt
+    pip install --extra-index-url https://svl-artifactory.juniper.net/artifactory/api/pypi/pypi-virtual/simple/ -r requirements.txt
 }
 
 ## Main starts here
