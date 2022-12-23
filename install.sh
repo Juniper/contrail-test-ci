@@ -566,7 +566,7 @@ EOF
         cat <<EOF
 RUN sudo pip install enum34 --upgrade --ignore-installed
 RUN sudo pip install --upgrade "pip < 21.0"
-RUN sudo pip install setuptools -U
+RUN sudo pip install setuptools --upgrade --ignore-installed
 RUN sudo rm -rf /tmp/pip*
 RUN $merge_code $fab_utils_mv cd /contrail-test && pip install --extra-index-url https://svl-artifactory.juniper.net/artifactory/api/pypi/pypi-virtual/simple/ -r requirements.txt
 RUN mv /images /contrail-test/images
