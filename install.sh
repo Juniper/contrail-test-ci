@@ -944,7 +944,7 @@ EOF
         cp -RTf $ci_dir $test_dir
     fi
     cd $test_dir
-    pip install --extra-index-url https://svl-artifactory.juniper.net/artifactory/api/pypi/pypi-virtual/simple/ -r requirements.txt
+    RUN pip install --extra-index-url https://svl-artifactory.juniper.net/artifactory/api/pypi/pypi-virtual/simple -r /tmp/requirements.txt --ignore-installed
 }
 
 ## Main starts here
