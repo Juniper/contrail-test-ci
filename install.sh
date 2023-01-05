@@ -101,8 +101,7 @@ else				# BUILD_PLATFORM = "14.04"
 	$CS_CACHE/python2.7-dev_2.7.6-8ubuntu0.2_amd64.deb
     )
     PACKAGES_REQUIRED_RALLY=(
-	build-essential
-        libssl-dev
+	libssl-dev
 	libffi-dev
 	libpq-dev
 	libpq5=9.3.15-0ubuntu0.14.04
