@@ -70,11 +70,10 @@ if [[ $BUILD_PLATFORM = "16.04" ]]; then
 	icu-devtools=55.1-7
     )
     PACKAGES_REQUIRED_RALLY=(
-	build-essential
-        libffi-dev
+	libffi-dev
 	libpq-dev
 	libpq5
-        libssl-dev
+	libssl-dev
 	libxml2-dev
 	libxslt1-dev=1.1.28-2.1
 	python-dev
