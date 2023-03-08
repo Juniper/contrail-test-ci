@@ -84,7 +84,8 @@ EXTRAS=(
 
 # registry server from which ubuntu build images are pulled
 # This should switch to 10.84.5.71
-registry_server="10.84.34.155:5000"
+# registry_server="10.84.34.155:5000"
+registry_server="svl-artifactory.juniper.net"
 
 usage () {
     cat <<EOF
