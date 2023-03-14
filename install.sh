@@ -503,7 +503,7 @@ EOF
         cat <<EOF
 RUN cd /usr/local/lib/python2.7/dist-packages/ && rm -rf fabfile fabric Fabric-1.7.5.egg-info /usr/local/bin/fab
 RUN sudo pip install setuptools==44.1.1 --upgrade --ignore-installed
-RUN sudo pip install dnspython==2.1.0 --upgrade --ignore-installed
+RUN sudo pip install dnspython==1.16.0 --upgrade --ignore-installed
 RUN $merge_code $fab_utils_mv cd /contrail-test && pip install --extra-index-url https://svl-artifactory.juniper.net/artifactory/api/pypi/pypi-virtual/simple/ -r requirements.txt
 RUN mv /images /contrail-test/images
 COPY \$ENTRY_POINT /entrypoint.sh
